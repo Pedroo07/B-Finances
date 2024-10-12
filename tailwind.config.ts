@@ -9,6 +9,12 @@ const config: Config = {
   ],
   theme: {
   	extend: {
+		fontSize: {
+			'xxs': '0.5rem'
+		},
+		fontFamily: {
+			Inter: ['Inter', 'sans-serif']
+		},
   		colors: {
   			background: 'rgba(var(--background))',
   			foreground: 'hsl(var(--foreground))',
