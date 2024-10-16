@@ -5,8 +5,8 @@ import { IoIosNotificationsOutline } from "react-icons/io";
 
 const Header = () => {
   return (
-    <div className='w-full h-10  flex items-center justify-around border-b-2 bg-white'>
-        <div><Image src='/Logo.png' alt='logo' width={100} height={100}/></div>
+    <div className='w-full h-12  flex items-center justify-around border-b-2 bg-white'>
+        <div><Image src='/Logo.png' alt='logo' width={120} height={120}/></div>
         <div>
             <ul className='flex items-center gap-2 font-Inter'>
                 <li className='text-sm font-semibold text-slate-400 active:text-blue-400 cursor-pointer'>Overview</li>

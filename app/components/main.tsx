@@ -1,8 +1,9 @@
 import React from 'react'
 import { CiCalendarDate } from "react-icons/ci";
-import { IoIosArrowRoundUp,IoIosArrowRoundDown } from "react-icons/io";
+import { IoIosArrowRoundUp, IoIosArrowRoundDown } from "react-icons/io";
 import { FiMinusCircle, FiPlusCircle } from "react-icons/fi";
 import { BiTransfer } from "react-icons/bi";
+import { FcCurrencyExchange } from "react-icons/fc";
 
 export const Main = () => {
     return (
@@ -69,8 +70,61 @@ export const Main = () => {
                     </div>
                 </div>
             </section>
-            <section></section>
-            <section></section>
+            <div className='flex justify-center'>
+                <section></section>
+                <section className='bg-white'>
+                    <header className='p-4 border rounded-t-lg'>
+                        <h4 className='font-semibold text-lg'>Last transactions</h4>
+                        <p className='text-sm font-semibold text-slate-400'>Check your last transactions</p>
+                    </header>
+                    <main>
+                        <div>
+                            <ul className='flex justify-around bg-neutral-100 border gap-20 px-20'>
+                                <li className='text-sm font-medium text-slate-500'>Description</li>
+                                <li className='text-sm font-medium text-slate-500'>Method</li>
+                                <li className='text-sm font-medium text-slate-500'>Date</li>
+                                <li className='text-sm font-medium text-slate-500'>Amount</li>
+                            </ul>
+                        </div>
+                        <div className='border rounded-b-lg '>
+                            <ul className='divide-y'>
+                                <li className='flex justify-between items-center p-2'>
+                                <FcCurrencyExchange />
+                                    <p>Netflix</p>
+                                    <p className='text-slate-500 text-sm'>Credit Card</p>
+                                    <p className='text-slate-500 text-sm'>2024/10/16</p>
+                                    <p className='text-sm'>-9.90</p>
+                                    <p className='rotate-90 font-semibold text-slate-500'><button>...</button></p>
+                                </li>
+                                <li className='flex justify-between items-center p-2'>
+                                <FcCurrencyExchange />
+                                    <p>Netflix</p>
+                                    <p className='text-slate-500 text-sm'>Credit Card</p>
+                                    <p className='text-slate-500 text-sm'>2024/10/16</p>
+                                    <p className='text-sm'>-9.90</p>
+                                    <p className='rotate-90 font-semibold text-slate-500'><button>...</button></p>
+                                </li>
+                                <li className='flex justify-between items-center p-2'>
+                                <FcCurrencyExchange />
+                                    <p>Netflix</p>
+                                    <p className='text-slate-500 text-sm'>Credit Card</p>
+                                    <p className='text-slate-500 text-sm'>2024/10/16</p>
+                                    <p className='text-sm'>-9.90</p>
+                                    <p className='rotate-90 font-semibold text-slate-500'><button>...</button></p>
+                                </li>
+                                <li className='flex justify-between items-center p-2'>
+                                <FcCurrencyExchange />
+                                    <p>Netflix</p>
+                                    <p className='text-slate-500 text-sm'>Credit Card</p>
+                                    <p className='text-slate-500 text-sm'>2024/10/16</p>
+                                    <p className='text-sm'>-9.90</p>
+                                    <p className='rotate-90 font-semibold text-slate-500'><button>...</button></p>
+                                </li>
+                            </ul>
+                        </div>
+                    </main>
+                </section>
+            </div>
         </div>
     )
 }
