@@ -79,8 +79,8 @@ export const Main = () => {
                     </header>
                     <main>
                         <div>
-                            <ul className='flex justify-around bg-neutral-100 border gap-20 px-20'>
-                                <li className='text-sm font-medium text-slate-500'>Description</li>
+                            <ul className='flex justify-between bg-neutral-100 border gap-20 pl-6 pr-20'>
+                                <li className='text-sm font-medium text-slate-500  pr-8'>Description</li>
                                 <li className='text-sm font-medium text-slate-500'>Method</li>
                                 <li className='text-sm font-medium text-slate-500'>Date</li>
                                 <li className='text-sm font-medium text-slate-500'>Amount</li>
@@ -89,37 +89,55 @@ export const Main = () => {
                         <div className='border rounded-b-lg '>
                             <ul className='divide-y'>
                                 <li className='flex justify-between items-center p-2'>
-                                <FcCurrencyExchange />
-                                    <p>Netflix</p>
+                                    <p className='flex gap-4 items-center pr-8 pl-4'><FcCurrencyExchange />Netflix</p>
                                     <p className='text-slate-500 text-sm'>Credit Card</p>
                                     <p className='text-slate-500 text-sm'>2024/10/16</p>
                                     <p className='text-sm'>-9.90</p>
                                     <p className='rotate-90 font-semibold text-slate-500'><button>...</button></p>
                                 </li>
                                 <li className='flex justify-between items-center p-2'>
-                                <FcCurrencyExchange />
-                                    <p>Netflix</p>
+                                    <p className='flex gap-4 items-center pr-8 pl-4'><FcCurrencyExchange />Netflix</p>
                                     <p className='text-slate-500 text-sm'>Credit Card</p>
                                     <p className='text-slate-500 text-sm'>2024/10/16</p>
                                     <p className='text-sm'>-9.90</p>
                                     <p className='rotate-90 font-semibold text-slate-500'><button>...</button></p>
                                 </li>
                                 <li className='flex justify-between items-center p-2'>
-                                <FcCurrencyExchange />
-                                    <p>Netflix</p>
+                                    <p className='flex gap-4 items-center pr-8 pl-4'><FcCurrencyExchange />Netflix</p>
                                     <p className='text-slate-500 text-sm'>Credit Card</p>
                                     <p className='text-slate-500 text-sm'>2024/10/16</p>
                                     <p className='text-sm'>-9.90</p>
                                     <p className='rotate-90 font-semibold text-slate-500'><button>...</button></p>
                                 </li>
                                 <li className='flex justify-between items-center p-2'>
-                                <FcCurrencyExchange />
-                                    <p>Netflix</p>
+                                    <p className='flex gap-4 items-center pr-8 pl-4'><FcCurrencyExchange />Netflix</p>
                                     <p className='text-slate-500 text-sm'>Credit Card</p>
                                     <p className='text-slate-500 text-sm'>2024/10/16</p>
                                     <p className='text-sm'>-9.90</p>
                                     <p className='rotate-90 font-semibold text-slate-500'><button>...</button></p>
                                 </li>
+                                <li className='flex justify-between items-center p-2'>
+                                    <p className='flex gap-4 items-center pr-8 pl-4'><FcCurrencyExchange />Netflix</p>
+                                    <p className='text-slate-500 text-sm'>Credit Card</p>
+                                    <p className='text-slate-500 text-sm'>2024/10/16</p>
+                                    <p className='text-sm'>-9.90</p>
+                                    <p className='rotate-90 font-semibold text-slate-500'><button>...</button></p>
+                                </li>
+                                <li className='flex justify-between items-center p-2'>
+                                    <p className='flex gap-4 items-center pr-8 pl-4'><FcCurrencyExchange />Netflix</p>
+                                    <p className='text-slate-500 text-sm'>Credit Card</p>
+                                    <p className='text-slate-500 text-sm'>2024/10/16</p>
+                                    <p className='text-sm'>-9.90</p>
+                                    <p className='rotate-90 font-semibold text-slate-500'><button>...</button></p>
+                                </li>
+                                <li className='flex justify-between items-center p-2'>
+                                    <p className='flex gap-4 items-center pr-8 pl-4'><FcCurrencyExchange />Netflix</p>
+                                    <p className='text-slate-500 text-sm'>Credit Card</p>
+                                    <p className='text-slate-500 text-sm'>2024/10/16</p>
+                                    <p className='text-sm'>-9.90</p>
+                                    <p className='rotate-90 font-semibold text-slate-500'><button>...</button></p>
+                                </li>
+                                
                             </ul>
                         </div>
                     </main>
