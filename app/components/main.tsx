@@ -1,11 +1,29 @@
+"use client"
 import React from 'react'
+import { FC, useState } from 'react';
 import { CiCalendarDate } from "react-icons/ci";
 import { IoIosArrowRoundUp, IoIosArrowRoundDown } from "react-icons/io";
 import { FiMinusCircle, FiPlusCircle } from "react-icons/fi";
-import { BiTransfer } from "react-icons/bi";
+import { BiTransfer, BiHome } from "react-icons/bi";
 import { FcCurrencyExchange } from "react-icons/fc";
+import Chart from "react-apexcharts"
 
-export const Main = () => {
+const DonutChart: FC = () => {
+    const [chartData] = useState({
+        options: {
+            dataLabels: {
+                enabled: false
+            }
+        },
+        series: [44, 55, 41, 17, 15],
+        labels: ['A', 'B', 'C', 'D', 'E']
+    });
+    return (
+        <Chart options={chartData.options} series={chartData.series} type='donut' width={380} />
+    )
+}
+export const Main: FC = () => {
+
     return (
         <div>
             <section>
@@ -70,16 +88,41 @@ export const Main = () => {
                     </div>
                 </div>
             </section>
-            <div className='flex justify-center'>
-                <section></section>
-                <section className='bg-white'>
+            <div className='flex justify-center gap-16'>
+                <section className='border rounded-lg bg-white p-4 m-4'>
+                    <p className='font-semibold'>Expenses by category</p>
+                    <div>
+                        <DonutChart />
+                    </div>
+                    <div>
+                        <ul className='divide-y p-1'>
+                            <li className='flex justify-between items-center p-2'>
+                                <p className='flex items-center gap-2'><BiHome className='size-6 bg-blue-500 rounded-xl fill-white p-1' />House</p>
+                                <p>41%</p>
+                            </li>
+                            <li className='flex justify-between items-center p-2'>
+                                <p className='flex items-center gap-2'><BiHome className='size-6 bg-blue-500 rounded-xl fill-white p-1' />House</p>
+                                <p>41%</p>
+                            </li>
+                            <li className='flex justify-between items-center p-2'>
+                                <p className='flex items-center gap-2'><BiHome className='size-6 bg-blue-500 rounded-xl fill-white p-1' />House</p>
+                                <p>41%</p>
+                            </li>
+                            <li className='flex justify-between items-center p-2'>
+                                <p className='flex items-center gap-2'><BiHome className='size-6 bg-blue-500 rounded-xl fill-white p-1' />House</p>
+                                <p>41%</p>
+                            </li>
+                        </ul>
+                    </div>
+                </section>
+                <section className='bg-white max-h-fit m-4'>
                     <header className='p-4 border rounded-t-lg'>
                         <h4 className='font-semibold text-lg'>Last transactions</h4>
                         <p className='text-sm font-semibold text-slate-400'>Check your last transactions</p>
                     </header>
                     <main>
                         <div>
-                            <ul className='flex justify-between bg-neutral-100 border gap-20 pl-6 pr-20'>
+                            <ul className='flex justify-between bg-neutral-100 border gap-20 pl-6 pr-28'>
                                 <li className='text-sm font-medium text-slate-500  pr-8'>Description</li>
                                 <li className='text-sm font-medium text-slate-500'>Method</li>
                                 <li className='text-sm font-medium text-slate-500'>Date</li>
@@ -92,52 +135,52 @@ export const Main = () => {
                                     <p className='flex gap-4 items-center pr-8 pl-4'><FcCurrencyExchange />Netflix</p>
                                     <p className='text-slate-500 text-sm'>Credit Card</p>
                                     <p className='text-slate-500 text-sm'>2024/10/16</p>
-                                    <p className='text-sm'>-9.90</p>
+                                    <p className='text-sm pr-8'>-9.90</p>
                                     <p className='rotate-90 font-semibold text-slate-500'><button>...</button></p>
                                 </li>
                                 <li className='flex justify-between items-center p-2'>
                                     <p className='flex gap-4 items-center pr-8 pl-4'><FcCurrencyExchange />Netflix</p>
                                     <p className='text-slate-500 text-sm'>Credit Card</p>
                                     <p className='text-slate-500 text-sm'>2024/10/16</p>
-                                    <p className='text-sm'>-9.90</p>
+                                    <p className='text-sm pr-8'>-9.90</p>
                                     <p className='rotate-90 font-semibold text-slate-500'><button>...</button></p>
                                 </li>
                                 <li className='flex justify-between items-center p-2'>
                                     <p className='flex gap-4 items-center pr-8 pl-4'><FcCurrencyExchange />Netflix</p>
                                     <p className='text-slate-500 text-sm'>Credit Card</p>
                                     <p className='text-slate-500 text-sm'>2024/10/16</p>
-                                    <p className='text-sm'>-9.90</p>
+                                    <p className='text-sm pr-8'>-9.90</p>
                                     <p className='rotate-90 font-semibold text-slate-500'><button>...</button></p>
                                 </li>
                                 <li className='flex justify-between items-center p-2'>
                                     <p className='flex gap-4 items-center pr-8 pl-4'><FcCurrencyExchange />Netflix</p>
                                     <p className='text-slate-500 text-sm'>Credit Card</p>
                                     <p className='text-slate-500 text-sm'>2024/10/16</p>
-                                    <p className='text-sm'>-9.90</p>
+                                    <p className='text-sm pr-8'>-9.90</p>
                                     <p className='rotate-90 font-semibold text-slate-500'><button>...</button></p>
                                 </li>
                                 <li className='flex justify-between items-center p-2'>
                                     <p className='flex gap-4 items-center pr-8 pl-4'><FcCurrencyExchange />Netflix</p>
                                     <p className='text-slate-500 text-sm'>Credit Card</p>
                                     <p className='text-slate-500 text-sm'>2024/10/16</p>
-                                    <p className='text-sm'>-9.90</p>
+                                    <p className='text-sm pr-8'>-9.90</p>
                                     <p className='rotate-90 font-semibold text-slate-500'><button>...</button></p>
                                 </li>
                                 <li className='flex justify-between items-center p-2'>
                                     <p className='flex gap-4 items-center pr-8 pl-4'><FcCurrencyExchange />Netflix</p>
                                     <p className='text-slate-500 text-sm'>Credit Card</p>
                                     <p className='text-slate-500 text-sm'>2024/10/16</p>
-                                    <p className='text-sm'>-9.90</p>
+                                    <p className='text-sm pr-8'>-9.90</p>
                                     <p className='rotate-90 font-semibold text-slate-500'><button>...</button></p>
                                 </li>
                                 <li className='flex justify-between items-center p-2'>
                                     <p className='flex gap-4 items-center pr-8 pl-4'><FcCurrencyExchange />Netflix</p>
                                     <p className='text-slate-500 text-sm'>Credit Card</p>
                                     <p className='text-slate-500 text-sm'>2024/10/16</p>
-                                    <p className='text-sm'>-9.90</p>
+                                    <p className='text-sm pr-8'>-9.90</p>
                                     <p className='rotate-90 font-semibold text-slate-500'><button>...</button></p>
                                 </li>
-                                
+
                             </ul>
                         </div>
                     </main>
@@ -146,4 +189,3 @@ export const Main = () => {
         </div>
     )
 }
-
