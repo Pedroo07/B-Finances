@@ -9,17 +9,20 @@ const config: Config = {
   ],
   theme: {
   	extend: {
-		fontSize: {
-			'xxs': '0.5rem'
-		},
-		fontFamily: {
-			Inter: ['Inter', 'sans-serif']
-		},
+  		fontSize: {
+  			xxs: '0.5rem'
+  		},
+  		fontFamily: {
+  			Inter: [
+  				'Inter',
+  				'sans-serif'
+  			]
+  		},
   		colors: {
-  			background: 'rgba(var(--background))',
+  			background: 'hsl(var(--background))',
   			foreground: 'hsl(var(--foreground))',
   			card: {
-  				DEFAULT: 'rgba(var(--card))',
+  				DEFAULT: 'hsl(var(--card))',
   				foreground: 'hsl(var(--card-foreground))'
   			},
   			popover: {
@@ -27,7 +30,7 @@ const config: Config = {
   				foreground: 'hsl(var(--popover-foreground))'
   			},
   			primary: {
-  				DEFAULT: 'rgba(var(--primary))',
+  				DEFAULT: 'hsl(var(--primary))',
   				foreground: 'hsl(var(--primary-foreground))'
   			},
   			secondary: {
