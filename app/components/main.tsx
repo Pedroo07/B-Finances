@@ -5,13 +5,13 @@ import { CiCalendarDate } from "react-icons/ci";
 import { IoIosArrowRoundUp, IoIosArrowRoundDown } from "react-icons/io";
 import { FiMinusCircle, FiPlusCircle } from "react-icons/fi";
 import { BiTransfer, BiHome } from "react-icons/bi";
-import { FcCurrencyExchange } from "react-icons/fc";
 import Chart from "react-apexcharts"
 import { Dialog, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,DialogContent } from '@/components/ui/dialog';
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue, SelectLabel } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import {Income} from "../incomes"
+import  TransactionItem  from './transactions';
 
 
 
@@ -57,6 +57,13 @@ export const Main: FC = () => {
     const handlePriceChange = (event: ChangeEvent<HTMLInputElement>): void => {
         const newValue = +event.target.value
         setPrice(newValue)
+    }
+
+    const handleDeleteItem = (id: number) => {
+        const itemArray = items.filter(item => {
+            return item.id !== id
+        })
+        setItems(itemArray)
     }
 
     const handleAddNewItem = () => {
@@ -220,13 +227,9 @@ export const Main: FC = () => {
                         </div>
                         <div className='border rounded-b-lg '>
                             <ul className='divide-y'>
-                                <li className='flex justify-between items-center p-2'>
-                                    <p className='flex gap-4 items-center pr-8 pl-4'><FcCurrencyExchange />dsad</p>
-                                    <p className='text-slate-500 text-sm'>Credit Card</p>
-                                    <p className='text-slate-500 text-sm'>2024/10/16</p>
-                                    <p className='text-sm pr-8'>-9.90</p>
-                                    <p className='rotate-90 font-semibold text-slate-500'><button>...</button></p>
-                                </li>
+                                {items.map((item => (
+                                    <TransactionItem  key={item.id} item={item} onDelete={handleDeleteItem} />
+                                )))}
                             </ul>
                         </div>
                     </main>
