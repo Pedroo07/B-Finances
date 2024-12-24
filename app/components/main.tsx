@@ -4,14 +4,14 @@ import { FC, useState } from 'react';
 import { CiCalendarDate } from "react-icons/ci";
 import { IoIosArrowRoundUp, IoIosArrowRoundDown } from "react-icons/io";
 import { FiMinusCircle, FiPlusCircle } from "react-icons/fi";
-import { BiTransfer, BiHome } from "react-icons/bi";
+import { BiHome } from "react-icons/bi";
 import Chart from "react-apexcharts"
-import { Dialog, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogContent } from '@/components/ui/dialog';
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue, SelectLabel } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import {Income} from "../incomes"
-import  TransactionItem  from './transactions';
+import { Income } from "../incomes"
+import TransactionItem from './transactions';
 
 
 
@@ -32,9 +32,12 @@ const DonutChart: FC = () => {
 export const Main: FC = () => {
 
     const [text, setText] = useState('')
-    const [method , setMethod] = useState('')
+    const [method, setMethod] = useState('')
     const [price, setPrice] = useState(0)
     const [date, setDate] = useState('')
+    const [expense, setExpense] = useState<number>(0)
+    const [income, setIncome] = useState<number>(0)
+    const [balance, setBalance] = useState<number>(0)
     const [items, setItems] = useState<Income[]>(() => {
 
         return []
@@ -66,9 +69,11 @@ export const Main: FC = () => {
         setItems(itemArray)
     }
 
-    const handleAddNewItem = () => {
+    const handleAddNewItem = (IsIncomeDialog: boolean): void => {
+        const adjustedPrice = IsIncomeDialog ? Math.abs(price) : -Math.abs(price)
+
         const newItem: Income = {
-            amount: price,
+            amount: adjustedPrice,
             date: date,
             description: text,
             method: method,
@@ -76,6 +81,20 @@ export const Main: FC = () => {
         }
         const itemsArray = [newItem, ...items]
         setItems(itemsArray)
+
+        if (IsIncomeDialog) {
+            setIncome((prevIncome) => {
+                const updateIncome = prevIncome + adjustedPrice
+                setBalance(updateIncome - expense)
+                return updateIncome
+            })
+        } else {
+            setExpense((prevExpense) => {
+                const updateExpense = prevExpense + Math.abs(adjustedPrice)
+                setBalance(income - updateExpense)
+                return updateExpense
+            })
+        }
         setText('')
         setPrice(0)
         setMethod('')
@@ -97,21 +116,21 @@ export const Main: FC = () => {
 
                     </ul>
                 </div>
-                <div className='grid grid-flow-col grid-rows-2 grid-cols-3 gap-8 mx-auto max-w-screen-xl items-center'>
+                <div className='grid grid-flow-col grid-rows-2 gap-8  mx-auto max-w-screen-xl items-center'>
                     <div className='bg-white flex justify-between p-6 rounded-lg border items-end shadow-md'>
                         <div>
                             <p className='text-xs text-slate-400'>Balance</p>
-                            <h2 className='text-4xl font-semibold text-blue-600'>$5,000</h2>
+                            <h2 className='text-4xl font-semibold text-blue-600'>$ {balance.toFixed(2)}</h2>
                         </div>
                         <div className='border flex items-center text-center rounded-sm max-h-3 p-2.5 font-semibold tracking-wider shadow-md'>
                             <p className='text-sm flex items-center'><IoIosArrowRoundUp className='text-green-500 text-lg' />12%</p>
                         </div>
                     </div>
-                    <div className='bg-white border shadow-md rounded-lg flex items-center gap-4 p-4'>
+                    <div className='bg-white border shadow-md rounded-lg flex items-center p-4'>
                         <Dialog>
                             <DialogTrigger asChild>
-                                <div className='bg-green-200 rounded-md p-3 text-green-700 hover:scale-125'>
-                                    <FiPlusCircle className='text-xl' />
+                                <div className='bg-green-200 rounded-md p-3 text-green-700 cursor-pointer'>
+                                    <FiPlusCircle className='text-xl hover:scale-125' />
                                 </div>
                             </DialogTrigger>
                             <DialogContent className='sm:max-w-[425px]'>
@@ -138,9 +157,9 @@ export const Main: FC = () => {
                                 </div>
                                 <DialogFooter>
                                     <Button
-                                    onClick={handleAddNewItem}
-                                    type='button'
-                                    disabled={!text || !price || !method || !date}
+                                        onClick={() => handleAddNewItem(true)}
+                                        type='button'
+                                        disabled={!text || !price || !method || !date}
                                     ><span>Create new</span></Button>
                                 </DialogFooter>
                             </DialogContent>
@@ -153,14 +172,49 @@ export const Main: FC = () => {
                     <div className='bg-white flex justify-between p-6 rounded-lg border items-end shadow-md'>
                         <div>
                             <p className='text-xs text-slate-400'>Incomes</p>
-                            <h2 className='text-4xl font-semibold '>$9,000</h2>
+                            <h2 className='text-4xl font-semibold text-green-600'>$ {income.toFixed(2)}</h2>
                         </div>
                         <div className='border flex items-center text-center rounded-sm max-h-3 p-2.5 font-semibold tracking-wider shadow-md'>
                             <p className='text-sm flex items-center'><IoIosArrowRoundUp className='text-green-500 text-lg' />27%</p>
                         </div>
                     </div>
-                    <div className='bg-white border shadow-md rounded-lg flex items-center gap-4 p-4'>
-                        <div className='bg-red-200 rounded-md p-3 text-red-700'><FiMinusCircle className='text-xl' /></div>
+                    <div className='bg-white border shadow-md rounded-lg flex items-center p-4'>
+                        <Dialog>
+                            <DialogTrigger asChild>
+                                <div className='bg-red-200 rounded-md p-3 text-red-700 cursor-pointer'><FiMinusCircle className='text-xl hover:scale-125' /></div>
+                            </DialogTrigger>
+                            <DialogContent className='sm:max-w-[425px]'>
+                                <DialogHeader>
+                                    <DialogTitle>Add new Expense</DialogTitle>
+                                </DialogHeader>
+                                <div className='grid gap-4 py-4'>
+                                    <Input type='text' placeholder='Description' value={text} onChange={handleTextChange}></Input>
+                                    <Input type='number' placeholder='Amount' value={price} onChange={handlePriceChange}></Input>
+                                    <Input type='date' placeholder='Date' value={date} onChange={handleDateChange}></Input>
+                                    <Select value={method} onValueChange={handleMethodChange}>
+                                        <SelectTrigger className="w-[180px]">
+                                            <SelectValue placeholder="Select a method" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectGroup>
+                                                <SelectLabel>Methods</SelectLabel>
+                                                <SelectItem value="fixes">Fixes</SelectItem>
+                                                <SelectItem value="foods">Foods</SelectItem>
+                                                <SelectItem value="entertainment">Entertainment</SelectItem>
+                                                <SelectItem value="other">Others</SelectItem>
+                                            </SelectGroup>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <DialogFooter>
+                                    <Button
+                                        onClick={() => handleAddNewItem(false)}
+                                        type='button'
+                                        disabled={!text || !price || !method || !date}
+                                    ><span>Create new</span></Button>
+                                </DialogFooter>
+                            </DialogContent>
+                        </Dialog>
                         <div>
                             <p className='font-semibold'>Add expense</p>
                             <p className='text-sm text-slate-500'>Create an expense manually</p>
@@ -169,17 +223,10 @@ export const Main: FC = () => {
                     <div className='bg-white flex justify-between p-6 rounded-lg border items-end shadow-md'>
                         <div>
                             <p className='text-xs text-slate-400'>Expenses</p>
-                            <h2 className='text-4xl font-semibold '>$3,000</h2>
+                            <h2 className='text-4xl font-semibold text-red-600'>$ {expense.toFixed(2)}</h2>
                         </div>
                         <div className='border flex items-center text-center rounded-sm max-h-3 p-2.5 font-semibold tracking-wider shadow-md'>
                             <p className='text-sm flex items-center'><IoIosArrowRoundDown className='text-red-500 text-lg' />-15%</p>
-                        </div>
-                    </div>
-                    <div className='bg-white border shadow-md rounded-lg flex items-center gap-4 p-4'>
-                        <div className='bg-slate-200 rounded-md p-3 text-blue-700 '><BiTransfer className='text-xl' /></div>
-                        <div>
-                            <p className='font-semibold'>Tranfer money</p>
-                            <p className='text-sm text-slate-500'>Select the amount and make a transfer</p>
                         </div>
                     </div>
                 </div>
@@ -228,7 +275,7 @@ export const Main: FC = () => {
                         <div className='border rounded-b-lg '>
                             <ul className='divide-y'>
                                 {items.map((item => (
-                                    <TransactionItem  key={item.id} item={item} onDelete={handleDeleteItem} />
+                                    <TransactionItem key={item.id} item={item} onDelete={handleDeleteItem} />
                                 )))}
                             </ul>
                         </div>

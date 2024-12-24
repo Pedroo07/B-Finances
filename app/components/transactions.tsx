@@ -23,7 +23,7 @@ type TransactionItemProps = {
                 <p className='text-slate-500 text-sm'>{item.date}</p>
                 <p className={`text-sm pr-8 ${
                     item.amount > 0 ? 'text-green-500' : 'text-red-500'
-                }`}>{item.amount > 0 ? '+' : '-'}{item.amount}</p>
+                }`}>{item.amount > 0 ? '+' : ''}{item.amount}</p>
                 <p className='font-semibold text-slate-500 px-2'><button onClick={() => {onDelete(item.id)}}>X</button></p>
             </li>
     )
