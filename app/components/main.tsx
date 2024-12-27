@@ -14,7 +14,6 @@ import { Income } from "../incomes"
 import TransactionItem from './transactions';
 
 
-
 const DonutChart: FC = () => {
     const [chartData] = useState({
         options: {
@@ -35,10 +34,23 @@ export const Main: FC = () => {
     const [method, setMethod] = useState('')
     const [price, setPrice] = useState(0)
     const [date, setDate] = useState('')
-    const [expense, setExpense] = useState<number>(0)
-    const [income, setIncome] = useState<number>(0)
-    const [balance, setBalance] = useState<number>(0)
+    const [expense, setExpense] = useState<number>(() => {
+        const expenseOnStorage = localStorage.getItem("expenses")
+        return expenseOnStorage ? JSON.parse(expenseOnStorage) : 0
+    })
+    const [income, setIncome] = useState<number>(() => {
+        const incomeOnStorage = localStorage.getItem("incomes")
+        return incomeOnStorage ? JSON.parse(incomeOnStorage) : 0
+    })
+    const [balance, setBalance] = useState<number>(() => {
+        const balanceOnStorage = localStorage.getItem("balances")
+        return balanceOnStorage ? JSON.parse(balanceOnStorage) : 0
+    })
     const [items, setItems] = useState<Income[]>(() => {
+        
+        const itemsOnStorage = localStorage.getItem("items")
+
+        if (itemsOnStorage) return JSON.parse(itemsOnStorage)
 
         return []
     })
@@ -67,6 +79,8 @@ export const Main: FC = () => {
             return item.id !== id
         })
         setItems(itemArray)
+
+        localStorage.setItem("items", JSON.stringify(itemArray))
     }
 
     const handleAddNewItem = (IsIncomeDialog: boolean): void => {
@@ -85,13 +99,19 @@ export const Main: FC = () => {
         if (IsIncomeDialog) {
             setIncome((prevIncome) => {
                 const updateIncome = prevIncome + adjustedPrice
-                setBalance(updateIncome - expense)
+                const updateBalance = updateIncome - expense
+                setBalance(updateBalance)
+                localStorage.setItem("incomes", JSON.stringify(updateIncome))
+                localStorage.setItem("balances", JSON.stringify(updateBalance))
                 return updateIncome
             })
         } else {
             setExpense((prevExpense) => {
                 const updateExpense = prevExpense + Math.abs(adjustedPrice)
-                setBalance(income - updateExpense)
+                const updateBalance = income - updateExpense
+                setBalance(updateBalance)
+                localStorage.setItem("expenses", JSON.stringify(updateExpense))
+                localStorage.setItem("balances", JSON.stringify(updateBalance))
                 return updateExpense
             })
         }
@@ -99,7 +119,7 @@ export const Main: FC = () => {
         setPrice(0)
         setMethod('')
         setDate('')
-        console.log(itemsArray)
+        localStorage.setItem("items", JSON.stringify(itemsArray))
 
     }
 
