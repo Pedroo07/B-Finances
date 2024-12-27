@@ -47,7 +47,7 @@ export const Main: FC = () => {
         return balanceOnStorage ? JSON.parse(balanceOnStorage) : 0
     })
     const [items, setItems] = useState<Income[]>(() => {
-        
+
         const itemsOnStorage = localStorage.getItem("items")
 
         if (itemsOnStorage) return JSON.parse(itemsOnStorage)
@@ -81,6 +81,22 @@ export const Main: FC = () => {
         setItems(itemArray)
 
         localStorage.setItem("items", JSON.stringify(itemArray))
+
+        const updateIncome = itemArray.filter(item => item.amount
+            > 0).reduce((acc, item) => acc + item.amount, 0)
+
+        const updateExpense = itemArray.filter(item => item.amount < 0).reduce((acc, item) => acc + Math.abs(item
+            .amount), 0)
+
+        const updateBalance = updateIncome - updateExpense
+
+        setIncome(updateIncome)
+        setExpense(updateExpense)
+        setBalance(updateBalance)
+
+        localStorage.setItem("incomes" , JSON.stringify(updateIncome))
+        localStorage.setItem("expenses" , JSON.stringify(updateExpense))
+        localStorage.setItem("balances" , JSON.stringify(updateBalance))
     }
 
     const handleAddNewItem = (IsIncomeDialog: boolean): void => {
