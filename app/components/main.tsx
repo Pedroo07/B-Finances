@@ -34,6 +34,9 @@ export const Main: FC = () => {
     const [method, setMethod] = useState('')
     const [price, setPrice] = useState(0)
     const [date, setDate] = useState('')
+    const sortItemByDate = (items : Income[]): Income[] => {
+        return [...items].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+    }
     const [expense, setExpense] = useState<number>(() => {
         const expenseOnStorage = localStorage.getItem("expenses")
         return expenseOnStorage ? JSON.parse(expenseOnStorage) : 0
@@ -94,9 +97,9 @@ export const Main: FC = () => {
         setExpense(updateExpense)
         setBalance(updateBalance)
 
-        localStorage.setItem("incomes" , JSON.stringify(updateIncome))
-        localStorage.setItem("expenses" , JSON.stringify(updateExpense))
-        localStorage.setItem("balances" , JSON.stringify(updateBalance))
+        localStorage.setItem("incomes", JSON.stringify(updateIncome))
+        localStorage.setItem("expenses", JSON.stringify(updateExpense))
+        localStorage.setItem("balances", JSON.stringify(updateBalance))
     }
 
     const handleAddNewItem = (IsIncomeDialog: boolean): void => {
@@ -110,7 +113,8 @@ export const Main: FC = () => {
             id: items.length + 1
         }
         const itemsArray = [newItem, ...items]
-        setItems(itemsArray)
+        const sortedItems = sortItemByDate(itemsArray)
+        setItems(sortedItems)
 
         if (IsIncomeDialog) {
             setIncome((prevIncome) => {
@@ -135,7 +139,7 @@ export const Main: FC = () => {
         setPrice(0)
         setMethod('')
         setDate('')
-        localStorage.setItem("items", JSON.stringify(itemsArray))
+        localStorage.setItem("items", JSON.stringify(sortItemByDate))
 
     }
 
