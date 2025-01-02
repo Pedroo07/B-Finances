@@ -19,7 +19,7 @@ type TransactionItemProps = {
     return (
             <li className='flex justify-between items-center p-2'>
                 <p className='flex gap-4 items-center pr-8 pl-4'><FcCurrencyExchange />{item.description}</p>
-                <p className='text-slate-500 text-sm'>{item.method}</p>
+                <p className='text-slate-600 text-sm'>{item.method}</p>
                 <p className='text-slate-500 text-sm'>{item.date}</p>
                 <p className={`text-sm pr-8 ${
                     item.amount > 0 ? 'text-green-500' : 'text-red-500'

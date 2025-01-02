@@ -38,24 +38,44 @@ export const Main: FC = () => {
         return [...items].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
     }
     const [expense, setExpense] = useState<number>(() => {
-        const expenseOnStorage = localStorage.getItem("expenses")
-        return expenseOnStorage ? JSON.parse(expenseOnStorage) : 0
+        try{
+            const expenseOnStorage = localStorage.getItem("expenses")
+            return expenseOnStorage ? JSON.parse(expenseOnStorage) : 0
+        }catch (e) {
+            console.error("error parsing 'expenses' from localStorage", e)
+            return []
+        }
     })
     const [income, setIncome] = useState<number>(() => {
-        const incomeOnStorage = localStorage.getItem("incomes")
-        return incomeOnStorage ? JSON.parse(incomeOnStorage) : 0
+        try{
+            const incomeOnStorage = localStorage.getItem("incomes")
+            return incomeOnStorage ? JSON.parse(incomeOnStorage) : 0
+        }catch (e) {
+            console.error("error parsing 'incomes' from localStorage", e)
+            return []
+        }
     })
     const [balance, setBalance] = useState<number>(() => {
-        const balanceOnStorage = localStorage.getItem("balances")
-        return balanceOnStorage ? JSON.parse(balanceOnStorage) : 0
+        try{
+
+            const balanceOnStorage = localStorage.getItem("balances")
+            return balanceOnStorage ? JSON.parse(balanceOnStorage) : 0
+        }catch (e) {
+            console.error("error parsing 'balances' from localStorage", e)
+            return []
+        }
     })
     const [items, setItems] = useState<Income[]>(() => {
 
-        const itemsOnStorage = localStorage.getItem("items")
+        try{
+            const itemsOnStorage = localStorage.getItem("items")
+            return itemsOnStorage ? JSON.parse(itemsOnStorage) : []
+        }catch (e) {
+            console.error("error parsing 'items' from localStorage", e)
+            return []
+        }
 
-        if (itemsOnStorage) return JSON.parse(itemsOnStorage)
 
-        return []
     })
 
     const handleTextChange = (event: ChangeEvent<HTMLInputElement>): void => {
@@ -139,7 +159,7 @@ export const Main: FC = () => {
         setPrice(0)
         setMethod('')
         setDate('')
-        localStorage.setItem("items", JSON.stringify(sortItemByDate))
+        localStorage.setItem("items", JSON.stringify(sortedItems))
 
     }
 
