@@ -14,63 +14,50 @@ import { Income } from "../incomes"
 import TransactionItem from './transactions';
 
 
-const DonutChart: FC = () => {
-    const [chartData] = useState({
-        options: {
-            dataLabels: {
-                enabled: false
-            }
-        },
-        series: [44, 55, 41, 17, 15],
-        labels: ['A', 'B', 'C', 'D', 'E']
-    });
-    return (
-        <Chart options={chartData.options} series={chartData.series} type='donut' width={380} />
-    )
-}
+
 export const Main: FC = () => {
 
     const [text, setText] = useState('')
     const [method, setMethod] = useState('')
     const [price, setPrice] = useState(0)
     const [date, setDate] = useState('')
-    const sortItemByDate = (items : Income[]): Income[] => {
+    const sortItemByDate = (items: Income[]): Income[] => {
         return [...items].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
     }
     const [expense, setExpense] = useState<number>(() => {
-        try{
+        try {
             const expenseOnStorage = localStorage.getItem("expenses")
             return expenseOnStorage ? JSON.parse(expenseOnStorage) : 0
-        }catch (e) {
+        } catch (e) {
             console.error("error parsing 'expenses' from localStorage", e)
             return []
         }
     })
     const [income, setIncome] = useState<number>(() => {
-        try{
+        try {
             const incomeOnStorage = localStorage.getItem("incomes")
             return incomeOnStorage ? JSON.parse(incomeOnStorage) : 0
-        }catch (e) {
+        } catch (e) {
             console.error("error parsing 'incomes' from localStorage", e)
             return []
         }
     })
     const [balance, setBalance] = useState<number>(() => {
-        try{
+        try {
 
             const balanceOnStorage = localStorage.getItem("balances")
             return balanceOnStorage ? JSON.parse(balanceOnStorage) : 0
-        }catch (e) {
+        } catch (e) {
             console.error("error parsing 'balances' from localStorage", e)
             return []
         }
     })
     const [items, setItems] = useState<Income[]>(() => {
 
-        try{
+        try {
             const itemsOnStorage = localStorage.getItem("items")
             return itemsOnStorage ? JSON.parse(itemsOnStorage) : []
-        }catch (e) {
+        } catch (e) {
             console.error("error parsing 'items' from localStorage", e)
             return []
         }
@@ -160,7 +147,47 @@ export const Main: FC = () => {
         setMethod('')
         setDate('')
         localStorage.setItem("items", JSON.stringify(sortedItems))
+    }
+    function separateAmountByMethod(items: Income[]) {
+        const totalExpenses = items.filter(item => item.amount < 0).reduce((acc, item) => acc + Math.abs(item.amount) , 0)
+        const expensesByMethod: Record<string, number> = {}
+        items.forEach((item) => {
+            if (item.amount < 0) {
+                if (!expensesByMethod[item.method]) {
+                    expensesByMethod[item.method] = 0
+                }
+                expensesByMethod[item.method] += item.amount
+            }
+        })
 
+        const chartData = Object.entries(expensesByMethod).map(([method, value]) => ({
+            method,
+            value
+        }))
+
+       const percentageData = Object.entries(expensesByMethod).map(([method, value]) => ({
+        method,
+        value: (value / totalExpenses) * 100
+    }))
+        return {chartData, percentageData}
+
+    }
+    const results = separateAmountByMethod(items)
+    console.log(results)
+    const DonutChart: FC = () => {
+        const [chartData] = useState({
+            options: {
+                labels: results.chartData.map((item) => item.method),
+                dataLabels: {
+                    enabled: false
+                },
+            },
+            series: results.chartData.map((item) => Math.abs(item.value))
+
+        });
+        return (
+            <Chart options={chartData.options} series={chartData.series} type='donut' width={380} />
+        )
     }
 
     return (
@@ -180,7 +207,7 @@ export const Main: FC = () => {
                     <div className='bg-white flex justify-between p-6 rounded-lg border items-end shadow-md'>
                         <div>
                             <p className='text-xs text-slate-400'>Balance</p>
-                            <h2 className='text-4xl font-semibold text-blue-600'>$ {balance.toFixed(2)}</h2>
+                            <h2 className='text-4xl font-semibold text-blue-600'>${balance.toFixed(2)}</h2>
                         </div>
                         <div className='border flex items-center text-center rounded-sm max-h-3 p-2.5 font-semibold tracking-wider shadow-md'>
                             <p className='text-sm flex items-center'><IoIosArrowRoundUp className='text-green-500 text-lg' />12%</p>
@@ -299,22 +326,13 @@ export const Main: FC = () => {
                     </div>
                     <div>
                         <ul className='divide-y p-1'>
-                            <li className='flex justify-between items-center p-2'>
-                                <p className='flex items-center gap-2'><BiHome className='size-6 bg-blue-500 rounded-xl fill-white p-1' />House</p>
-                                <p>41%</p>
-                            </li>
-                            <li className='flex justify-between items-center p-2'>
-                                <p className='flex items-center gap-2'><BiHome className='size-6 bg-blue-500 rounded-xl fill-white p-1' />House</p>
-                                <p>41%</p>
-                            </li>
-                            <li className='flex justify-between items-center p-2'>
-                                <p className='flex items-center gap-2'><BiHome className='size-6 bg-blue-500 rounded-xl fill-white p-1' />House</p>
-                                <p>41%</p>
-                            </li>
-                            <li className='flex justify-between items-center p-2'>
-                                <p className='flex items-center gap-2'><BiHome className='size-6 bg-blue-500 rounded-xl fill-white p-1' />House</p>
-                                <p>41%</p>
-                            </li>
+                            {results.percentageData.map((item, index) => (
+                                <li className='flex justify-between items-center p-2' key={index}>
+                                    <p className='flex items-center gap-2 capitalize' ><BiHome className='size-6 bg-blue-500 rounded-xl fill-white p-1' />{item.method}</p>
+                                    <p>{(Math.abs(item.value)).toFixed(2)}%</p>
+                                </li>
+                            ))}
+
                         </ul>
                     </div>
                 </section>
