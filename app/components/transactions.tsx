@@ -1,7 +1,6 @@
 import React from 'react'
 import { FcCurrencyExchange } from 'react-icons/fc'
 
-
 export type Item = {
     id: number
     description: string

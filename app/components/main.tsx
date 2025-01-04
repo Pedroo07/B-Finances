@@ -1,20 +1,17 @@
 "use client"
-import React, { ChangeEvent } from 'react'
+import React, { ChangeEvent} from 'react'
 import { FC, useState } from 'react';
 import { CiCalendarDate } from "react-icons/ci";
 import { IoIosArrowRoundUp, IoIosArrowRoundDown } from "react-icons/io";
 import { FiMinusCircle, FiPlusCircle } from "react-icons/fi";
-import { BiHome } from "react-icons/bi";
-import Chart from "react-apexcharts"
 import { Dialog, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogContent } from '@/components/ui/dialog';
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue, SelectLabel } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Income } from "../incomes"
 import TransactionItem from './transactions';
-
-
-
+import { DonutChart,GraphicListItem, } from './graphic';
+import { separateAmountByMethod } from './graphic';
 export const Main: FC = () => {
 
     const [text, setText] = useState('')
@@ -62,9 +59,7 @@ export const Main: FC = () => {
             return []
         }
 
-
     })
-
     const handleTextChange = (event: ChangeEvent<HTMLInputElement>): void => {
         const newValue = event.target.value
         setText(newValue)
@@ -142,54 +137,18 @@ export const Main: FC = () => {
                 return updateExpense
             })
         }
+         
+        
         setText('')
         setPrice(0)
         setMethod('')
         setDate('')
         localStorage.setItem("items", JSON.stringify(sortedItems))
     }
-    function separateAmountByMethod(items: Income[]) {
-        const totalExpenses = items.filter(item => item.amount < 0).reduce((acc, item) => acc + Math.abs(item.amount) , 0)
-        const expensesByMethod: Record<string, number> = {}
-        items.forEach((item) => {
-            if (item.amount < 0) {
-                if (!expensesByMethod[item.method]) {
-                    expensesByMethod[item.method] = 0
-                }
-                expensesByMethod[item.method] += item.amount
-            }
-        })
 
-        const chartData = Object.entries(expensesByMethod).map(([method, value]) => ({
-            method,
-            value
-        }))
+    const results =  separateAmountByMethod(items)
 
-       const percentageData = Object.entries(expensesByMethod).map(([method, value]) => ({
-        method,
-        value: (value / totalExpenses) * 100
-    }))
-        return {chartData, percentageData}
-
-    }
-    const results = separateAmountByMethod(items)
-    console.log(results)
-    const DonutChart: FC = () => {
-        const [chartData] = useState({
-            options: {
-                labels: results.chartData.map((item) => item.method),
-                dataLabels: {
-                    enabled: false
-                },
-            },
-            series: results.chartData.map((item) => Math.abs(item.value))
-
-        });
-        return (
-            <Chart options={chartData.options} series={chartData.series} type='donut' width={380} />
-        )
-    }
-
+   
     return (
         <div>
             <section>
@@ -322,18 +281,10 @@ export const Main: FC = () => {
                 <section className='border rounded-lg bg-white p-4 m-4'>
                     <p className='font-semibold'>Expenses by category</p>
                     <div>
-                        <DonutChart />
+                        <DonutChart results={results}/>
                     </div>
-                    <div>
-                        <ul className='divide-y p-1'>
-                            {results.percentageData.map((item, index) => (
-                                <li className='flex justify-between items-center p-2' key={index}>
-                                    <p className='flex items-center gap-2 capitalize' ><BiHome className='size-6 bg-blue-500 rounded-xl fill-white p-1' />{item.method}</p>
-                                    <p>{(Math.abs(item.value)).toFixed(2)}%</p>
-                                </li>
-                            ))}
-
-                        </ul>
+                    <div>    
+                     <GraphicListItem results={results}/>    
                     </div>
                 </section>
                 <section className='bg-white max-h-fit m-4'>
