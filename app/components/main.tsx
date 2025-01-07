@@ -153,8 +153,8 @@ export const Main: FC = () => {
         <div>
             <section>
                 <div className='flex justify-around items-center py-12'>
-                    <h1 className='font-semibold text-2xl'>Hello!</h1>
-                    <ul className='flex text-xs font-semibold divide-x-reverse '>
+                    <h1 className='font-semibold text-3xl'>Hello!</h1>
+                    <ul className='flex text-sm font-semibold divide-x-reverse '>
                         <li className='border text-slate-600 active:text-blue-400 p-2 bg-white rounded-s-sm'><button>This month</button></li>
                         <li className='border text-slate-600 active:text-blue-400 p-2 bg-white'><button>Last month</button></li>
                         <li className='border text-slate-600 active:text-blue-400 p-2 bg-white rounded-e-sm'><button>This year</button></li>
@@ -210,7 +210,7 @@ export const Main: FC = () => {
                                 </DialogFooter>
                             </DialogContent>
                         </Dialog>
-                        <div>
+                        <div className='px-2'>
                             <p className='font-semibold'>Add income</p>
                             <p className='text-sm text-slate-500'>Create an income manually</p>
                         </div>
@@ -227,7 +227,7 @@ export const Main: FC = () => {
                     <div className='bg-white border shadow-md rounded-lg flex items-center p-4'>
                         <Dialog>
                             <DialogTrigger asChild>
-                                <div className='bg-red-200 rounded-md p-3 text-red-700 cursor-pointer'><FiMinusCircle className='text-xl hover:scale-125' /></div>
+                                <div className='bg-red-200 rounded-md p-3 text-red-700 cursor-pointer'><FiMinusCircle className='text-xl hover:scale-125 ' /></div>
                             </DialogTrigger>
                             <DialogContent className='sm:max-w-[425px]'>
                                 <DialogHeader>
@@ -261,7 +261,7 @@ export const Main: FC = () => {
                                 </DialogFooter>
                             </DialogContent>
                         </Dialog>
-                        <div>
+                        <div className='px-2'>
                             <p className='font-semibold'>Add expense</p>
                             <p className='text-sm text-slate-500'>Create an expense manually</p>
                         </div>

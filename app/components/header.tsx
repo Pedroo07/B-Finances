@@ -17,8 +17,8 @@ const Header = () => {
         </div>
         <div>
             <ul className='flex gap-1'>
-                <li className='text-lg'><CiSettings /></li>
-                <li className='text-lg'><IoIosNotificationsOutline /></li>
+                <li className='text-xl'><CiSettings /></li>
+                <li className='text-xl'><IoIosNotificationsOutline /></li>
             </ul>
         </div>
     </div>

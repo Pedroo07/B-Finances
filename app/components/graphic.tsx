@@ -1,7 +1,9 @@
 import Chart from "react-apexcharts"
 import { Income } from "../incomes"
 import { FC, useEffect, useState } from "react"
-import { BiHome } from "react-icons/bi"
+import { BiHome, BiGroup} from "react-icons/bi"
+import { IoFastFood } from "react-icons/io5";
+import { RiMoneyDollarCircleLine } from "react-icons/ri";
 
 type ChartData = {
     method: string;
@@ -72,12 +74,13 @@ export const DonutChart: FC<DonutChartProps> = ({ results }) => {
 type GraphicListItemProps = {
     results: SeparateResults
 }
+
 export const GraphicListItem: FC<GraphicListItemProps> = ({ results }) => {
     return (
         <ul className="divide-y p-1">
             {results.percentageData.map((item, index) => (
                 <li className='flex justify-between items-center p-2' key={index}>
-                    <p className='flex items-center gap-2 capitalize' ><BiHome className='size-6 bg-blue-500 rounded-xl fill-white p-1' />{item.method}</p>
+                    <p className='flex items-center gap-2 capitalize' >{(item.method === "fixes") ? (<BiHome className='size-6 bg-blue-500 rounded-xl fill-white p-1' />) : item.method === "entertainment" ? <BiGroup className='size-6 bg-blue-500 rounded-xl fill-white p-1' /> : item.method === "foods" ? <IoFastFood className='size-6 bg-blue-500 rounded-xl text-white p-1' /> : <RiMoneyDollarCircleLine className='size-6 bg-blue-500 rounded-xl text-white p-1' />}{item.method}</p>
                     <p>{(Math.abs(item.value)).toFixed(2)}%</p>
                 </li>
             ))}
