@@ -2,7 +2,7 @@ import React from 'react'
 import { FcCurrencyExchange } from 'react-icons/fc'
 
 export type Item = {
-    id: number
+    id: string
     description: string
     date: string
     amount: number
@@ -11,7 +11,7 @@ export type Item = {
 
 type TransactionItemProps = {
     item: Item
-    onDelete: (id: number) => void
+    onDelete: (id: string) => void
 }
 
  const TransactionItem: React.FC<TransactionItemProps> = ({item, onDelete}) => {

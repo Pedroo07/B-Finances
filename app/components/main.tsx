@@ -12,6 +12,7 @@ import { Income } from "../incomes"
 import TransactionItem from './transactions';
 import { DonutChart,GraphicListItem, } from './graphic';
 import { separateAmountByMethod } from './graphic';
+import { v4 as uuidv4 } from 'uuid';
 export const Main: FC = () => {
 
     const [text, setText] = useState('')
@@ -79,7 +80,7 @@ export const Main: FC = () => {
         setPrice(newValue)
     }
 
-    const handleDeleteItem = (id: number) => {
+    const handleDeleteItem = (id: string) => {
         const itemArray = items.filter(item => {
             return item.id !== id
         })
@@ -112,7 +113,7 @@ export const Main: FC = () => {
             date: date,
             description: text,
             method: method,
-            id: items.length + 1
+            id: uuidv4()
         }
         const itemsArray = [newItem, ...items]
         const sortedItems = sortItemByDate(itemsArray)
@@ -145,6 +146,7 @@ export const Main: FC = () => {
         setDate('')
         localStorage.setItem("items", JSON.stringify(sortedItems))
     }
+    console.log(items)
 
     const results =  separateAmountByMethod(items)
 

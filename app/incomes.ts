@@ -3,5 +3,5 @@ description: string
 method: string
 date: string
 amount: number
-id: number
+id: string
 }
