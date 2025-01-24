@@ -279,7 +279,7 @@ export const Main: FC = () => {
                     </div>
                 </div>
             </section>
-            <div className='flex justify-center gap-16'>
+            <div className='flex justify-center gap-16 items-stretch'>
                 <section className='border rounded-lg bg-white p-4 m-4'>
                     <p className='font-semibold'>Expenses by category</p>
                     <div>
@@ -289,7 +289,7 @@ export const Main: FC = () => {
                      <GraphicListItem results={results}/>    
                     </div>
                 </section>
-                <section className='bg-white max-h-fit m-4'>
+                <section className='bg-white '>
                     <header className='p-4 border rounded-t-lg'>
                         <h4 className='font-semibold text-lg'>Last transactions</h4>
                         <p className='text-sm font-semibold text-slate-400'>Check your last transactions</p>
@@ -303,8 +303,8 @@ export const Main: FC = () => {
                                 <li className='text-sm  text-slate-500'>Amount</li>
                             </ul>
                         </div>
-                        <div className='border rounded-b-lg '>
-                            <ul className='divide-y'>
+                        <div className='border rounded-b-lg max-h-96 overflow-auto'>
+                            <ul className='divide-y '>
                                 {items.map((item => (
                                     <TransactionItem key={item.id} item={item} onDelete={handleDeleteItem} />
                                 )))}
