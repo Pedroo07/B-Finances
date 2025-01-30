@@ -1,5 +1,5 @@
 "use client"
-import React, { ChangeEvent} from 'react'
+import React, { ChangeEvent } from 'react'
 import { FC, useState } from 'react';
 import { CiCalendarDate } from "react-icons/ci";
 import { IoIosArrowRoundUp, IoIosArrowRoundDown } from "react-icons/io";
@@ -9,8 +9,8 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue, SelectLabel } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Income } from "../incomes"
-import TransactionItem from './transactions';
-import { DonutChart,GraphicListItem, } from './graphic';
+import { TransactionItem, TransactionHeader } from './transactions';
+import { DonutChart, GraphicListItem, } from './graphic';
 import { separateAmountByMethod } from './graphic';
 import { v4 as uuidv4 } from 'uuid';
 export const Main: FC = () => {
@@ -138,8 +138,8 @@ export const Main: FC = () => {
                 return updateExpense
             })
         }
-         
-        
+
+
         setText('')
         setPrice(0)
         setMethod('')
@@ -148,9 +148,9 @@ export const Main: FC = () => {
     }
     console.log(items)
 
-    const results =  separateAmountByMethod(items)
+    const results = separateAmountByMethod(items)
 
-   
+
     return (
         <div>
             <section>
@@ -161,7 +161,6 @@ export const Main: FC = () => {
                         <li className='border text-slate-600 active:text-blue-400 p-2 bg-white'><button>Last month</button></li>
                         <li className='border text-slate-600 active:text-blue-400 p-2 bg-white rounded-e-sm'><button>This year</button></li>
                         <li className='flex border text-slate-600 active:text-blue-400 p-2 bg-white items-center gap-0.5 rounded mx-2'><CiCalendarDate className='text-sm' /><button>Select period</button></li>
-
                     </ul>
                 </div>
                 <div className='grid grid-flow-col grid-rows-2 gap-8  mx-auto max-w-screen-xl items-center'>
@@ -283,10 +282,10 @@ export const Main: FC = () => {
                 <section className='border rounded-lg bg-white p-4 m-4'>
                     <p className='font-semibold'>Expenses by category</p>
                     <div>
-                        <DonutChart results={results}/>
+                        <DonutChart results={results} />
                     </div>
-                    <div>    
-                     <GraphicListItem results={results}/>    
+                    <div>
+                        <GraphicListItem results={results} />
                     </div>
                 </section>
                 <section className='bg-white '>
@@ -295,14 +294,7 @@ export const Main: FC = () => {
                         <p className='text-sm font-semibold text-slate-400'>Check your last transactions</p>
                     </header>
                     <main>
-                        <div>
-                            <ul className='flex justify-between bg-neutral-100 border gap-20 pl-6 pr-28 py-1'>
-                                <li className='text-sm  text-slate-500  pr-8'>Description</li>
-                                <li className='text-sm  text-slate-500'>Method</li>
-                                <li className='text-sm  text-slate-500'>Date</li>
-                                <li className='text-sm  text-slate-500'>Amount</li>
-                            </ul>
-                        </div>
+                        <TransactionHeader />
                         <div className='border rounded-b-lg max-h-96 overflow-auto'>
                             <ul className='divide-y '>
                                 {items.map((item => (
