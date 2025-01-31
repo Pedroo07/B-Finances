@@ -1,5 +1,5 @@
 "use client"
-import React, { ChangeEvent } from 'react'
+import React, { ChangeEvent, useEffect, } from 'react'
 import { FC, useState } from 'react';
 import { CiCalendarDate } from "react-icons/ci";
 import { IoIosArrowRoundUp, IoIosArrowRoundDown } from "react-icons/io";
@@ -146,9 +146,65 @@ export const Main: FC = () => {
         setDate('')
         localStorage.setItem("items", JSON.stringify(sortedItems))
     }
-    console.log(items)
+    useEffect(() => {
+        const getItemForCurrentMonth = (): Income[] => {
+            if (typeof window === 'undefined') return []
+
+            const items: Income[] = JSON.parse(localStorage.getItem("items") || "[]")
+            const today = new Date()
+            const currentMonth = today.getMonth() + 1
+            const currentYear = today.getFullYear()
+
+            return items.filter(item => {
+                const [year, month] = item.date.split("-").map(Number)
+                return year === currentYear && month === currentMonth
+            })
+        }
+
+        setItems(getItemForCurrentMonth())
+    }, [])
+    
+    const cauculateCurrentMonthTotals = () => {
+        if (typeof window === 'undefined') return { expense: 0, income: 0, balance: 0 }
+
+        const storedItems: Income[] = JSON.parse(localStorage.getItem("items") || "[]")
+
+        const today = new Date()
+        const currentMonth = today.getMonth() + 1
+        const currentYear = today.getFullYear()
+
+        let totalIncome = 0
+        let totalExpense = 0
+
+        storedItems.forEach(item => {
+            const [year, month] = item.date.split("-").map(Number)
+            if (year === currentYear && month === currentMonth) {
+                if (item.amount > 0) {
+                    totalIncome += item.amount
+                } else {
+                    totalExpense += Math.abs(item.amount)
+                }
+            }
+        })
+
+        return {
+            income: totalIncome,
+            expense: totalExpense,
+            balance: totalIncome - totalExpense
+        }
+    }
+    useEffect(() => {
+        const { income, expense, balance } = cauculateCurrentMonthTotals();
+        setIncome(income);
+        setExpense(expense);
+        setBalance(balance);
+    }, []);
+
 
     const results = separateAmountByMethod(items)
+
+
+
 
 
     return (
