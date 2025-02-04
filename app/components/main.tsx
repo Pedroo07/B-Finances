@@ -1,7 +1,7 @@
 "use client"
-import React, { ChangeEvent, useEffect, } from 'react'
+import React, { ChangeEvent, useEffect } from 'react'
 import { FC, useState } from 'react';
-import { CiCalendarDate } from "react-icons/ci";
+
 import { IoIosArrowRoundUp, IoIosArrowRoundDown } from "react-icons/io";
 import { FiMinusCircle, FiPlusCircle } from "react-icons/fi";
 import { Dialog, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogContent } from '@/components/ui/dialog';
@@ -13,6 +13,7 @@ import { TransactionItem, TransactionHeader } from './transactions';
 import { DonutChart, GraphicListItem, } from './graphic';
 import { separateAmountByMethod } from './graphic';
 import { v4 as uuidv4 } from 'uuid';
+import Period from './period';
 export const Main: FC = () => {
 
     const [text, setText] = useState('')
@@ -68,7 +69,6 @@ export const Main: FC = () => {
     }
     const handleMethodChange = (value: string): void => {
         setMethod(value)
-
     }
     const handleDateChange = (event: ChangeEvent<HTMLInputElement>): void => {
         const newValue = event.target.value
@@ -80,30 +80,65 @@ export const Main: FC = () => {
         setPrice(newValue)
     }
 
+    const [allItems, setAllItems] = useState<Income[]>([])
+    const cauculateCurrentMonthTotals = () => {
+        if (typeof window === 'undefined') return { expense: 0, income: 0, balance: 0 }
+
+        const storedItems: Income[] = JSON.parse(localStorage.getItem("items") || "[]")
+
+        const today = new Date()
+        const currentYear = today.getFullYear()
+
+        let totalIncome = 0
+        let totalExpense = 0
+
+        storedItems.forEach(item => {
+            const [year, month] = item.date.split("-").map(Number)
+            if (year === currentYear && month === selectedMonth) {
+                if (item.amount > 0) {
+                    totalIncome += item.amount
+                } else {
+                    totalExpense += Math.abs(item.amount)
+                }
+            }
+        })
+
+        return {
+            income: totalIncome,
+            expense: totalExpense,
+            balance: totalIncome - totalExpense
+        }
+    }
+
     const handleDeleteItem = (id: string) => {
-        const itemArray = items.filter(item => {
+        const itemArray = allItems.filter(item => {
             return item.id !== id
         })
-        setItems(itemArray)
+        setAllItems(itemArray)
+
+
+        const filteredItems = itemArray.filter(item => {
+            const [year, month] = item.date.split("-").map(Number)
+            return year === new Date().getFullYear() && month === selectedMonth
+        })
+
+        const { income, expense, balance } = calculateTotals(filteredItems);
+        setIncome(income);
+        setExpense(expense);
+        setBalance(balance);
+        setItems(filteredItems)
+        setText('')
+        setPrice(0)
+        setMethod('')
+        setDate('')
 
         localStorage.setItem("items", JSON.stringify(itemArray))
 
-        const updateIncome = itemArray.filter(item => item.amount
-            > 0).reduce((acc, item) => acc + item.amount, 0)
-
-        const updateExpense = itemArray.filter(item => item.amount < 0).reduce((acc, item) => acc + Math.abs(item
-            .amount), 0)
-
-        const updateBalance = updateIncome - updateExpense
-
-        setIncome(updateIncome)
-        setExpense(updateExpense)
-        setBalance(updateBalance)
-
-        localStorage.setItem("incomes", JSON.stringify(updateIncome))
-        localStorage.setItem("expenses", JSON.stringify(updateExpense))
-        localStorage.setItem("balances", JSON.stringify(updateBalance))
+        localStorage.setItem("incomes", JSON.stringify(income))
+        localStorage.setItem("expenses", JSON.stringify(expense))
+        localStorage.setItem("balances", JSON.stringify(balance))
     }
+
 
     const handleAddNewItem = (IsIncomeDialog: boolean): void => {
         const adjustedPrice = IsIncomeDialog ? Math.abs(price) : -Math.abs(price)
@@ -115,9 +150,9 @@ export const Main: FC = () => {
             method: method,
             id: uuidv4()
         }
-        const itemsArray = [newItem, ...items]
+        const itemsArray = [newItem, ...allItems]
         const sortedItems = sortItemByDate(itemsArray)
-        setItems(sortedItems)
+        setAllItems(sortedItems)
 
         if (IsIncomeDialog) {
             setIncome((prevIncome) => {
@@ -139,85 +174,69 @@ export const Main: FC = () => {
             })
         }
 
+        const filteredItems = sortedItems.filter(item => {
+            const [year, month] = item.date.split("-").map(Number)
+            return year === new Date().getFullYear() && month === selectedMonth
+        })
 
+        const { income, expense, balance } = calculateTotals(filteredItems);
+        setIncome(income);
+        setExpense(expense);
+        setBalance(balance);
+        setItems(filteredItems)
         setText('')
         setPrice(0)
         setMethod('')
         setDate('')
         localStorage.setItem("items", JSON.stringify(sortedItems))
     }
-    useEffect(() => {
-        const getItemForCurrentMonth = (): Income[] => {
-            if (typeof window === 'undefined') return []
+    const calculateTotals = (items: Income[]): { income: number; expense: number; balance: number } => {
+        let totalIncome = 0;
+        let totalExpense = 0;
 
-            const items: Income[] = JSON.parse(localStorage.getItem("items") || "[]")
-            const today = new Date()
-            const currentMonth = today.getMonth() + 1
-            const currentYear = today.getFullYear()
-
-            return items.filter(item => {
-                const [year, month] = item.date.split("-").map(Number)
-                return year === currentYear && month === currentMonth
-            })
-        }
-
-        setItems(getItemForCurrentMonth())
-    }, [])
-    
-    const cauculateCurrentMonthTotals = () => {
-        if (typeof window === 'undefined') return { expense: 0, income: 0, balance: 0 }
-
-        const storedItems: Income[] = JSON.parse(localStorage.getItem("items") || "[]")
-
-        const today = new Date()
-        const currentMonth = today.getMonth() + 1
-        const currentYear = today.getFullYear()
-
-        let totalIncome = 0
-        let totalExpense = 0
-
-        storedItems.forEach(item => {
-            const [year, month] = item.date.split("-").map(Number)
-            if (year === currentYear && month === currentMonth) {
-                if (item.amount > 0) {
-                    totalIncome += item.amount
-                } else {
-                    totalExpense += Math.abs(item.amount)
-                }
+        items.forEach(item => {
+            if (item.amount > 0) {
+                totalIncome += item.amount;
+            } else {
+                totalExpense += Math.abs(item.amount);
             }
-        })
+        });
 
         return {
             income: totalIncome,
             expense: totalExpense,
             balance: totalIncome - totalExpense
-        }
-    }
+        };
+    };
+    const [selectedMonth, setSelectedMonth] = useState<number>(() => new Date().getMonth() + 1)
+
+
     useEffect(() => {
+        const storedItems: Income[] = JSON.parse(localStorage.getItem("items") || "[]");
+        setAllItems(storedItems);
+        
+        const filteredItems = storedItems.filter(item => {
+            const [year, month] = item.date.split("-").map(Number);
+            return year === new Date().getFullYear() && month === selectedMonth;
+        });
+        
+        setItems(filteredItems);
+        
         const { income, expense, balance } = cauculateCurrentMonthTotals();
         setIncome(income);
         setExpense(expense);
         setBalance(balance);
-    }, []);
+    }, [selectedMonth]);
 
 
     const results = separateAmountByMethod(items)
-
-
-
-
 
     return (
         <div>
             <section>
                 <div className='flex justify-around items-center py-12'>
                     <h1 className='font-semibold text-3xl'>Hello!</h1>
-                    <ul className='flex text-sm font-semibold divide-x-reverse '>
-                        <li className='border text-slate-600 active:text-blue-400 p-2 bg-white rounded-s-sm'><button>This month</button></li>
-                        <li className='border text-slate-600 active:text-blue-400 p-2 bg-white'><button>Last month</button></li>
-                        <li className='border text-slate-600 active:text-blue-400 p-2 bg-white rounded-e-sm'><button>This year</button></li>
-                        <li className='flex border text-slate-600 active:text-blue-400 p-2 bg-white items-center gap-0.5 rounded mx-2'><CiCalendarDate className='text-sm' /><button>Select period</button></li>
-                    </ul>
+                    <Period onMonthChange={setSelectedMonth} selectedMonth={selectedMonth} />
                 </div>
                 <div className='grid grid-flow-col grid-rows-2 gap-8  mx-auto max-w-screen-xl items-center'>
                     <div className='bg-white flex justify-between p-6 rounded-lg border items-end shadow-md'>
