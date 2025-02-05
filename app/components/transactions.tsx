@@ -11,7 +11,7 @@ export type Item = {
 
 type TransactionItemProps = {
     item: Item
-    onDelete: (id: string) => void
+    onDelete: (id: string) => void 
 }
 
 export const TransactionHeader = () => {

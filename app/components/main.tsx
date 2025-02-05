@@ -109,6 +109,34 @@ export const Main: FC = () => {
             balance: totalIncome - totalExpense
         }
     }
+    const cauculateCurrentYear = () => {
+        if (typeof window === 'undefined') return { expense: 0, income: 0, balance: 0 }
+
+        const storedItems: Income[] = JSON.parse(localStorage.getItem("items") || "[]")
+
+        const today = new Date()
+        const currentYear = today.getFullYear()
+
+        let totalIncome = 0
+        let totalExpense = 0
+
+        storedItems.forEach(item => {
+            const [year] = item.date.split("-").map(Number)
+            if (year === currentYear) {
+                if (item.amount > 0) {
+                    totalIncome += item.amount
+                } else {
+                    totalExpense += Math.abs(item.amount)
+                }
+            }
+        })
+
+        return {
+            income: totalIncome,
+            expense: totalExpense,
+            balance: totalIncome - totalExpense
+        }
+    }
 
     const handleDeleteItem = (id: string) => {
         const itemArray = allItems.filter(item => {
@@ -138,7 +166,6 @@ export const Main: FC = () => {
         localStorage.setItem("expenses", JSON.stringify(expense))
         localStorage.setItem("balances", JSON.stringify(balance))
     }
-
 
     const handleAddNewItem = (IsIncomeDialog: boolean): void => {
         const adjustedPrice = IsIncomeDialog ? Math.abs(price) : -Math.abs(price)
@@ -214,19 +241,45 @@ export const Main: FC = () => {
     useEffect(() => {
         const storedItems: Income[] = JSON.parse(localStorage.getItem("items") || "[]");
         setAllItems(storedItems);
-        
+
         const filteredItems = storedItems.filter(item => {
             const [year, month] = item.date.split("-").map(Number);
             return year === new Date().getFullYear() && month === selectedMonth;
         });
-        
+
         setItems(filteredItems);
-        
+
         const { income, expense, balance } = cauculateCurrentMonthTotals();
         setIncome(income);
         setExpense(expense);
         setBalance(balance);
     }, [selectedMonth]);
+
+    const thisMonthSelected = () => {
+        const thisMonth = new Date().getMonth() + 1
+        setSelectedMonth(thisMonth)
+    }
+    const lastMonthSelected = () => {
+        const lastMonth = new Date().getMonth()
+        setSelectedMonth(lastMonth)
+    }
+
+    const lastYearFilter = () => {
+        const storedItems: Income[] = JSON.parse(localStorage.getItem("items") || "[]");
+        setAllItems(storedItems);
+
+        const filteredItems = storedItems.filter(item => {
+            const [year] = item.date.split("-").map(Number);
+            return year === new Date().getFullYear()
+        });
+
+        setItems(filteredItems);
+
+        const { income, expense, balance } = cauculateCurrentYear();
+        setIncome(income);
+        setExpense(expense);
+        setBalance(balance);
+    }
 
 
     const results = separateAmountByMethod(items)
@@ -236,7 +289,12 @@ export const Main: FC = () => {
             <section>
                 <div className='flex justify-around items-center py-12'>
                     <h1 className='font-semibold text-3xl'>Hello!</h1>
-                    <Period onMonthChange={setSelectedMonth} selectedMonth={selectedMonth} />
+                    <ul className='flex text-sm font-semibold divide-x'>
+                        <li className='border p-2 bg-white text-slate-600'><button onClick={lastYearFilter}>Last Year</button></li>
+                        <li className='border p-2 bg-white text-slate-600'><button onClick={lastMonthSelected}>Last Month</button></li>
+                        <li className='border p-2 bg-white text-slate-600'><button onClick={thisMonthSelected}>This Month</button></li>
+                        <Period onMonthChange={setSelectedMonth} selectedMonth={selectedMonth} />
+                    </ul>
                 </div>
                 <div className='grid grid-flow-col grid-rows-2 gap-8  mx-auto max-w-screen-xl items-center'>
                     <div className='bg-white flex justify-between p-6 rounded-lg border items-end shadow-md'>

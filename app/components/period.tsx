@@ -9,11 +9,8 @@ type PeriodProps = {
 
 const Period: React.FC<PeriodProps> = ({ onMonthChange, selectedMonth }) => {
 
-    return (
 
-        <ul className='flex text-sm font-semibold divide-x'>
-            <li className='border p-2 bg-white text-slate-600'><button>Last Month</button></li>
-            <li className='border p-2 bg-white text-slate-600'><button>This Month</button></li>
+    return (
             <li>
                 <Select name='Choose the Month' value={String(selectedMonth)} onValueChange={(value) => onMonthChange(Number(value))}  >
                     <SelectTrigger className='bg-white text-slate-600 rounded-none p-2'>
@@ -29,7 +26,6 @@ const Period: React.FC<PeriodProps> = ({ onMonthChange, selectedMonth }) => {
                     </SelectContent>
                 </Select>
             </li>
-        </ul>
     )
 }
 
