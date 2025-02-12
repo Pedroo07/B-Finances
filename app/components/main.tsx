@@ -81,6 +81,7 @@ export const Main: FC = () => {
     }
 
     const [allItems, setAllItems] = useState<Income[]>([])
+    
     const cauculateCurrentMonthTotals = () => {
         if (typeof window === 'undefined') return { expense: 0, income: 0, balance: 0 }
 

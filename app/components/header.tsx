@@ -12,7 +12,7 @@ const Header = () => {
             <ul className='flex items-center gap-2 font-Inter'>
                 <li className='text-sm font-semibold text-slate-400 active:text-blue-400 cursor-pointer'><Link href="/">Overview</Link></li>
                 <li className='text-sm font-semibold text-slate-400 active:text-blue-400 cursor-pointer'><Link href="/transactions">Transactions</Link></li>
-                <li className='text-sm font-semibold text-slate-400 active:text-blue-400 cursor-pointer'>Credid cards</li>
+                <li className='text-sm font-semibold text-slate-400 active:text-blue-400 cursor-pointer'><Link href='/CreditCard'>Credid cards</Link></li>
                 <li className='text-sm font-semibold text-slate-400 active:text-blue-400 cursor-pointer'>Ivestiments</li>
             </ul>
         </div>
