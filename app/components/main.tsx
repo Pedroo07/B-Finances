@@ -1,7 +1,6 @@
 "use client"
 import React, { ChangeEvent, useEffect } from 'react'
 import { FC, useState } from 'react';
-
 import { IoIosArrowRoundUp, IoIosArrowRoundDown } from "react-icons/io";
 import { FiMinusCircle, FiPlusCircle } from "react-icons/fi";
 import { Dialog, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogContent } from '@/components/ui/dialog';
@@ -81,7 +80,7 @@ export const Main: FC = () => {
     }
 
     const [allItems, setAllItems] = useState<Income[]>([])
-    
+
     const cauculateCurrentMonthTotals = () => {
         if (typeof window === 'undefined') return { expense: 0, income: 0, balance: 0 }
 
@@ -282,6 +281,80 @@ export const Main: FC = () => {
         setBalance(balance);
     }
 
+    const differenceInPorcentage = () => {
+        const storedItems: Income[] = JSON.parse(localStorage.getItem("items") || "[]");
+
+        const filteredItems = storedItems.filter(item => {
+            const [year, month] = item.date.split("-").map(Number);
+            return year === new Date().getFullYear() && month === selectedMonth;
+        });
+        const lastItems = storedItems.filter(item => {
+            const [year, month] = item.date.split("-").map(Number);
+            return year === new Date().getFullYear() && month === new Date().getMonth();
+        });
+
+        const totalExpense = filteredItems.reduce((acc, item) => acc + item.amount, 0)
+        const lastExpense = lastItems.reduce((acc, item) => acc + item.amount, 0)
+
+        if (lastExpense === 0) {
+            return 0
+        }
+
+        const difference = totalExpense - lastExpense
+        const totalInPorcentage = (difference / Math.abs(lastExpense)) * 100
+        return totalInPorcentage
+
+    }
+
+    const differenceInPorcentageIncome = () => {
+        const storedItems: Income[] = JSON.parse(localStorage.getItem("items") || "[]");
+
+        const filteredItems = storedItems.filter(item => {
+            const [year, month] = item.date.split("-").map(Number);
+            return year === new Date().getFullYear() && month === selectedMonth && item.amount > 0
+        });
+        const lastItems = storedItems.filter(item => {
+            const [year, month] = item.date.split("-").map(Number);
+            return year === new Date().getFullYear() && month === new Date().getMonth() && item.amount > 0
+        });
+
+        const totalIncome = filteredItems.reduce((acc, item) => acc + item.amount, 0)
+        const lastIncome = lastItems.reduce((acc, item) => acc + item.amount, 0)
+
+        if (lastIncome === 0) {
+            return 0
+        }
+
+        const difference = totalIncome - lastIncome
+        const totalInPorcentage = (difference / Math.abs(lastIncome)) * 100
+        return totalInPorcentage
+
+    }
+
+    const differenceInPorcentageExpense = () => {
+        const storedItems: Income[] = JSON.parse(localStorage.getItem("items") || "[]");
+
+        const filteredItems = storedItems.filter(item => {
+            const [year, month] = item.date.split("-").map(Number);
+            return year === new Date().getFullYear() && month === selectedMonth && item.amount < 0
+        });
+        const lastItems = storedItems.filter(item => {
+            const [year, month] = item.date.split("-").map(Number);
+            return year === new Date().getFullYear() && month === new Date().getMonth() && item.amount < 0
+        });
+
+        const totalExpense = filteredItems.reduce((acc, item) => acc + item.amount, 0)
+        const lastExpense = lastItems.reduce((acc, item) => acc + item.amount, 0)
+
+        if (lastExpense === 0) {
+            return 0
+        }
+
+        const difference = totalExpense - lastExpense
+        const totalInPorcentage = (difference / lastExpense * 100)
+        return totalInPorcentage
+
+    }
 
     const results = separateAmountByMethod(items)
 
@@ -304,7 +377,7 @@ export const Main: FC = () => {
                             <h2 className='text-4xl font-semibold text-blue-600'>${balance.toFixed(2)}</h2>
                         </div>
                         <div className='border flex items-center text-center rounded-sm max-h-3 p-2.5 font-semibold tracking-wider shadow-md'>
-                            <p className='text-sm flex items-center'><IoIosArrowRoundUp className='text-green-500 text-lg' />12%</p>
+                            <p className='text-sm flex items-center'>{differenceInPorcentage() > 0 ? (<IoIosArrowRoundUp className='text-green-500 text-lg' />) : (<IoIosArrowRoundDown className='text-red-500 text-lg' />)}{differenceInPorcentage().toFixed(2)}%</p>
                         </div>
                     </div>
                     <div className='bg-white border shadow-md rounded-lg flex items-center p-4'>
@@ -356,7 +429,7 @@ export const Main: FC = () => {
                             <h2 className='text-4xl font-semibold text-green-600'>$ {income.toFixed(2)}</h2>
                         </div>
                         <div className='border flex items-center text-center rounded-sm max-h-3 p-2.5 font-semibold tracking-wider shadow-md'>
-                            <p className='text-sm flex items-center'><IoIosArrowRoundUp className='text-green-500 text-lg' />27%</p>
+                            <p className='text-sm flex items-center'>{differenceInPorcentageIncome() > 0 ? (<IoIosArrowRoundUp className='text-green-500 text-lg' />) : (<IoIosArrowRoundDown className='text-red-500 text-lg' />)}{differenceInPorcentageIncome().toFixed(2)}%</p>
                         </div>
                     </div>
                     <div className='bg-white border shadow-md rounded-lg flex items-center p-4'>
@@ -407,7 +480,7 @@ export const Main: FC = () => {
                             <h2 className='text-4xl font-semibold text-red-600'>$ {expense.toFixed(2)}</h2>
                         </div>
                         <div className='border flex items-center text-center rounded-sm max-h-3 p-2.5 font-semibold tracking-wider shadow-md'>
-                            <p className='text-sm flex items-center'><IoIosArrowRoundDown className='text-red-500 text-lg' />-15%</p>
+                            <p className='text-sm flex items-center'>{differenceInPorcentageExpense() < 0 ? (<IoIosArrowRoundUp className='text-green-500 text-lg' />) : (<IoIosArrowRoundDown className='text-red-500 text-lg' />)}{differenceInPorcentageExpense().toFixed(2)}%</p>
                         </div>
                     </div>
                 </div>

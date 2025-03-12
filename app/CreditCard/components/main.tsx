@@ -4,7 +4,7 @@ import { TransactionHeader, TransactionItem } from "@/app/components/transaction
 import { DonutChart, GraphicListItem, separateAmountByMethod } from "@/app/components/graphic"
 import Period from '../../components/period'
 import { Income } from "../../incomes"
-import { IoIosArrowRoundDown } from 'react-icons/io'
+import { IoIosArrowRoundDown, IoIosArrowRoundUp } from 'react-icons/io'
 import { Button } from '@/components/ui/button'
 import { DialogHeader, DialogFooter, Dialog, DialogTrigger, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectGroup, SelectLabel, SelectItem } from '@/components/ui/select'
@@ -116,6 +116,7 @@ export const Main = () => {
 
     }
 
+
     const [selectedMonth, setSelectedMonth] = useState<number>(() => new Date().getMonth() + 1)
 
     useEffect(() => {
@@ -143,7 +144,7 @@ export const Main = () => {
         setSelectedMonth(lastMonth)
     }
     const lastYearFilter = () => {
-        const storedItems: Income[] = JSON.parse(localStorage.getItem("items") || "[]");
+        const storedItems: Income[] = JSON.parse(localStorage.getItem("credits") || "[]");
         setAllItems(storedItems);
 
         const filteredItems = storedItems.filter(item => {
@@ -151,9 +152,38 @@ export const Main = () => {
             return year === new Date().getFullYear()
         });
 
-        setItems(filteredItems);
-        setExpense(expense);
+        const total = filteredItems.reduce((acc, item) => acc + item.amount, 0);
 
+        setItems(filteredItems);
+        setExpense(total);
+
+    }
+
+    const differenceInPorcentage = () => {
+        const storedItems: Income[] = JSON.parse(localStorage.getItem("credits") || ("[]"))
+
+        const filteredItems = storedItems.filter(item => {
+            const [year, month] = item.date.split("-").map(Number)
+            return year === new Date().getFullYear() && month === selectedMonth 
+        })
+
+        const lastItems = storedItems.filter(item => {
+            const [year, month] = item.date.split("-").map(Number)
+            return year === new Date().getFullYear() && month === new Date().getMonth() 
+        })
+
+
+        const totalExpense = filteredItems.reduce((acc, item) => acc + item.amount, 0)
+        const lastExpense = lastItems.reduce((acc, item) => acc + item.amount, 0)
+
+        if (lastExpense === 0) {
+            return 0
+        }
+
+        const difference = totalExpense - lastExpense
+        const totalInDifference = (difference / lastExpense ) * 100
+
+        return totalInDifference
     }
 
     const results = separateAmountByMethod(items)
@@ -219,7 +249,7 @@ export const Main = () => {
                             <h2 className='text-4xl font-semibold text-red-600'>$ {expense.toFixed(2)}</h2>
                         </div>
                         <div className='border flex items-center text-center rounded-sm max-h-3 p-2.5 font-semibold tracking-wider shadow-md'>
-                            <p className='text-sm flex items-center'><IoIosArrowRoundDown className='text-red-500 text-lg' />-15%</p>
+                            <p className='text-sm flex items-center'>{differenceInPorcentage() < 0 ? (<IoIosArrowRoundUp className='text-green-500 text-lg' />) : (<IoIosArrowRoundDown className='text-red-500 text-lg' />)}{differenceInPorcentage().toFixed(2)}%</p>
                         </div>
                     </div>
                 </div>

@@ -19,7 +19,7 @@ const Period: React.FC<PeriodProps> = ({ onMonthChange, selectedMonth }) => {
                     <SelectContent >
                         {Array.from({ length: 12 }, (_, i) => (
                             <SelectItem key={i + 1} value={String(i + 1)}>
-                                {new Date(0, i).toLocaleString("pt-BR", { month: "long" })}
+                                {new Date(0, i).toLocaleString("en-US", { month: "long" })}
                             </SelectItem>
                         ))}
 
