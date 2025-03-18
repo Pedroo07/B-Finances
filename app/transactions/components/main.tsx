@@ -63,12 +63,12 @@ export const Main = () => {
     <div className='flex justify-around items-center'>
       <section>
         <ul className='flex text-sm font-semibold divide-x justify-center my-2'>
-          <li className='border p-2 bg-white text-slate-600'><button onClick={lastYearFilter} >Last Year</button></li>
-          <li className='border p-2 bg-white text-slate-600'><button onClick={lastMonthSelected} >Last Month</button></li>
-          <li className='border p-2 bg-white text-slate-600'><button onClick={thisMonthSelected}>This Month</button></li>
+          <li className='border p-2 bg-white text-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-200'><button onClick={lastYearFilter}>Last Year</button></li>
+          <li className='border p-2 bg-white text-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-200'><button onClick={lastMonthSelected}>Last Month</button></li>
+          <li className='border p-2 bg-white text-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-200'><button onClick={thisMonthSelected}>This Month</button></li>
           <Period onMonthChange={setSelectedMonth} selectedMonth={selectedMonth} />
         </ul>
-        <section className='border rounded-lg bg-white p-16 m-8'>
+        <section className='border rounded-lg bg-white p-16 m-8 dark:bg-slate-700'>
           <p className='font-semibold text-2xl p-4'>Expenses by category</p>
           <div >
             <DonutChart results={results} />
@@ -78,7 +78,7 @@ export const Main = () => {
           </div>
         </section>
       </section>
-      <section className='bg-white'>
+      <section className='bg-white dark:bg-slate-700'>
         <TransactionHeader />
         <div className='border rounded-b-lg max-h-[80vh] overflow-auto'>
           <ul className='divide-y '>

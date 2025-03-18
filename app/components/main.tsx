@@ -364,23 +364,23 @@ export const Main: FC = () => {
                 <div className='flex justify-around items-center py-12'>
                     <h1 className='font-semibold text-3xl'>Hello!</h1>
                     <ul className='flex text-sm font-semibold divide-x'>
-                        <li className='border p-2 bg-white text-slate-600'><button onClick={lastYearFilter}>Last Year</button></li>
-                        <li className='border p-2 bg-white text-slate-600'><button onClick={lastMonthSelected}>Last Month</button></li>
-                        <li className='border p-2 bg-white text-slate-600'><button onClick={thisMonthSelected}>This Month</button></li>
+                        <li className='border p-2 bg-white text-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-200'><button onClick={lastYearFilter}>Last Year</button></li>
+                        <li className='border p-2 bg-white text-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-200'><button onClick={lastMonthSelected}>Last Month</button></li>
+                        <li className='border p-2 bg-white text-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-200'><button onClick={thisMonthSelected}>This Month</button></li>
                         <Period onMonthChange={setSelectedMonth} selectedMonth={selectedMonth} />
                     </ul>
                 </div>
                 <div className='grid grid-flow-col grid-rows-2 gap-8  mx-auto max-w-screen-xl items-center'>
-                    <div className='bg-white flex justify-between p-6 rounded-lg border items-end shadow-md'>
+                    <div className='bg-white flex justify-between p-6 rounded-lg border items-end shadow-md dark:bg-slate-700 '>
                         <div>
-                            <p className='text-xs text-slate-400'>Balance</p>
+                            <p className='text-xs text-slate-400 dark:text-slate-200'>Balance</p>
                             <h2 className='text-4xl font-semibold text-blue-600'>${balance.toFixed(2)}</h2>
                         </div>
                         <div className='border flex items-center text-center rounded-sm max-h-3 p-2.5 font-semibold tracking-wider shadow-md'>
                             <p className='text-sm flex items-center'>{differenceInPorcentage() > 0 ? (<IoIosArrowRoundUp className='text-green-500 text-lg' />) : (<IoIosArrowRoundDown className='text-red-500 text-lg' />)}{differenceInPorcentage().toFixed(2)}%</p>
                         </div>
                     </div>
-                    <div className='bg-white border shadow-md rounded-lg flex items-center p-4'>
+                    <div className='bg-white border shadow-md rounded-lg flex items-center p-4 dark:bg-slate-700 '>
                         <Dialog>
                             <DialogTrigger asChild>
                                 <div className='bg-green-200 rounded-md p-3 text-green-700 cursor-pointer'>
@@ -423,16 +423,16 @@ export const Main: FC = () => {
                             <p className='text-sm text-slate-500'>Create an income manually</p>
                         </div>
                     </div>
-                    <div className='bg-white flex justify-between p-6 rounded-lg border items-end shadow-md'>
+                    <div className='bg-white flex justify-between p-6 rounded-lg border items-end shadow-md dark:bg-slate-700'>
                         <div>
-                            <p className='text-xs text-slate-400'>Incomes</p>
+                            <p className='text-xs text-slate-400 dark:text-slate-200'>Incomes</p>
                             <h2 className='text-4xl font-semibold text-green-600'>$ {income.toFixed(2)}</h2>
                         </div>
                         <div className='border flex items-center text-center rounded-sm max-h-3 p-2.5 font-semibold tracking-wider shadow-md'>
                             <p className='text-sm flex items-center'>{differenceInPorcentageIncome() > 0 ? (<IoIosArrowRoundUp className='text-green-500 text-lg' />) : (<IoIosArrowRoundDown className='text-red-500 text-lg' />)}{differenceInPorcentageIncome().toFixed(2)}%</p>
                         </div>
                     </div>
-                    <div className='bg-white border shadow-md rounded-lg flex items-center p-4'>
+                    <div className='bg-white border shadow-md rounded-lg flex items-center p-4 dark:bg-slate-700'>
                         <Dialog>
                             <DialogTrigger asChild>
                                 <div className='bg-red-200 rounded-md p-3 text-red-700 cursor-pointer'><FiMinusCircle className='text-xl hover:scale-125 ' /></div>
@@ -474,9 +474,9 @@ export const Main: FC = () => {
                             <p className='text-sm text-slate-500'>Create an expense manually</p>
                         </div>
                     </div>
-                    <div className='bg-white flex justify-between p-6 rounded-lg border items-end shadow-md'>
+                    <div className='bg-white flex justify-between p-6 rounded-lg border items-end shadow-md dark:bg-slate-700'>
                         <div>
-                            <p className='text-xs text-slate-400'>Expenses</p>
+                            <p className='text-xs text-slate-400 dark:text-slate-200'>Expenses</p>
                             <h2 className='text-4xl font-semibold text-red-600'>$ {expense.toFixed(2)}</h2>
                         </div>
                         <div className='border flex items-center text-center rounded-sm max-h-3 p-2.5 font-semibold tracking-wider shadow-md'>
@@ -486,7 +486,7 @@ export const Main: FC = () => {
                 </div>
             </section>
             <div className='flex justify-center gap-16 items-stretch'>
-                <section className='border rounded-lg bg-white p-4 m-4'>
+                <section className='border rounded-lg bg-white p-4 m-4 dark:bg-slate-700'>
                     <p className='font-semibold'>Expenses by category</p>
                     <div>
                         <DonutChart results={results} />
@@ -495,10 +495,10 @@ export const Main: FC = () => {
                         <GraphicListItem results={results} />
                     </div>
                 </section>
-                <section className='bg-white '>
-                    <header className='p-4 border rounded-t-lg'>
+                <section className='bg-white dark:bg-slate-700'>
+                    <header className='p-4 border rounded-t-lg '>
                         <h4 className='font-semibold text-lg'>Last transactions</h4>
-                        <p className='text-sm font-semibold text-slate-400'>Check your last transactions</p>
+                        <p className='text-sm font-semibold text-slate-400 '>Check your last transactions</p>
                     </header>
                     <main>
                         <TransactionHeader />
