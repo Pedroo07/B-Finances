@@ -216,6 +216,7 @@ export const Main: FC = () => {
         setMethod('')
         setDate('')
         localStorage.setItem("items", JSON.stringify(sortedItems))
+        
     }
     const calculateTotals = (items: Income[]): { income: number; expense: number; balance: number } => {
         let totalIncome = 0;
@@ -253,6 +254,7 @@ export const Main: FC = () => {
         setIncome(income);
         setExpense(expense);
         setBalance(balance);
+        
     }, [selectedMonth]);
 
     const thisMonthSelected = () => {
