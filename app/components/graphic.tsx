@@ -1,9 +1,9 @@
 import Chart from "react-apexcharts"
-import { Income } from "../incomes"
 import { FC, useEffect, useState } from "react"
 import { BiHome, BiGroup} from "react-icons/bi"
 import { IoFastFood } from "react-icons/io5";
 import { RiMoneyDollarCircleLine } from "react-icons/ri";
+import { Transaction } from "@/lib/entities/transaction";
 
 type ChartData = {
     method: string;
@@ -15,7 +15,7 @@ type SeparateResults = {
     percentageData: ChartData[];
 };
 
-export function separateAmountByMethod(items: Income[]): SeparateResults {
+export function separateAmountByMethod(items: Transaction[]): SeparateResults {
     const totalExpenses = items.filter(item => item.amount < 0).reduce((acc, item) => acc + Math.abs(item.amount), 0)
     const expensesByMethod: Record<string, number> = {}
     items.forEach((item) => {

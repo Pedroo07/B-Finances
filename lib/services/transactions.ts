@@ -1,8 +1,8 @@
-import { collection, doc, addDoc, getDoc, deleteDoc } from 'firebase/firestore';
+import { collection, doc, addDoc, getDoc, deleteDoc, getDocs, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase'
 import { Transaction } from '../entities/transaction';
 
-type TransactionDto = {
+export type TransactionDto = {
     description: string
     method: string
     date: string
@@ -25,19 +25,33 @@ export async function deleteTransaction(id: string): Promise<void> {
     await deleteDoc(docRef)
 
 }
-export async function getTransaction(id: string): Promise<Transaction> {
+export async function getTransaction(): Promise<Transaction[]> {
+    const docRef = collection(db, 'transactions')
+
+    const foundCard = await getDocs(docRef)
+
+    return foundCard.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+    })) as Transaction[]
+}
+export async function updateTransaction(id: string, data: Transaction): Promise<Transaction> {
     const docRef = doc(db, 'transactions', id)
 
     const foundCard = await getDoc(docRef)
 
     if (!foundCard.exists()) {
-        throw new Error("Not found card document!")
+        throw new Error("Not found transactions document!")
     }
+    const previousData = foundCard.data() as Omit<Transaction, "id">
+    await updateDoc(docRef, data)
 
-    const data = foundCard.data() as Omit<Transaction, "id">
-
-    return {
-        id: id,
-        ...data
-    }
+    const transaction = Object.assign(
+        previousData,
+        data,
+        {
+            id: docRef.id
+        }
+    )
+    return transaction
 }

@@ -1,8 +1,8 @@
-export type Transaction = {
+export type Transaction =  {
     description: string
     method: string
     date: string
     amount: number
-    id: string
     type: string
+    id: string
 }
