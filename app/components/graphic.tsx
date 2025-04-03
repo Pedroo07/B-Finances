@@ -3,7 +3,14 @@ import { FC, useEffect, useState } from "react"
 import { BiHome, BiGroup} from "react-icons/bi"
 import { IoFastFood } from "react-icons/io5";
 import { RiMoneyDollarCircleLine } from "react-icons/ri";
-import { Transaction } from "@/lib/entities/transaction";
+
+ type Transaction = {
+    description: string
+    method: string
+    date: string
+    amount: number
+    type?: string
+}
 
 type ChartData = {
     method: string;

@@ -2,12 +2,16 @@
 import React, { useEffect, useState } from 'react'
 
  const ThemeToggle = () => {
+    const date = new Date()
+    const hoursUtc = date.getHours()
 
-    const [isDarkMode, setIsDarkMode] = useState(false)
+    const [isDarkMode, setIsDarkMode] = useState((hoursUtc >= 18 || hoursUtc <= 5) ? true : false)
 
     const toggleTheme = () => {
         setIsDarkMode(!isDarkMode)
     }
+
+
 
     useEffect(() => {
         if(isDarkMode) {
@@ -15,6 +19,7 @@ import React, { useEffect, useState } from 'react'
         }else {
             document.documentElement.classList.remove('dark')
         }
+
     }, [isDarkMode])
   return (
     <button

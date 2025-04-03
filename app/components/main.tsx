@@ -20,6 +20,7 @@ export const Main: FC = () => {
     const [price, setPrice] = useState(0)
     const [date, setDate] = useState('')
     const [allItems, setAllItems] = useState<Transaction[]>([])
+    const [filterItems, setFilterItems] = useState<Transaction[]>([])
     const [expense, setExpense] = useState<number>(0)
     const [income, setIncome] = useState<number>(0)
     const [balance, setBalance] = useState<number>(0)
@@ -28,7 +29,7 @@ export const Main: FC = () => {
     }
     const handleFetchTransaction = async () => {
         try {
-            const transactions = await getTransaction()
+            const transactions = await getTransaction() || "[]"
             setAllItems(transactions)
         } catch (error) {
             console.error("Error fetching transactions:", error);
@@ -48,7 +49,6 @@ export const Main: FC = () => {
         setExpense(expenses)
         setIncome(incomes)
         setBalance(incomes - Math.abs(expenses))
-        console.log(filteredTransactionsExpense, filteredTransactionsIncome)
     }
 
 
@@ -75,7 +75,6 @@ export const Main: FC = () => {
     const cauculateCurrentMonthTotals = () => {
         if (typeof window === 'undefined') return { expense: 0, income: 0, balance: 0 }
 
-        const storedItems: Transaction[] = JSON.parse(localStorage.getItem("items") || "[]")
 
         const today = new Date()
         const currentYear = today.getFullYear()
@@ -83,7 +82,7 @@ export const Main: FC = () => {
         let totalIncome = 0
         let totalExpense = 0
 
-        storedItems.forEach(item => {
+        allItems.forEach(item => {
             const [year, month] = item.date.split("-").map(Number)
             if (year === currentYear && month === selectedMonth) {
                 if (item.amount > 0) {
@@ -103,15 +102,13 @@ export const Main: FC = () => {
     const cauculateCurrentYear = () => {
         if (typeof window === 'undefined') return { expense: 0, income: 0, balance: 0 }
 
-        const storedItems: Transaction[] = JSON.parse(localStorage.getItem("items") || "[]")
-
         const today = new Date()
         const currentYear = today.getFullYear()
 
         let totalIncome = 0
         let totalExpense = 0
 
-        storedItems.forEach(item => {
+        allItems.forEach(item => {
             const [year] = item.date.split("-").map(Number)
             if (year === currentYear) {
                 if (item.amount > 0) {
@@ -134,9 +131,8 @@ export const Main: FC = () => {
         const itemArray = allItems.filter(item => {
             return item.id !== id
         })
+        
         setAllItems(itemArray)
-
-
         const filteredItems = itemArray.filter(item => {
             const [year, month] = item.date.split("-").map(Number)
             return year === new Date().getFullYear() && month === selectedMonth
@@ -148,11 +144,11 @@ export const Main: FC = () => {
         setBalance(balance);
         setAllItems(filteredItems)
         filteredTransactions()
+        handleFetchTransaction()
         setText('')
         setPrice(0)
         setMethod('')
         setDate('')
-        localStorage.setItem("items", JSON.stringify(itemArray))
     }
 
     const handleAddNewItem = (IsIncomeDialog: boolean): void => {
@@ -179,22 +175,14 @@ export const Main: FC = () => {
             setIncome(income);
             setExpense(expense);
             setBalance(balance);
-            
+            handleFetchTransaction()
             setAllItems(filteredItems)
-
             filteredTransactions()
             setText('')
             setPrice(0)
             setMethod('')
             setDate('')
-            
-            localStorage.setItem("items", JSON.stringify(sortedItems))
         })
-
-
-
-
-
 
     }
     const calculateTotals = (items: Transaction[]): { income: number; expense: number; balance: number } => {
@@ -217,58 +205,66 @@ export const Main: FC = () => {
     };
     const [selectedMonth, setSelectedMonth] = useState<number>(() => new Date().getMonth() + 1)
 
+    const [activeFilter, setActiveFilter] = useState("month")
 
     useEffect(() => {
-        const storedItems: Transaction[] = JSON.parse(localStorage.getItem("items") || "[]");
-        setAllItems(storedItems);
-
-        const filteredItems = storedItems.filter(item => {
+        if (activeFilter !== "month") return
+        const filteredItems = allItems.filter(item => {
             const [year, month] = item.date.split("-").map(Number);
             return year === new Date().getFullYear() && month === selectedMonth;
         });
 
-        setAllItems(filteredItems);
-
+        setFilterItems(filteredItems)
         const { income, expense, balance } = cauculateCurrentMonthTotals();
         setIncome(income);
         setExpense(expense);
         setBalance(balance);
+    }, [selectedMonth, allItems]);
 
-    }, [selectedMonth]);
+    useEffect(() => {
+        handleFetchTransaction();
+    }, []);
+
+    const handleMonthChange = (newMonth: number) => {
+        setSelectedMonth(newMonth);
+        setActiveFilter("month");
+    };
 
     const thisMonthSelected = () => {
+        setActiveFilter("month")
         const thisMonth = new Date().getMonth() + 1
         setSelectedMonth(thisMonth)
     }
     const lastMonthSelected = () => {
+        setActiveFilter("month")
         const lastMonth = new Date().getMonth()
         setSelectedMonth(lastMonth)
     }
 
     const lastYearFilter = () => {
-        const storedItems: Transaction[] = JSON.parse(localStorage.getItem("items") || "[]");
+        setActiveFilter("year")
 
-        const filteredItems = storedItems.filter(item => {
+        const filteredItems = allItems.filter(item => {
             const [year] = item.date.split("-").map(Number);
             return year === new Date().getFullYear()
         });
 
-        setAllItems(filteredItems);
+        setFilterItems(filteredItems);
 
         const { income, expense, balance } = cauculateCurrentYear();
         setIncome(income);
         setExpense(expense);
         setBalance(balance);
+        setSelectedMonth(0)
     }
 
     const differenceInPorcentage = () => {
-        const storedItems: Transaction[] = JSON.parse(localStorage.getItem("items") || "[]");
 
-        const filteredItems = storedItems.filter(item => {
+        const filteredItems = allItems.filter(item => {
             const [year, month] = item.date.split("-").map(Number);
             return year === new Date().getFullYear() && month === selectedMonth;
         });
-        const lastItems = storedItems.filter(item => {
+        const lastItems = allItems.filter(item => {
             const [year, month] = item.date.split("-").map(Number);
             return year === new Date().getFullYear() && month === new Date().getMonth();
         });
@@ -287,13 +283,12 @@ export const Main: FC = () => {
     }
 
     const differenceInPorcentageIncome = () => {
-        const storedItems: Transaction[] = JSON.parse(localStorage.getItem("items") || "[]");
 
-        const filteredItems = storedItems.filter(item => {
+        const filteredItems = allItems.filter(item => {
             const [year, month] = item.date.split("-").map(Number);
             return year === new Date().getFullYear() && month === selectedMonth && item.amount > 0
         });
-        const lastItems = storedItems.filter(item => {
+        const lastItems = allItems.filter(item => {
             const [year, month] = item.date.split("-").map(Number);
             return year === new Date().getFullYear() && month === new Date().getMonth() && item.amount > 0
         });
@@ -312,13 +307,12 @@ export const Main: FC = () => {
     }
 
     const differenceInPorcentageExpense = () => {
-        const storedItems: Transaction[] = JSON.parse(localStorage.getItem("items") || "[]");
 
-        const filteredItems = storedItems.filter(item => {
+        const filteredItems = allItems.filter(item => {
             const [year, month] = item.date.split("-").map(Number);
             return year === new Date().getFullYear() && month === selectedMonth && item.amount < 0
         });
-        const lastItems = storedItems.filter(item => {
+        const lastItems = allItems.filter(item => {
             const [year, month] = item.date.split("-").map(Number);
             return year === new Date().getFullYear() && month === new Date().getMonth() && item.amount < 0
         });
@@ -336,7 +330,7 @@ export const Main: FC = () => {
 
     }
 
-    const results = separateAmountByMethod(allItems)
+    const results = separateAmountByMethod(filterItems)
 
     return (
         <div>
@@ -347,7 +341,7 @@ export const Main: FC = () => {
                         <li className='border p-2 bg-white text-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-200'><button onClick={lastYearFilter}>Last Year</button></li>
                         <li className='border p-2 bg-white text-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-200'><button onClick={lastMonthSelected}>Last Month</button></li>
                         <li className='border p-2 bg-white text-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-200'><button onClick={thisMonthSelected}>This Month</button></li>
-                        <Period onMonthChange={setSelectedMonth} selectedMonth={selectedMonth} />
+                        <Period onMonthChange={handleMonthChange} selectedMonth={selectedMonth} />
                     </ul>
                 </div>
                 <div className='grid grid-flow-col grid-rows-2 gap-8  mx-auto max-w-screen-xl items-center'>
@@ -484,7 +478,7 @@ export const Main: FC = () => {
                         <TransactionHeader />
                         <div className='border rounded-b-lg max-h-96 overflow-auto'>
                             <ul className='divide-y '>
-                                {allItems.map((item => (
+                                {filterItems.map((item => (
                                     <TransactionItem key={item.id} item={item} onDelete={handleDeleteItem} />
                                 )))}
                             </ul>

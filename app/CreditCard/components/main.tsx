@@ -3,14 +3,14 @@ import React, { ChangeEvent, useEffect, useState } from 'react'
 import { TransactionHeader, TransactionItem } from "@/app/components/transactions"
 import { DonutChart, GraphicListItem, separateAmountByMethod } from "@/app/components/graphic"
 import Period from '../../components/period'
-import { Income } from "../../incomes"
+import { CardTransaction } from '@/lib/entities/cardTransaction'
 import { IoIosArrowRoundDown, IoIosArrowRoundUp } from 'react-icons/io'
 import { Button } from '@/components/ui/button'
 import { DialogHeader, DialogFooter, Dialog, DialogTrigger, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectGroup, SelectLabel, SelectItem } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import { FiMinusCircle } from 'react-icons/fi'
-import { v4 as uuidv4 } from 'uuid';
+import { CardTransactionDto, createCardTransaction, deleteCardTransaction, getCardTransaction } from '@/lib/services/cardTransactions'
 
 
 export const Main = () => {
@@ -18,9 +18,23 @@ export const Main = () => {
     const [method, setMethod] = useState('')
     const [price, setPrice] = useState(0)
     const [date, setDate] = useState('')
-    const sortItemByDate = (items: Income[]): Income[] => {
+    const [items, setItems] = useState<CardTransaction[]>([])
+    const [filterItems, setFilterItems] = useState<CardTransaction[]>([])
+    const [expense, setExpense] = useState<number>(() => {
+        return items.reduce((acc, item) => acc + item.amount, 0)
+    })
+    const sortItemByDate = (items: CardTransaction[]): CardTransaction[] => {
         return [...items].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
 
+    }
+
+    const handleFetchTransaction = async () => {
+        try {
+            const transactions = await getCardTransaction() || "[]"
+            setItems(transactions)
+        } catch (error) {
+            console.error("Error fetching transactions:", error);
+        }
     }
     const handleTextChange = (event: ChangeEvent<HTMLInputElement>): void => {
         const newValue = event.target.value
@@ -38,31 +52,14 @@ export const Main = () => {
         setPrice(newValue)
     }
 
-    const [items, setItems] = useState<Income[]>(() => {
-        try {
-            const itemsOnStorage = localStorage.getItem("credits")
-            return itemsOnStorage ? JSON.parse(itemsOnStorage) : []
-        } catch (e) {
-            console.error("error parsing 'credits' from localStorage", e)
-            return []
-        }
-    })
 
-    const [expense, setExpense] = useState<number>(() => {
-        return items.reduce((acc, item) => acc + item.amount, 0)
-    })
-
-    const [allItems, setAllItems] = useState<Income[]>([])
-
-
-    const handleDeleteItem = (id: string) => {
-        const itemArray = allItems.filter(item => {
+    const handleDeleteItem = async (id: string) => {
+        await deleteCardTransaction(id)
+        const itemArray = items.filter(item => {
             return item.id !== id
         })
 
-        setAllItems(itemArray)
-
-
+        setItems(itemArray)
         const filteredItems = itemArray.filter(item => {
             const [year, month] = item.date.split("-").map(Number)
             return year === new Date().getFullYear() && month === selectedMonth
@@ -71,104 +68,108 @@ export const Main = () => {
 
         const total = filteredItems.reduce((acc, item) => acc + item.amount, 0);
 
-
-        setItems(filteredItems)
         setExpense(total);
+        setItems(filteredItems)
+        handleFetchTransaction()
         setText('')
         setPrice(0)
         setMethod('')
         setDate('')
-
-        localStorage.setItem("credits", JSON.stringify(itemArray))
-
     }
 
     const handleAddNewItem = (isIncomeDialog: boolean) => {
         const adjustedPrice = isIncomeDialog ? Math.abs(price) : -Math.abs(price)
 
-        const newItem: Income = {
+        const newItem: CardTransactionDto = {
             amount: adjustedPrice,
             date: date,
             description: text,
             method: method,
-            id: uuidv4()
         }
-        const itemsArray = [newItem, ...allItems]
-        const sortedItems = sortItemByDate(itemsArray)
-        setAllItems(sortedItems)
 
+        createCardTransaction(newItem).then((newTrasaction) => {
+            const itemsArray = [newTrasaction, ...items]
+            const sortedItems = sortItemByDate(itemsArray)
+            setItems(sortedItems)
 
+            const filteredItems = sortedItems.filter(item => {
+                const [year, month] = item.date.split("-").map(Number)
+                return year === new Date().getFullYear() && month === selectedMonth
+            })
 
-        const filteredItems = sortedItems.filter(item => {
-            const [year, month] = item.date.split("-").map(Number)
-            return year === new Date().getFullYear() && month === selectedMonth
+            const total = filteredItems.reduce((acc, item) => acc + item.amount, 0);
+
+            handleFetchTransaction()
+            setItems(filteredItems)
+            setExpense(total)
+            setText('')
+            setPrice(0)
+            setMethod('')
+            setDate('')
         })
-
-        const total = filteredItems.reduce((acc, item) => acc + item.amount, 0);
-
-
-        setItems(filteredItems)
-        setExpense(total)
-        setText('')
-        setPrice(0)
-        setMethod('')
-        setDate('')
-        localStorage.setItem("credits", JSON.stringify(sortedItems))
-
     }
-
-
     const [selectedMonth, setSelectedMonth] = useState<number>(() => new Date().getMonth() + 1)
 
-    useEffect(() => {
-        const storedItems: Income[] = JSON.parse(localStorage.getItem("credits") || '[]')
-        setAllItems(storedItems)
+    const [activeFilter, setActiveFilter] = useState("month")
 
-        const filteredItems = storedItems.filter(item => {
+    useEffect(() => {
+        if (activeFilter !== "month") return
+        const filteredItems = items.filter(item => {
             const [year, month] = item.date.split("-").map(Number);
             return year === new Date().getFullYear() && month === selectedMonth;
         });
 
-        setItems(filteredItems)
-
+        setFilterItems(filteredItems)
         const total = filteredItems.reduce((acc, item) => acc + item.amount, 0);
         setExpense(total);
 
-    }, [selectedMonth])
+    }, [selectedMonth, items])
+
+    useEffect(() => {
+        handleFetchTransaction();
+    }, []);
+
+    const handleMonthChange = (newMonth: number) => {
+        setSelectedMonth(newMonth);
+        setActiveFilter("month");
+    };
 
     const thisMonthSelected = () => {
         const thisMonth = new Date().getMonth() + 1
         setSelectedMonth(thisMonth)
+        setActiveFilter("month")
     }
     const lastMonthSelected = () => {
+        setActiveFilter("month")
         const lastMonth = new Date().getMonth()
         setSelectedMonth(lastMonth)
     }
     const lastYearFilter = () => {
-        const storedItems: Income[] = JSON.parse(localStorage.getItem("credits") || "[]");
-        setAllItems(storedItems);
+        setActiveFilter("year")
+        handleFetchTransaction()
 
-        const filteredItems = storedItems.filter(item => {
+        const filteredItems = items.filter(item => {
             const [year] = item.date.split("-").map(Number);
             return year === new Date().getFullYear()
         });
 
+
         const total = filteredItems.reduce((acc, item) => acc + item.amount, 0);
 
-        setItems(filteredItems);
+        setFilterItems(filteredItems);
         setExpense(total);
+        setSelectedMonth(0)
 
     }
 
     const differenceInPorcentage = () => {
-        const storedItems: Income[] = JSON.parse(localStorage.getItem("credits") || ("[]"))
 
-        const filteredItems = storedItems.filter(item => {
+        const filteredItems = items.filter(item => {
             const [year, month] = item.date.split("-").map(Number)
             return year === new Date().getFullYear() && month === selectedMonth
         })
 
-        const lastItems = storedItems.filter(item => {
+        const lastItems = items.filter(item => {
             const [year, month] = item.date.split("-").map(Number)
             return year === new Date().getFullYear() && month === new Date().getMonth()
         })
@@ -187,7 +188,7 @@ export const Main = () => {
         return totalInDifference
     }
 
-    const results = separateAmountByMethod(items)
+    const results = separateAmountByMethod(filterItems)
 
     return (
         <div>
@@ -195,10 +196,10 @@ export const Main = () => {
                 <div className='flex justify-around items-center py-12'>
                     <h1 className='font-semibold text-3xl'>Hello!</h1>
                     <ul className='flex text-sm font-semibold divide-x'>
-                    <li className='border p-2 bg-white text-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-200'><button onClick={lastYearFilter}>Last Year</button></li>
+                        <li className='border p-2 bg-white text-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-200'><button onClick={lastYearFilter}>Last Year</button></li>
                         <li className='border p-2 bg-white text-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-200'><button onClick={lastMonthSelected}>Last Month</button></li>
                         <li className='border p-2 bg-white text-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-200'><button onClick={thisMonthSelected}>This Month</button></li>
-                        <Period onMonthChange={setSelectedMonth} selectedMonth={selectedMonth} />
+                        <Period onMonthChange={handleMonthChange} selectedMonth={selectedMonth} />
                     </ul>
                 </div>
                 <div className='flex justify-around p-6 mx-auto items-center'>
@@ -274,7 +275,7 @@ export const Main = () => {
                         <TransactionHeader />
                         <div className='border rounded-b-lg max-h-96 overflow-auto'>
                             <ul className='divide-y '>
-                                {items.map((item => (
+                                {filterItems.map((item => (
                                     <TransactionItem key={item.id} item={item} onDelete={handleDeleteItem} />
                                 )))}
                             </ul>
