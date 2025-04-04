@@ -1,63 +1,68 @@
 "use client"
 import React, { useEffect, useState } from 'react'
 import { TransactionHeader, TransactionItem } from "@/app/components/transactions"
-import { Income } from "@/app/incomes"
 import { DonutChart, GraphicListItem, separateAmountByMethod } from "@/app/components/graphic"
 import Period from '@/app/components/period'
+import { getTransaction } from '@/lib/services/transactions'
+import { Transaction } from '@/lib/entities/transaction'
 export const Main = () => {
-  const [items, setItems] = useState<Income[]>(() => {
-
+  const [items, setItems] = useState<Transaction[]>([])
+  const [filterItems, setFilterItems] = useState<Transaction[]>([])
+  
+  const handleFetchItems = async () => {
     try {
-      const itemsOnStorage = localStorage.getItem("items")
-      return itemsOnStorage ? JSON.parse(itemsOnStorage) : []
+      const itemsOnStorage = await getTransaction() || "[]"
+      setItems(itemsOnStorage)
     } catch (e) {
       console.error("error parsing 'items' from localStorage", e)
       return []
     }
-
-  })
-  const handleDeleteItem = () => {
-
   }
+  const handleDeleteItem = () => {}
 
-  const results = separateAmountByMethod(items)
 
   const [selectedMonth, setSelectedMonth] = useState<number>(() => new Date().getMonth() + 1)
 
-
-
+  const [activeFilter, setActiveFilter] = useState('month')
   useEffect(() => {
-    const storedItems: Income[] = JSON.parse(localStorage.getItem("items") || " []")
+    if (activeFilter !== "month") return
+    handleFetchItems()
     const currentYear = new Date().getFullYear()
 
-    const filteredItems = storedItems.filter((item) => {
+    const filteredItems = items.filter((item) => {
       const [year, month] = item.date.split('-').map(Number)
       return year === currentYear && month === selectedMonth
     })
 
-    setItems(filteredItems)
+    setFilterItems(filteredItems)
 
-  }, [selectedMonth])
+  }, [selectedMonth, items])
 
   const thisMonthSelected = () => {
+    setActiveFilter('month')
     const thisMonth = new Date().getMonth() + 1
     setSelectedMonth(thisMonth)
   }
   const lastMonthSelected = () => {
+    setActiveFilter('month')
     const lastMonth = new Date().getMonth()
     setSelectedMonth(lastMonth)
   }
   const lastYearFilter = () => {
-    const storedItems: Income[] = JSON.parse(localStorage.getItem("items") || " []")
-    const currentYear = new Date().getFullYear()
+    setActiveFilter('year')
+    handleFetchItems()
 
-    const filteredItems = storedItems.filter((item) => {
-      const [year] = item.date.split('-').map(Number)
-      return year === currentYear
-    })
+    const filteredItems = items.filter(item => {
+        const [year] = item.date.split("-").map(Number);
+        return year === new Date().getFullYear()
+    });
 
-    setItems(filteredItems)
-  }
+    setFilterItems(filteredItems);
+    setSelectedMonth(0)
+
+}
+
+  const results = separateAmountByMethod(filterItems)
 
   return (
     <div className='flex justify-around items-center'>
@@ -82,7 +87,7 @@ export const Main = () => {
         <TransactionHeader />
         <div className='border rounded-b-lg max-h-[80vh] overflow-auto'>
           <ul className='divide-y '>
-            {items.map((item => (
+            {filterItems.map((item => (
               <TransactionItem key={item.id} item={item} onDelete={handleDeleteItem} />
             )))}
           </ul>
