@@ -1,6 +1,6 @@
 export type  Income = {
 description: string
-method: string
+category: string
 date: string
 amount: number
 id: string

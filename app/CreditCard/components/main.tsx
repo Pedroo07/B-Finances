@@ -1,21 +1,29 @@
 "use client"
 import React, { ChangeEvent, useEffect, useState } from 'react'
 import { TransactionHeader, TransactionItem } from "@/app/components/transactions"
-import { DonutChart, GraphicListItem, separateAmountByMethod } from "@/app/components/graphic"
+import { DonutChart, GraphicListItem, separateAmountByCategory } from "@/app/components/graphic"
 import Period from '../../components/period'
 import { CardTransaction } from '@/lib/entities/cardTransaction'
 import { IoIosArrowRoundDown, IoIosArrowRoundUp } from 'react-icons/io'
+import { FaChevronRight, FaChevronLeft } from "react-icons/fa";
 import { Button } from '@/components/ui/button'
 import { DialogHeader, DialogFooter, Dialog, DialogTrigger, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectGroup, SelectLabel, SelectItem } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import { FiMinusCircle } from 'react-icons/fi'
 import { CardTransactionDto, createCardTransaction, deleteCardTransaction, getCardTransaction } from '@/lib/services/cardTransactions'
+import Image from 'next/image'
+import mercadoImg from "../../imgs/mercado_pago_card.png"
+import picpayImg from "../../imgs/pic_pay_card.png"
+import nubankImg from "../../imgs/nubank_card.png"
 
 
 export const Main = () => {
+    const cards = ['MercadoPago', 'PicPay', 'Nubank']
+    const [cardIndex, setCardIndex] = useState(0)
     const [text, setText] = useState('')
-    const [method, setMethod] = useState('')
+    const [category, setCategory] = useState('')
+    const [card, setCard] = useState('')
     const [price, setPrice] = useState(0)
     const [date, setDate] = useState('')
     const [items, setItems] = useState<CardTransaction[]>([])
@@ -40,8 +48,11 @@ export const Main = () => {
         const newValue = event.target.value
         setText(newValue)
     }
-    const handleMethodChange = (value: string): void => {
-        setMethod(value)
+    const handleCardChange = (value: string): void => {
+        setCard(value)
+    }
+    const handlecategoryChange = (value: string): void => {
+        setCategory(value)
     }
     const handleDateChange = (event: ChangeEvent<HTMLInputElement>): void => {
         const newValue = event.target.value
@@ -52,7 +63,27 @@ export const Main = () => {
         setPrice(newValue)
     }
 
+    const getCardImage = (cardName: string) => {
+        switch (cardName) {
+            case 'MercadoPago':
+                return mercadoImg;
+            case 'PicPay':
+                return picpayImg;
+            case 'Nubank':
+                return nubankImg;
+            default:
+                return mercadoImg;
+        }
+    }
 
+    const filterTransactionsByCard = async (card: string) => {
+        const allTransactions = await getCardTransaction()
+        const filtered = allTransactions.filter(transaction => transaction.card === card)
+        setItems(filtered)
+
+    }
+
+    const currentCard = cards[cardIndex]
     const handleDeleteItem = async (id: string) => {
         await deleteCardTransaction(id)
         const itemArray = items.filter(item => {
@@ -73,7 +104,7 @@ export const Main = () => {
         handleFetchTransaction()
         setText('')
         setPrice(0)
-        setMethod('')
+        setCategory('')
         setDate('')
     }
 
@@ -83,8 +114,9 @@ export const Main = () => {
         const newItem: CardTransactionDto = {
             amount: adjustedPrice,
             date: date,
+            card: card,
             description: text,
-            method: method,
+            category: category,
         }
 
         createCardTransaction(newItem).then((newTrasaction) => {
@@ -104,7 +136,7 @@ export const Main = () => {
             setExpense(total)
             setText('')
             setPrice(0)
-            setMethod('')
+            setCategory('')
             setDate('')
         })
     }
@@ -126,8 +158,9 @@ export const Main = () => {
     }, [selectedMonth, items])
 
     useEffect(() => {
-        handleFetchTransaction();
-    }, []);
+        handleFetchTransaction(); 
+        filterTransactionsByCard(cards[cardIndex]);
+    }, [cardIndex]);
 
     const handleMonthChange = (newMonth: number) => {
         setSelectedMonth(newMonth);
@@ -161,7 +194,6 @@ export const Main = () => {
         setSelectedMonth(0)
 
     }
-
     const differenceInPorcentage = () => {
 
         const filteredItems = items.filter(item => {
@@ -188,7 +220,25 @@ export const Main = () => {
         return totalInDifference
     }
 
-    const results = separateAmountByMethod(filterItems)
+    const handleNext = () => {
+        setCardIndex((prev) => {
+            const nextIndex = (prev + 1) % cards.length
+            filterTransactionsByCard(cards[nextIndex])
+            return nextIndex
+        })
+    }
+    const handlePrev = () => {
+        setCardIndex((prev) => {
+            const prevIndex = (prev - 1 + cards.length) % cards.length
+            filterTransactionsByCard(cards[prevIndex])
+            return prevIndex
+        })
+
+    }
+
+
+
+    const results = separateAmountByCategory(filterItems)
 
     return (
         <div>
@@ -201,6 +251,11 @@ export const Main = () => {
                         <li className='border p-2 bg-white text-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-200'><button onClick={thisMonthSelected}>This Month</button></li>
                         <Period onMonthChange={handleMonthChange} selectedMonth={selectedMonth} />
                     </ul>
+                </div>
+                <div className='flex px-64 items-center gap-5'>
+                    <FaChevronLeft className='cursor-pointer' onClick={handlePrev} />
+                    <Image src={getCardImage(currentCard)} alt='card' width={120} height={120} className='-rotate-90' />
+                    <FaChevronRight className='cursor-pointer' onClick={handleNext} />
                 </div>
                 <div className='flex justify-around p-6 mx-auto items-center'>
                     <div className='bg-white border shadow-md rounded-lg flex p-4 items-center dark:bg-slate-700'>
@@ -216,17 +271,30 @@ export const Main = () => {
                                     <Input type='text' placeholder='Description' value={text} onChange={handleTextChange}></Input>
                                     <Input type='number' placeholder='Amount' value={price} onChange={handlePriceChange}></Input>
                                     <Input type='date' placeholder='Date' value={date} onChange={handleDateChange}></Input>
-                                    <Select value={method} onValueChange={handleMethodChange}>
+                                    <Select value={category} onValueChange={handlecategoryChange}>
                                         <SelectTrigger className="w-[180px]">
-                                            <SelectValue placeholder="Select a method" />
+                                            <SelectValue placeholder="Select a category" />
                                         </SelectTrigger>
                                         <SelectContent>
                                             <SelectGroup>
-                                                <SelectLabel>Methods</SelectLabel>
+                                                <SelectLabel>categorys</SelectLabel>
                                                 <SelectItem value="fixes">Fixes</SelectItem>
                                                 <SelectItem value="foods">Foods</SelectItem>
                                                 <SelectItem value="entertainment">Entertainment</SelectItem>
                                                 <SelectItem value="other">Others</SelectItem>
+                                            </SelectGroup>
+                                        </SelectContent>
+                                    </Select>
+                                    <Select value={card} onValueChange={handleCardChange}>
+                                        <SelectTrigger className="w-[180px]">
+                                            <SelectValue placeholder="Select a is card" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectGroup>
+                                                <SelectLabel>Cards</SelectLabel>
+                                                <SelectItem value="PicPay">PicPay</SelectItem>
+                                                <SelectItem value="Nubank">Nubank</SelectItem>
+                                                <SelectItem value="MercadoPago">MercadoPago</SelectItem>
                                             </SelectGroup>
                                         </SelectContent>
                                     </Select>
@@ -235,7 +303,7 @@ export const Main = () => {
                                     <Button
                                         onClick={() => handleAddNewItem(false)}
                                         type='button'
-                                        disabled={!text || !price || !method || !date}
+                                        disabled={!text || !price || !category || !date || !card}
                                     ><span>Create new</span></Button>
                                 </DialogFooter>
                             </DialogContent>

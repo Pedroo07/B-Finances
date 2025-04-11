@@ -4,9 +4,9 @@ import { Transaction } from '../entities/transaction';
 
 export type TransactionDto = {
     description: string
-    method: string
     date: string
     amount: number
+    category: string
     type: string
 }
 

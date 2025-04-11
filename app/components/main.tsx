@@ -9,14 +9,14 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectVa
 import { Button } from '@/components/ui/button';
 import { TransactionItem, TransactionHeader } from './transactions';
 import { DonutChart, GraphicListItem, } from './graphic';
-import { separateAmountByMethod } from './graphic';
+import { separateAmountByCategory } from './graphic';
 import Period from './period';
 import { Transaction } from '@/lib/entities/transaction';
 import { createTransaction, deleteTransaction, getTransaction, TransactionDto } from '@/lib/services/transactions';
 export const Main: FC = () => {
 
     const [text, setText] = useState('')
-    const [method, setMethod] = useState('')
+    const [category, setCategory] = useState('')
     const [price, setPrice] = useState(0)
     const [date, setDate] = useState('')
     const [allItems, setAllItems] = useState<Transaction[]>([])
@@ -57,9 +57,10 @@ export const Main: FC = () => {
         setText(newValue)
 
     }
-    const handleMethodChange = (value: string): void => {
-        setMethod(value)
+    const handleCategoryChange = (value: string): void => {
+        setCategory(value)
     }
+    
     const handleDateChange = (event: ChangeEvent<HTMLInputElement>): void => {
         const newValue = event.target.value
         setDate(newValue)
@@ -131,7 +132,7 @@ export const Main: FC = () => {
         const itemArray = allItems.filter(item => {
             return item.id !== id
         })
-        
+
         setAllItems(itemArray)
         const filteredItems = itemArray.filter(item => {
             const [year, month] = item.date.split("-").map(Number)
@@ -147,7 +148,7 @@ export const Main: FC = () => {
         handleFetchTransaction()
         setText('')
         setPrice(0)
-        setMethod('')
+        setCategory('')
         setDate('')
     }
 
@@ -158,7 +159,7 @@ export const Main: FC = () => {
             amount: adjustedPrice,
             date: date,
             description: text,
-            method: method,
+            category: category,
             type: IsIncomeDialog ? 'income' : 'expense'
         }
         createTransaction(newItem).then((newTransaction) => {
@@ -180,7 +181,7 @@ export const Main: FC = () => {
             filteredTransactions()
             setText('')
             setPrice(0)
-            setMethod('')
+            setCategory('')
             setDate('')
         })
 
@@ -330,7 +331,7 @@ export const Main: FC = () => {
 
     }
 
-    const results = separateAmountByMethod(filterItems)
+    const results = separateAmountByCategory(filterItems)
 
     return (
         <div>
@@ -369,13 +370,13 @@ export const Main: FC = () => {
                                     <Input type='text' placeholder='Description' value={text} onChange={handleTextChange}></Input>
                                     <Input type='number' placeholder='Amount' value={price} onChange={handlePriceChange}></Input>
                                     <Input type='date' placeholder='Date' value={date} onChange={handleDateChange}></Input>
-                                    <Select value={method} onValueChange={handleMethodChange}>
+                                    <Select value={category} onValueChange={handleCategoryChange}>
                                         <SelectTrigger className="w-[180px]">
-                                            <SelectValue placeholder="Select a method" />
+                                            <SelectValue placeholder="Select a category" />
                                         </SelectTrigger>
                                         <SelectContent>
                                             <SelectGroup>
-                                                <SelectLabel>Methods</SelectLabel>
+                                                <SelectLabel>Categorys</SelectLabel>
                                                 <SelectItem value="salary">Salary</SelectItem>
                                                 <SelectItem value="extra">Extra</SelectItem>
                                                 <SelectItem value="other">Others</SelectItem>
@@ -387,7 +388,7 @@ export const Main: FC = () => {
                                     <Button
                                         onClick={() => handleAddNewItem(true)}
                                         type='button'
-                                        disabled={!text || !price || !method || !date}
+                                        disabled={!text || !price || !category || !date}
                                     ><span>Create new</span></Button>
                                 </DialogFooter>
                             </DialogContent>
@@ -419,13 +420,13 @@ export const Main: FC = () => {
                                     <Input type='text' placeholder='Description' value={text} onChange={handleTextChange}></Input>
                                     <Input type='number' placeholder='Amount' value={price} onChange={handlePriceChange}></Input>
                                     <Input type='date' placeholder='Date' value={date} onChange={handleDateChange}></Input>
-                                    <Select value={method} onValueChange={handleMethodChange}>
+                                    <Select value={category} onValueChange={handleCategoryChange}>
                                         <SelectTrigger className="w-[180px]">
-                                            <SelectValue placeholder="Select a method" />
+                                            <SelectValue placeholder="Select a Category" />
                                         </SelectTrigger>
                                         <SelectContent>
                                             <SelectGroup>
-                                                <SelectLabel>Methods</SelectLabel>
+                                                <SelectLabel>Categorys</SelectLabel>
                                                 <SelectItem value="fixes">Fixes</SelectItem>
                                                 <SelectItem value="foods">Foods</SelectItem>
                                                 <SelectItem value="entertainment">Entertainment</SelectItem>
@@ -438,7 +439,7 @@ export const Main: FC = () => {
                                     <Button
                                         onClick={() => handleAddNewItem(false)}
                                         type='button'
-                                        disabled={!text || !price || !method || !date}
+                                        disabled={!text || !price || !category || !date}
                                     ><span>Create new</span></Button>
                                 </DialogFooter>
                             </DialogContent>

@@ -4,9 +4,10 @@ import { CardTransaction } from '../entities/cardTransaction';
 
 export type CardTransactionDto = {
     description: string
-    method: string
+    category: string
     date: string
     amount: number
+    card: string
 }
 
 const cardsRef = collection(db, "cardTransactions")

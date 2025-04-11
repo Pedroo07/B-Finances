@@ -1,7 +1,7 @@
 "use client"
 import React, { useEffect, useState } from 'react'
 import { TransactionHeader, TransactionItem } from "@/app/components/transactions"
-import { DonutChart, GraphicListItem, separateAmountByMethod } from "@/app/components/graphic"
+import { DonutChart, GraphicListItem, separateAmountByCategory } from "@/app/components/graphic"
 import Period from '@/app/components/period'
 import { getTransaction } from '@/lib/services/transactions'
 import { Transaction } from '@/lib/entities/transaction'
@@ -62,7 +62,7 @@ export const Main = () => {
 
 }
 
-  const results = separateAmountByMethod(filterItems)
+  const results = separateAmountByCategory(filterItems)
 
   return (
     <div className='flex justify-around items-center'>
