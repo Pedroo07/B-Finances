@@ -102,6 +102,7 @@ export const Main = () => {
         setExpense(total);
         setItems(filteredItems)
         handleFetchTransaction()
+        filterTransactionsByCard(cards[cardIndex]);
         setText('')
         setPrice(0)
         setCategory('')
@@ -132,6 +133,7 @@ export const Main = () => {
             const total = filteredItems.reduce((acc, item) => acc + item.amount, 0);
 
             handleFetchTransaction()
+            filterTransactionsByCard(cards[cardIndex]);
             setItems(filteredItems)
             setExpense(total)
             setText('')
@@ -165,17 +167,20 @@ export const Main = () => {
     const handleMonthChange = (newMonth: number) => {
         setSelectedMonth(newMonth);
         setActiveFilter("month");
+        filterTransactionsByCard(cards[cardIndex]);
     };
 
     const thisMonthSelected = () => {
         const thisMonth = new Date().getMonth() + 1
         setSelectedMonth(thisMonth)
         setActiveFilter("month")
+        filterTransactionsByCard(cards[cardIndex]);
     }
     const lastMonthSelected = () => {
         setActiveFilter("month")
         const lastMonth = new Date().getMonth()
         setSelectedMonth(lastMonth)
+        filterTransactionsByCard(cards[cardIndex]);
     }
     const lastYearFilter = () => {
         setActiveFilter("year")
@@ -190,6 +195,7 @@ export const Main = () => {
         const total = filteredItems.reduce((acc, item) => acc + item.amount, 0);
 
         setFilterItems(filteredItems);
+        filterTransactionsByCard(cards[cardIndex]);
         setExpense(total);
         setSelectedMonth(0)
 
@@ -285,9 +291,9 @@ export const Main = () => {
                                             </SelectGroup>
                                         </SelectContent>
                                     </Select>
-                                    <Select value={card} onValueChange={handleCardChange}>
+                                    <Select value={card} onValueChange={handleCardChange} defaultValue='PicPay' >
                                         <SelectTrigger className="w-[180px]">
-                                            <SelectValue placeholder="Select a is card" />
+                                            <SelectValue placeholder="Select a is card"  />
                                         </SelectTrigger>
                                         <SelectContent>
                                             <SelectGroup>
