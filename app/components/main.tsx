@@ -132,28 +132,30 @@ export const Main: FC = () => {
     }
 
     const handleDeleteItem = async (id: string) => {
-        await deleteTransaction(id)
-        const itemArray = allItems.filter(item => {
-            return item.id !== id
-        })
-
-        setAllItems(itemArray)
-        const filteredItems = itemArray.filter(item => {
-            const [year, month] = item.date.split("-").map(Number)
-            return year === new Date().getFullYear() && month === selectedMonth
-        })
-
-        const { income, expense, balance } = calculateTotals(filteredItems);
-        setIncome(income);
-        setExpense(expense);
-        setBalance(balance);
-        setAllItems(filteredItems)
-        filteredTransactions()
-        handleFetchTransaction()
-        setText('')
-        setPrice(0)
-        setCategory('')
-        setDate('')
+        if (typeof window !== 'undefined'){
+            await deleteTransaction(id)
+            const itemArray = allItems.filter(item => {
+                return item.id !== id
+            })
+    
+            setAllItems(itemArray)
+            const filteredItems = itemArray.filter(item => {
+                const [year, month] = item.date.split("-").map(Number)
+                return year === new Date().getFullYear() && month === selectedMonth
+            })
+    
+            const { income, expense, balance } = calculateTotals(filteredItems);
+            setIncome(income);
+            setExpense(expense);
+            setBalance(balance);
+            setAllItems(filteredItems)
+            filteredTransactions()
+            handleFetchTransaction()
+            setText('')
+            setPrice(0)
+            setCategory('')
+            setDate('')
+        }
     }
 
     const handleAddNewItem = (IsIncomeDialog: boolean): void => {
