@@ -28,27 +28,31 @@ export const Main: FC = () => {
         return [...items].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
     }
     const handleFetchTransaction = async () => {
-        try {
-            const transactions = await getTransaction() || "[]"
-            setAllItems(transactions)
-        } catch (error) {
-            console.error("Error fetching transactions:", error);
+        if (typeof window !== 'undefined'){
+            try {
+                const transactions = await getTransaction() || "[]"
+                setAllItems(transactions)
+            } catch (error) {
+                console.error("Error fetching transactions:", error);
+            }
         }
     }
 
     const filteredTransactions = async () => {
-        const filterTransactionsByType = (transactions: Transaction[], type: string): Transaction[] => {
-            return transactions.filter(transaction => transaction.type === type)
+        if (typeof window !== 'undefined'){
+            const filterTransactionsByType = (transactions: Transaction[], type: string): Transaction[] => {
+                return transactions.filter(transaction => transaction.type === type)
+            }
+    
+            const allTransactions = await getTransaction()
+            const filteredTransactionsExpense = filterTransactionsByType(allTransactions, "expense")
+            const filteredTransactionsIncome = filterTransactionsByType(allTransactions, "income")
+            const expenses = filteredTransactionsExpense.reduce((sum, transaction) => sum + transaction.amount, 0)
+            const incomes = filteredTransactionsIncome.reduce((sum, transaction) => sum + transaction.amount, 0)
+            setExpense(expenses)
+            setIncome(incomes)
+            setBalance(incomes - Math.abs(expenses))
         }
-
-        const allTransactions = await getTransaction()
-        const filteredTransactionsExpense = filterTransactionsByType(allTransactions, "expense")
-        const filteredTransactionsIncome = filterTransactionsByType(allTransactions, "income")
-        const expenses = filteredTransactionsExpense.reduce((sum, transaction) => sum + transaction.amount, 0)
-        const incomes = filteredTransactionsIncome.reduce((sum, transaction) => sum + transaction.amount, 0)
-        setExpense(expenses)
-        setIncome(incomes)
-        setBalance(incomes - Math.abs(expenses))
     }
 
 

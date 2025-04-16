@@ -37,11 +37,13 @@ export const Main = () => {
     }
 
     const handleFetchTransaction = async () => {
-        try {
-            const transactions = await getCardTransaction() || "[]"
-            setItems(transactions)
-        } catch (error) {
-            console.error("Error fetching transactions:", error);
+        if (typeof window !== 'undefined'){
+            try {
+                const transactions = await getCardTransaction() || "[]"
+                setItems(transactions)
+            } catch (error) {
+                console.error("Error fetching transactions:", error);
+            }
         }
     }
     const handleTextChange = (event: ChangeEvent<HTMLInputElement>): void => {
@@ -77,9 +79,11 @@ export const Main = () => {
     }
 
     const filterTransactionsByCard = async (card: string) => {
-        const allTransactions = await getCardTransaction()
-        const filtered = allTransactions.filter(transaction => transaction.card === card)
-        setItems(filtered)
+        if (typeof window !== 'undefined') {
+            const allTransactions = await getCardTransaction()
+            const filtered = allTransactions.filter(transaction => transaction.card === card)
+            setItems(filtered)
+        }
 
     }
 
@@ -101,6 +105,7 @@ export const Main = () => {
 
         setExpense(total);
         setItems(filteredItems)
+        
         handleFetchTransaction()
         filterTransactionsByCard(cards[cardIndex]);
         setText('')

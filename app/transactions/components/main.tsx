@@ -10,12 +10,14 @@ export const Main = () => {
   const [filterItems, setFilterItems] = useState<Transaction[]>([])
 
   const handleFetchItems = async () => {
-    try {
-      const itemsOnStorage = await getTransaction() || "[]"
-      setItems(itemsOnStorage)
-    } catch (e) {
-      console.error("error parsing 'items'", e)
-      return []
+    if (typeof window !== 'undefined'){
+      try {
+        const itemsOnStorage = await getTransaction() || "[]"
+        setItems(itemsOnStorage)
+      } catch (e) {
+        console.error("error parsing 'items'", e)
+        return []
+      }
     }
   }
   const handleDeleteItem = () => { }
