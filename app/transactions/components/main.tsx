@@ -14,7 +14,7 @@ export const Main = () => {
       const itemsOnStorage = await getTransaction() || "[]"
       setItems(itemsOnStorage)
     } catch (e) {
-      console.error("error parsing 'items' from localStorage", e)
+      console.error("error parsing 'items'", e)
       return []
     }
   }
