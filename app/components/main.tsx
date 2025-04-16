@@ -334,18 +334,18 @@ export const Main: FC = () => {
     const results = separateAmountByCategory(filterItems)
 
     return (
-        <div>
+        <div className="max-w-screen-xl mx-auto w-full px-4">
             <section>
-                <div className='flex justify-around items-center py-12'>
+                <div className='flex flex-col gap-4 md:flex-row md:justify-between md:items-center py-6'>
                     <h1 className='font-semibold text-3xl'>Hello!</h1>
-                    <ul className='flex text-sm font-semibold divide-x'>
+                    <ul className='flex flex-wrap text-sm font-semibold divide-x'>
                         <li className='border p-2 bg-white text-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-200'><button onClick={lastYearFilter}>Last Year</button></li>
                         <li className='border p-2 bg-white text-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-200'><button onClick={lastMonthSelected}>Last Month</button></li>
                         <li className='border p-2 bg-white text-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-200'><button onClick={thisMonthSelected}>This Month</button></li>
                         <Period onMonthChange={handleMonthChange} selectedMonth={selectedMonth} />
                     </ul>
                 </div>
-                <div className='grid grid-flow-col grid-rows-2 gap-8  mx-auto max-w-screen-xl items-center'>
+                <div className='grid lg:grid-flow-col grid-rows-2 gap-8  mx-auto max-w-screen-xl lg:items-center sm:grid-cols-2 sm:items-stretch'>
                     <div className='bg-white flex justify-between p-6 rounded-lg border items-end shadow-md dark:bg-slate-700 '>
                         <div>
                             <p className='text-xs text-slate-400 dark:text-slate-200'>Balance</p>
@@ -460,7 +460,7 @@ export const Main: FC = () => {
                     </div>
                 </div>
             </section>
-            <div className='flex justify-center gap-16 items-stretch'>
+            <div className='flex flex-col gap-8 xl:flex-row xl:justify-center xl:gap-16 items-stretch px-4'>
                 <section className='border rounded-lg bg-white p-4 m-4 dark:bg-slate-700'>
                     <p className='font-semibold'>Expenses by category</p>
                     <div>

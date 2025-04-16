@@ -160,7 +160,7 @@ export const Main = () => {
     }, [selectedMonth, items])
 
     useEffect(() => {
-        handleFetchTransaction(); 
+        handleFetchTransaction();
         filterTransactionsByCard(cards[cardIndex]);
     }, [cardIndex]);
 
@@ -249,90 +249,109 @@ export const Main = () => {
     return (
         <div>
             <section>
-                <div className='flex justify-around items-center py-12'>
-                    <h1 className='font-semibold text-3xl'>Hello!</h1>
-                    <ul className='flex text-sm font-semibold divide-x'>
-                        <li className='border p-2 bg-white text-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-200'><button onClick={lastYearFilter}>Last Year</button></li>
-                        <li className='border p-2 bg-white text-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-200'><button onClick={lastMonthSelected}>Last Month</button></li>
-                        <li className='border p-2 bg-white text-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-200'><button onClick={thisMonthSelected}>This Month</button></li>
+                <div className="flex flex-col lg:flex-row justify-between items-center py-12 gap-1">
+                    <h1 className="font-semibold text-3xl w-full text-center lg:text-center sm:text-left">Hello!</h1>
+                    <ul className="flex  text-sm font-semibold divide-x w-full justify-center md:justify-start">
+                        <li className="border p-2 bg-white text-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-200">
+                            <button onClick={lastYearFilter}>Last Year</button>
+                        </li>
+                        <li className="border p-2 bg-white text-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-200">
+                            <button onClick={lastMonthSelected}>Last Month</button>
+                        </li>
+                        <li className="border p-2 bg-white text-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-200">
+                            <button onClick={thisMonthSelected}>This Month</button>
+                        </li>
                         <Period onMonthChange={handleMonthChange} selectedMonth={selectedMonth} />
                     </ul>
                 </div>
-                <div className='flex px-64 items-center gap-5'>
-                    <FaChevronLeft className='cursor-pointer' onClick={handlePrev} />
-                    <Image src={getCardImage(currentCard)} alt='card' width={120} height={120} className='-rotate-90' />
-                    <FaChevronRight className='cursor-pointer' onClick={handleNext} />
-                </div>
-                <div className='flex justify-around p-6 mx-auto items-center'>
-                    <div className='bg-white border shadow-md rounded-lg flex p-4 items-center dark:bg-slate-700'>
-                        <Dialog>
-                            <DialogTrigger asChild>
-                                <div className='bg-red-200 rounded-md p-3 text-red-700 cursor-pointer'><FiMinusCircle className='text-xl hover:scale-125 ' /></div>
-                            </DialogTrigger>
-                            <DialogContent className='sm:max-w-[425px]'>
-                                <DialogHeader>
-                                    <DialogTitle>Add new Expense</DialogTitle>
-                                </DialogHeader>
-                                <div className='grid gap-4 py-4'>
-                                    <Input type='text' placeholder='Description' value={text} onChange={handleTextChange}></Input>
-                                    <Input type='number' placeholder='Amount' value={price} onChange={handlePriceChange}></Input>
-                                    <Input type='date' placeholder='Date' value={date} onChange={handleDateChange}></Input>
-                                    <Select value={category} onValueChange={handlecategoryChange}>
-                                        <SelectTrigger className="w-[180px]">
-                                            <SelectValue placeholder="Select a category" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectGroup>
-                                                <SelectLabel>categorys</SelectLabel>
-                                                <SelectItem value="fixes">Fixes</SelectItem>
-                                                <SelectItem value="foods">Foods</SelectItem>
-                                                <SelectItem value="entertainment">Entertainment</SelectItem>
-                                                <SelectItem value="other">Others</SelectItem>
-                                            </SelectGroup>
-                                        </SelectContent>
-                                    </Select>
-                                    <Select value={card} onValueChange={handleCardChange} defaultValue='PicPay' >
-                                        <SelectTrigger className="w-[180px]">
-                                            <SelectValue placeholder="Select a is card"  />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectGroup>
-                                                <SelectLabel>Cards</SelectLabel>
-                                                <SelectItem value="PicPay">PicPay</SelectItem>
-                                                <SelectItem value="Nubank">Nubank</SelectItem>
-                                                <SelectItem value="MercadoPago">MercadoPago</SelectItem>
-                                            </SelectGroup>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                <DialogFooter>
-                                    <Button
-                                        onClick={() => handleAddNewItem(false)}
-                                        type='button'
-                                        disabled={!text || !price || !category || !date || !card}
-                                    ><span>Create new</span></Button>
-                                </DialogFooter>
-                            </DialogContent>
-                        </Dialog>
-                        <div className='px-2'>
-                            <p className='font-semibold'>Add expense</p>
-                            <p className='text-sm text-slate-500'>Create an expense manually</p>
+                <section className='flex flex-wrap justify-center items-center'>
+                    <div className="flex items-center py-6 space-x-4">
+                        <FaChevronLeft className="cursor-pointer" onClick={handlePrev} />
+                        <Image src={getCardImage(currentCard)} alt="card" width={120} height={120} className="-rotate-90" />
+                        <FaChevronRight className="cursor-pointer" onClick={handleNext} />
+                    </div>
+                    <div className="flex flex-wrap justify-center gap-5 p-6">
+                        <div className="bg-white border shadow-md rounded-lg flex p-4 items-center dark:bg-slate-700 w-full md:w-auto">
+                            <Dialog>
+                                <DialogTrigger asChild>
+                                    <div className="bg-red-200 rounded-md p-3 text-red-700 cursor-pointer">
+                                        <FiMinusCircle className="text-xl hover:scale-125 " />
+                                    </div>
+                                </DialogTrigger>
+                                <DialogContent className="sm:max-w-[425px]">
+                                    <DialogHeader>
+                                        <DialogTitle>Add new Expense</DialogTitle>
+                                    </DialogHeader>
+                                    <div className="grid gap-4 py-4">
+                                        <Input type="text" placeholder="Description" value={text} onChange={handleTextChange}></Input>
+                                        <Input type="number" placeholder="Amount" value={price} onChange={handlePriceChange}></Input>
+                                        <Input type="date" placeholder="Date" value={date} onChange={handleDateChange}></Input>
+                                        <Select value={category} onValueChange={handlecategoryChange}>
+                                            <SelectTrigger className="w-[180px]">
+                                                <SelectValue placeholder="Select a category" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectGroup>
+                                                    <SelectLabel>categorys</SelectLabel>
+                                                    <SelectItem value="fixes">Fixes</SelectItem>
+                                                    <SelectItem value="foods">Foods</SelectItem>
+                                                    <SelectItem value="entertainment">Entertainment</SelectItem>
+                                                    <SelectItem value="other">Others</SelectItem>
+                                                </SelectGroup>
+                                            </SelectContent>
+                                        </Select>
+                                        <Select value={card} onValueChange={handleCardChange} defaultValue="PicPay">
+                                            <SelectTrigger className="w-[180px]">
+                                                <SelectValue placeholder="Select a is card" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectGroup>
+                                                    <SelectLabel>Cards</SelectLabel>
+                                                    <SelectItem value="PicPay">PicPay</SelectItem>
+                                                    <SelectItem value="Nubank">Nubank</SelectItem>
+                                                    <SelectItem value="MercadoPago">MercadoPago</SelectItem>
+                                                </SelectGroup>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <DialogFooter>
+                                        <Button
+                                            onClick={() => handleAddNewItem(false)}
+                                            type="button"
+                                            disabled={!text || !price || !category || !date || !card}
+                                        >
+                                            <span>Create new</span>
+                                        </Button>
+                                    </DialogFooter>
+                                </DialogContent>
+                            </Dialog>
+                            <div className="px-2">
+                                <p className="font-semibold">Add expense</p>
+                                <p className="text-sm text-slate-500">Create an expense manually</p>
+                            </div>
+                        </div>
+                        <div className="bg-white flex flex-wrap justify-between p-4 gap-4 rounded-lg border items-end shadow-md dark:bg-slate-700 w-full md:w-auto">
+                            <div className="">
+                                <p className="text-xs text-slate-400 dark:text-slate-200">Expenses</p>
+                                <h2 className="text-4xl font-semibold text-red-600">${expense.toFixed(2)}</h2>
+                            </div>
+                            <div className="border flex items-center text-center rounded-sm max-h-3 p-2.5 font-semibold tracking-wider shadow-md">
+                                <p className="text-sm flex items-center">
+                                    {differenceInPorcentage() < 0 ? (
+                                        <IoIosArrowRoundUp className="text-green-500 text-lg" />
+                                    ) : (
+                                        <IoIosArrowRoundDown className="text-red-500 text-lg" />
+                                    )}
+                                    {differenceInPorcentage().toFixed(2)}%
+                                </p>
+                            </div>
                         </div>
                     </div>
-                    <div className='bg-white flex justify-between p-4 gap-4 rounded-lg border items-end shadow-md dark:bg-slate-700'>
-                        <div className=''>
-                            <p className='text-xs text-slate-400 dark:text-slate-200'>Expenses</p>
-                            <h2 className='text-4xl font-semibold text-red-600'>$ {expense.toFixed(2)}</h2>
-                        </div>
-                        <div className='border flex items-center text-center rounded-sm max-h-3 p-2.5 font-semibold tracking-wider shadow-md'>
-                            <p className='text-sm flex items-center'>{differenceInPorcentage() < 0 ? (<IoIosArrowRoundUp className='text-green-500 text-lg' />) : (<IoIosArrowRoundDown className='text-red-500 text-lg' />)}{differenceInPorcentage().toFixed(2)}%</p>
-                        </div>
-                    </div>
-                </div>
+                </section>
             </section>
-            <div className='flex justify-center gap-16 items-stretch'>
-                <section className='border rounded-lg bg-white p-4 m-4 dark:bg-slate-700'>
-                    <p className='font-semibold'>Expenses by category</p>
+            <div className="flex flex-wrap justify-center gap-16 items-stretch">
+                <section className="border rounded-lg bg-white p-4 m-4 dark:bg-slate-700 w-full md:w-auto">
+                    <p className="font-semibold">Expenses by category</p>
                     <div>
                         <DonutChart results={results} />
                     </div>
@@ -340,18 +359,18 @@ export const Main = () => {
                         <GraphicListItem results={results} />
                     </div>
                 </section>
-                <section className='bg-white dark:bg-slate-700'>
-                    <header className='p-4 border rounded-t-lg'>
-                        <h4 className='font-semibold text-lg'>Last transactions</h4>
-                        <p className='text-sm font-semibold text-slate-400'>Check your last transactions</p>
+                <section className="bg-white dark:bg-slate-700 w-full md:w-auto">
+                    <header className="p-4 border rounded-t-lg">
+                        <h4 className="font-semibold text-lg">Last transactions</h4>
+                        <p className="text-sm font-semibold text-slate-400">Check your last transactions</p>
                     </header>
                     <main>
                         <TransactionHeader />
-                        <div className='border rounded-b-lg max-h-96 overflow-auto'>
-                            <ul className='divide-y '>
-                                {filterItems.map((item => (
+                        <div className="border rounded-b-lg max-h-96 overflow-auto">
+                            <ul className="divide-y">
+                                {filterItems.map((item) => (
                                     <TransactionItem key={item.id} item={item} onDelete={handleDeleteItem} />
-                                )))}
+                                ))}
                             </ul>
                         </div>
                     </main>
