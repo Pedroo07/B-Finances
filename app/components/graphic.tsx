@@ -1,4 +1,5 @@
-import Chart from "react-apexcharts"
+import dynamic from 'next/dynamic';
+const Chart = dynamic (() => import( "react-apexcharts"), {ssr: false} )
 import { FC, useEffect, useState } from "react"
 import { BiHome, BiGroup} from "react-icons/bi"
 import { IoFastFood } from "react-icons/io5";
