@@ -1,4 +1,3 @@
-/* eslint-disable react/no-unescaped-entities */
 import React from 'react'
 import Image from 'next/image'
 import { Input } from '@/components/ui/input'
@@ -16,9 +15,9 @@ export const Main = () => {
         <Input type='email' placeholder='Email' className='h-12' />
         <Input type='password' placeholder='Password' className='h-12' />
       </div>
-      <div className='flex  flex-col gap-4'>
-        <Button>Login</Button>
-        <p>"If you don’t have an account, <Link href='/register' className='underline  text-slate-700 dark:text-slate-300'>register now</Link>!"</p>
+      <div className='flex flex-col gap-4'>
+        <Button><Link href='/login'>Login</Link></Button>
+        <p>If you don’t have an account, <Link href='/register' className='underline  text-slate-700 dark:text-slate-300'>register now</Link>!</p>
       </div>
     </div>
   )

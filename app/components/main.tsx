@@ -28,7 +28,7 @@ export const Main: FC = () => {
         return [...items].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
     }
     const handleFetchTransaction = async () => {
-        if (typeof window !== 'undefined'){
+        if (typeof window !== 'undefined') {
             try {
                 const transactions = await getTransaction() || "[]"
                 setAllItems(transactions)
@@ -39,11 +39,11 @@ export const Main: FC = () => {
     }
 
     const filteredTransactions = async () => {
-        if (typeof window !== 'undefined'){
+        if (typeof window !== 'undefined') {
             const filterTransactionsByType = (transactions: Transaction[], type: string): Transaction[] => {
                 return transactions.filter(transaction => transaction.type === type)
             }
-    
+
             const allTransactions = await getTransaction()
             const filteredTransactionsExpense = filterTransactionsByType(allTransactions, "expense")
             const filteredTransactionsIncome = filterTransactionsByType(allTransactions, "income")
@@ -64,7 +64,7 @@ export const Main: FC = () => {
     const handleCategoryChange = (value: string): void => {
         setCategory(value)
     }
-    
+
     const handleDateChange = (event: ChangeEvent<HTMLInputElement>): void => {
         const newValue = event.target.value
         setDate(newValue)
@@ -132,23 +132,23 @@ export const Main: FC = () => {
     }
 
     const handleDeleteItem = async (id: string) => {
-        if (typeof window !== 'undefined'){
+        if (typeof window !== 'undefined') {
             await deleteTransaction(id)
             const itemArray = allItems.filter(item => {
                 return item.id !== id
             })
-    
-            setAllItems(itemArray)
-            const filteredItems = itemArray.filter(item => {
+            const sortedItems = sortItemByDate(itemArray)
+
+            const filteredItems = sortedItems.filter(item => {
                 const [year, month] = item.date.split("-").map(Number)
                 return year === new Date().getFullYear() && month === selectedMonth
             })
-    
+
             const { income, expense, balance } = calculateTotals(filteredItems);
             setIncome(income);
             setExpense(expense);
             setBalance(balance);
-            setAllItems(filteredItems)
+            setAllItems(sortedItems)
             filteredTransactions()
             handleFetchTransaction()
             setText('')
@@ -220,8 +220,8 @@ export const Main: FC = () => {
             const [year, month] = item.date.split("-").map(Number);
             return year === new Date().getFullYear() && month === selectedMonth;
         });
-
-        setFilterItems(filteredItems)
+        const sortedItems = sortItemByDate(filteredItems)
+        setFilterItems(sortedItems)
         const { income, expense, balance } = cauculateCurrentMonthTotals();
         setIncome(income);
         setExpense(expense);
