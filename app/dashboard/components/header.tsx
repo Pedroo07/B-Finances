@@ -3,7 +3,7 @@ import Link from 'next/link';
 import React from 'react'
 import { CiSettings } from "react-icons/ci";
 import { IoIosNotificationsOutline } from "react-icons/io";
-import  ThemeToggle  from '../ThemeToggle';
+import  ThemeToggle  from '../../ThemeToggle';
 
 const Header = () => {
   return (

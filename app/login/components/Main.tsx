@@ -27,7 +27,7 @@ export const Main = () => {
 
   useEffect(() => {
     if (user) {
-      router.push('/')
+      router.push('/dashboard')
     }
   }, [user, router])
   return (

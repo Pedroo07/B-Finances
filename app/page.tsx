@@ -1,7 +1,7 @@
 "use client"
 import React from 'react'
-import Header from './components/header'
-import { Main } from './components/main'
+import Header from './login/components/Header'
+import { Main } from './login/components/Main'
 
 const HomePage = () => {
   return (

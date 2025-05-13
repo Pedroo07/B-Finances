@@ -1,6 +1,6 @@
 "use client"
 import React from 'react'
-import Header from '../components/header'
+import Header from '../dashboard/components/header'
 import { Main } from "./components/main"
 
 const Transactions = () => {

@@ -1,7 +1,7 @@
 "use client"
 import React from 'react'
 import { Main } from './components/main'
-import Header from '../components/header'
+import Header from '../dashboard/components/header'
 
 const Creditcard = () => {
   return (

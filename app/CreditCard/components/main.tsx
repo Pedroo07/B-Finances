@@ -1,8 +1,8 @@
 "use client"
 import React, { ChangeEvent, useEffect, useState } from 'react'
-import { TransactionHeader, TransactionItem } from "@/app/components/transactions"
-import { DonutChart, GraphicListItem, separateAmountByCategory } from "@/app/components/graphic"
-import Period from '../../components/period'
+import { TransactionHeader, TransactionItem } from "@/app/dashboard/components/transactions"
+import { DonutChart, GraphicListItem, separateAmountByCategory } from "@/app/dashboard/components/graphic"
+import Period from '../../dashboard/components/period'
 import { CardTransaction } from '@/lib/entities/cardTransaction'
 import { IoIosArrowRoundDown, IoIosArrowRoundUp } from 'react-icons/io'
 import { FaChevronRight, FaChevronLeft } from "react-icons/fa";
@@ -37,7 +37,7 @@ export const Main = () => {
     }
 
     const handleFetchTransaction = async () => {
-        if (typeof window !== 'undefined'){
+        if (typeof window !== 'undefined') {
             try {
                 const transactions = await getCardTransaction() || "[]"
                 setItems(transactions)
@@ -105,7 +105,7 @@ export const Main = () => {
 
         setExpense(total);
         setItems(filteredItems)
-        
+
         handleFetchTransaction()
         filterTransactionsByCard(cards[cardIndex]);
         setText('')
