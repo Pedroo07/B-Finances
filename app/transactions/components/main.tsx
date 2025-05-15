@@ -1,8 +1,8 @@
 "use client"
 import React, { useEffect, useState } from 'react'
-import { TransactionHeader, TransactionItem } from "@/app/components/transactions"
-import { DonutChart, GraphicListItem, separateAmountByCategory } from "@/app/components/graphic"
-import Period from '@/app/components/period'
+import { TransactionHeader, TransactionItem } from "@/app/dashboard/components/transactions"
+import { DonutChart, GraphicListItem, separateAmountByCategory } from "@/app/dashboard/components/graphic"
+import Period from '@/app/dashboard/components/period'
 import { getTransaction } from '@/lib/services/transactions'
 import { Transaction } from '@/lib/entities/transaction'
 export const Main = () => {

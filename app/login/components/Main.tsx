@@ -21,9 +21,11 @@ export const Main = () => {
 
   const handleSignIn = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault()
-    if (!email || !password) return
-    SignInWithEmailAndPassword(email.trim(), password)
+      if (!email || !password) return
+      SignInWithEmailAndPassword(email.trim(), password)
   }
+
+
 
   useEffect(() => {
     if (user) {

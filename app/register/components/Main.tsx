@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 import { useCreateUserWithEmailAndPassword } from 'react-firebase-hooks/auth'
 import { auth } from '@/lib/firebase'
+import { toast } from 'sonner'
 
 export const Main = () => {
   const [email, setEmail] = useState('')
@@ -13,10 +14,11 @@ export const Main = () => {
   const [
     createUserWithEmailAndPassword,
     user,
-    loading
+    loading,
+    error
   ] = useCreateUserWithEmailAndPassword(auth)
 
-  const handleSignIn = (e: React.MouseEvent<HTMLButtonElement>) => {
+  const handleSignIn = async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault()
 
     const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/ 
@@ -35,7 +37,14 @@ export const Main = () => {
       setLocalError("Password must be at least 6 characters.")
       return
     }
-    createUserWithEmailAndPassword(email.trim(), password)
+    try{
+      await createUserWithEmailAndPassword(email.trim(), password)
+      toast.success('Regsiter is sucessfull')
+
+    }
+    catch{
+      toast.error((error?.message || 'error registering'))
+    }
   }
   return (
     <div className='flex items-center justify-center flex-col h-screen gap-4 text-center w-[380px] mx-auto' >
