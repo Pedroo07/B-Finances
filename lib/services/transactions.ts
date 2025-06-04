@@ -1,6 +1,7 @@
 import { collection, doc, addDoc, getDoc, deleteDoc, getDocs, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase'
 import { Transaction } from '../entities/transaction';
+import { getAuth } from 'firebase/auth';
 
 export type TransactionDto = {
     description: string
@@ -9,10 +10,18 @@ export type TransactionDto = {
     category: string
     type: string
 }
+const auth = getAuth()
 
-const cardsRef = collection(db, "transactions")
+
+
+function getUserCollection() {
+const user = auth.currentUser
+ if (!user) throw new Error("User not authenticated");
+ return collection(db, `users/${user.uid}/transactions`)
+}
 
 export async function createTransaction(data: TransactionDto): Promise<Transaction> {
+    const cardsRef = getUserCollection()
     const createdCard = await addDoc(cardsRef, data)
     return {
         id: createdCard.id,
@@ -21,37 +30,40 @@ export async function createTransaction(data: TransactionDto): Promise<Transacti
     }
 }
 export async function deleteTransaction(id: string): Promise<void> {
-    const docRef = doc(db, 'transactions', id)
-    await deleteDoc(docRef)
+  const user = auth.currentUser;
+  if (!user) throw new Error("User not authenticated");
 
+  const docRef = doc(db, `users/${user.uid}/transactions`, id);
+  await deleteDoc(docRef);
 }
+
 export async function getTransaction(): Promise<Transaction[]> {
-    const docRef = collection(db, 'transactions')
+  const cardsRef = getUserCollection();
+  const foundCard = await getDocs(cardsRef);
 
-    const foundCard = await getDocs(docRef)
-
-    return foundCard.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-    })) as Transaction[]
+  return foundCard.docs.map((doc) => ({
+    id: doc.id,
+    ...doc.data(),
+  })) as Transaction[];
 }
+
 export async function updateTransaction(id: string, data: Transaction): Promise<Transaction> {
-    const docRef = doc(db, 'transactions', id)
+  const user = auth.currentUser;
+  if (!user) throw new Error("User not authenticated");
 
-    const foundCard = await getDoc(docRef)
+  const docRef = doc(db, `users/${user.uid}/transactions`, id);
+  const foundCard = await getDoc(docRef);
 
-    if (!foundCard.exists()) {
-        throw new Error("Not found transactions document!")
-    }
-    const previousData = foundCard.data() as Omit<Transaction, "id">
-    await updateDoc(docRef, data)
+  if (!foundCard.exists()) {
+    throw new Error("Trasaction not found!");
+  }
 
-    const transaction = Object.assign(
-        previousData,
-        data,
-        {
-            id: docRef.id
-        }
-    )
-    return transaction
+  const previousData = foundCard.data() as Omit<Transaction, "id">;
+  await updateDoc(docRef, data);
+
+  return {
+    ...previousData,
+    ...data,
+    id: docRef.id,
+  };
 }

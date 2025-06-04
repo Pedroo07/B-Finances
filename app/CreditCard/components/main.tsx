@@ -16,9 +16,6 @@ import Image from 'next/image'
 import mercadoImg from "../../imgs/mercado_pago_card.png"
 import picpayImg from "../../imgs/pic_pay_card.png"
 import nubankImg from "../../imgs/nubank_card.png"
-import { collection, doc, getDocs, getFirestore, setDoc } from 'firebase/firestore'
-import { getAuth } from 'firebase/auth'
-
 
 export const Main = () => {
     const cards = ['MercadoPago', 'PicPay', 'Nubank']
@@ -36,59 +33,6 @@ export const Main = () => {
     const sortItemByDate = (items: CardTransaction[]): CardTransaction[] => {
         return [...items].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
 
-    }
-
-    const saveTransactionByFirestore = async (data: CardTransaction) => {
-        const db = getFirestore()
-        const auth = getAuth()
-        const user = auth.currentUser
-
-        if (!user) {
-            console.error('user not auth')
-            return
-        }
-        const uid = user.uid
-        const id = crypto.randomUUID()
-
-        const ref = doc(db, 'users', uid, 'dados', id)
-        await setDoc(ref, data)
-    }
-
-    const fetchUserTransactionsFromFirestore = async (): Promise<CardTransaction[]> => {
-        const db = getFirestore()
-        const auth = getAuth()
-        const user = auth.currentUser
-
-        if (!user) {
-            console.error('user not auth')
-            return []
-        }
-
-        const uid = user.uid
-        const transactionsRef = collection(db, 'users', uid, 'dados')
-
-        try {
-            const snapshot = await getDocs(transactionsRef)
-            const transactions: CardTransaction[] = snapshot.docs.map(doc => {
-                const data = doc.data()
-
-                return {
-                    description: data.description,
-                    category: data.category,
-                    date: data.date,
-                    amount: data.amount,
-                    card: data.card,
-                    id: doc.id
-                };
-
-            })
-            return transactions
-
-
-        } catch (error) {
-            console.error('Error fetch transactions:', error)
-            return []
-        }
     }
 
     const handleFetchTransaction = async () => {
@@ -180,7 +124,6 @@ export const Main = () => {
             category: category,
         }
 
-        saveTransactionByFirestore(newItem).then(() => {
             createCardTransaction(newItem).then((newTrasaction) => {
                 const itemsArray = [newTrasaction, ...items]
                 const sortedItems = sortItemByDate(itemsArray)
@@ -202,7 +145,6 @@ export const Main = () => {
                 setCategory('')
                 setDate('')
             })
-        })
     }
     const [selectedMonth, setSelectedMonth] = useState<number>(() => new Date().getMonth() + 1)
 
@@ -225,18 +167,6 @@ export const Main = () => {
         handleFetchTransaction();
         filterTransactionsByCard(cards[cardIndex]);
     }, [cardIndex]);
-
-    useEffect(() => {
-        const loadTransactions = async () => {
-            const transactions = await fetchUserTransactionsFromFirestore();
-            const sorted = sortItemByDate(transactions);
-            setItems(sorted);
-        };
-
-        loadTransactions();
-    }, []);
-
-
 
     const handleMonthChange = (newMonth: number) => {
         setSelectedMonth(newMonth);
