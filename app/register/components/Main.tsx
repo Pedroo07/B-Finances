@@ -21,7 +21,7 @@ export const Main = () => {
   const handleSignIn = async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault()
 
-    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/ 
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/
 
     if (!email || !password) {
       setLocalError("Email and password are required.")
@@ -37,14 +37,12 @@ export const Main = () => {
       setLocalError("Password must be at least 6 characters.")
       return
     }
-    try{
-      await createUserWithEmailAndPassword(email.trim(), password)
-      toast.success('Regsiter is sucessfull')
-
+    await createUserWithEmailAndPassword(email.trim(), password)
+    if (error) {
+      toast.error((error.message || 'error registering'))
+      return
     }
-    catch{
-      toast.error((error?.message || 'error registering'))
-    }
+    toast.success('Register is sucessfull')
   }
   return (
     <div className='flex items-center justify-center flex-col h-screen gap-4 text-center w-[380px] mx-auto' >
@@ -58,10 +56,10 @@ export const Main = () => {
       </div>
       <div className='flex  flex-col gap-4'>
         <Button onClick={handleSignIn} disabled={!email || !password}>{loading && (
-            <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2">
-              <div className="w-5 h-5 border-4 border-t-transparent border-blue-500 rounded-full animate-spin"></div>
-            </div>
-          )}
+          <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2">
+            <div className="w-5 h-5 border-4 border-t-transparent border-blue-500 rounded-full animate-spin"></div>
+          </div>
+        )}
           {!loading ? 'Register' : ''}</Button>
         {localError && (
           <p className="text-red-500 text-sm">{localError}</p>

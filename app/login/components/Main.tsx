@@ -25,8 +25,6 @@ export const Main = () => {
       SignInWithEmailAndPassword(email.trim(), password)
   }
 
-
-
   useEffect(() => {
     if (user) {
       router.push('/dashboard')

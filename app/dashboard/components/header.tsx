@@ -10,7 +10,7 @@ const Header = () => {
         <div><Image src='/Logo.png' alt='logo' width={140} height={120} className='dark:invert'/></div>
         <div>
             <ul className='flex items-center gap-2 font-Inter'>
-                <li className='text-sm font-semibold text-slate-400 active:text-blue-400 cursor-pointer'><Link href="/">Overview</Link></li>
+                <li className='text-sm font-semibold text-slate-400 active:text-blue-400 cursor-pointer'><Link href="/dashboard">Overview</Link></li>
                 <li className='text-sm font-semibold text-slate-400 active:text-blue-400 cursor-pointer'><Link href="/transactions">Transactions</Link></li>
                 <li className='text-sm font-semibold text-slate-400 active:text-blue-400 cursor-pointer'><Link href='/CreditCard'>Credid cards</Link></li>
             </ul>
