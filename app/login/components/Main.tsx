@@ -20,6 +20,7 @@ export const Main = () => {
   ] = useSignInWithEmailAndPassword(auth)
 
   const handleSignIn = (e: React.MouseEvent<HTMLButtonElement>) => {
+    if (loading) return
     e.preventDefault()
       if (!email || !password) return
       SignInWithEmailAndPassword(email.trim(), password)

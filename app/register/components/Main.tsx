@@ -22,6 +22,10 @@ export const Main = () => {
     e.preventDefault()
 
     const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/
+    if (!user) {
+      setLocalError('Please fill in all fields.')
+      return
+    }
 
     if (!email || !password) {
       setLocalError("Email and password are required.")

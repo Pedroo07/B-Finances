@@ -1,5 +1,5 @@
 import { FcCurrencyExchange } from "react-icons/fc";
-import { Income } from "../incomes";
+import {Income} from '../../incomes'
 
 
 
