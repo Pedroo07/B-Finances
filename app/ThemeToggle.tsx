@@ -5,13 +5,19 @@ import React, { useEffect, useState } from 'react'
     const date = new Date()
     const hoursUtc = date.getHours()
 
-    const [isDarkMode, setIsDarkMode] = useState((hoursUtc >= 18 || hoursUtc <= 5) ? true : false)
+    const [isDarkMode, setIsDarkMode] = useState(() => {
+        const storedTheme = localStorage.getItem('theme')
+        if (storedTheme === 'dark') return true
+        if (storedTheme === 'light') return false
+
+        return hoursUtc >= 18 || hoursUtc < 6
+    })
 
     const toggleTheme = () => {
-        setIsDarkMode(!isDarkMode)
+        const newTheme = !isDarkMode
+        setIsDarkMode(newTheme)
+        localStorage.setItem('theme', newTheme ? 'dark' : 'light')
     }
-
-
 
     useEffect(() => {
         if(isDarkMode) {
