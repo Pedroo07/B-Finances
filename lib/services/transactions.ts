@@ -12,8 +12,6 @@ export type TransactionDto = {
 }
 const auth = getAuth()
 
-
-
 function getUserCollection() {
 const user = auth.currentUser
  if (!user) throw new Error("User not authenticated");

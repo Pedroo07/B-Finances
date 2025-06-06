@@ -14,7 +14,6 @@ import Period from './period';
 import { Transaction } from '@/lib/entities/transaction';
 import { createTransaction, deleteTransaction, getTransaction, TransactionDto } from '@/lib/services/transactions';
 export const Main: FC = () => {
-
     const [text, setText] = useState('')
     const [category, setCategory] = useState('')
     const [price, setPrice] = useState(0)
@@ -37,7 +36,6 @@ export const Main: FC = () => {
             }
         }
     }
-
     const filteredTransactions = async () => {
         if (typeof window !== 'undefined') {
             const filterTransactionsByType = (transactions: Transaction[], type: string): Transaction[] => {
@@ -54,8 +52,6 @@ export const Main: FC = () => {
             setBalance(incomes - Math.abs(expenses))
         }
     }
-
-
     const handleTextChange = (event: ChangeEvent<HTMLInputElement>): void => {
         const newValue = event.target.value
         setText(newValue)
@@ -64,7 +60,6 @@ export const Main: FC = () => {
     const handleCategoryChange = (value: string): void => {
         setCategory(value)
     }
-
     const handleDateChange = (event: ChangeEvent<HTMLInputElement>): void => {
         const newValue = event.target.value
         setDate(newValue)
@@ -74,9 +69,6 @@ export const Main: FC = () => {
         const newValue = +event.target.value
         setPrice(newValue)
     }
-
-
-
     const cauculateCurrentMonthTotals = () => {
         if (typeof window === 'undefined') return { expense: 0, income: 0, balance: 0 }
 
@@ -130,7 +122,6 @@ export const Main: FC = () => {
             balance: totalIncome - totalExpense
         }
     }
-
     const handleDeleteItem = async (id: string) => {
         if (typeof window !== 'undefined') {
             await deleteTransaction(id)
@@ -157,7 +148,6 @@ export const Main: FC = () => {
             setDate('')
         }
     }
-
     const handleAddNewItem = (IsIncomeDialog: boolean): void => {
         const adjustedPrice = IsIncomeDialog ? Math.abs(price) : -Math.abs(price)
 

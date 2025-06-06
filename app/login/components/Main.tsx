@@ -7,7 +7,6 @@ import Link from 'next/link'
 import { useSignInWithEmailAndPassword } from 'react-firebase-hooks/auth'
 import { auth } from '@/lib/firebase'
 import { useRouter } from 'next/navigation'
-import { browserLocalPersistence, setPersistence } from 'firebase/auth'
 
 export const Main = () => {
   const [email, setEmail] = useState('')
@@ -27,7 +26,6 @@ export const Main = () => {
     e.preventDefault()
       if (!email || !password) return
       try{
-        await setPersistence(auth, browserLocalPersistence)
         await SignInWithEmailAndPassword(email.trim(), password)
       }catch (error) {
       console.error('Error signing in:', error)
