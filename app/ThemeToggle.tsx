@@ -5,7 +5,9 @@ import React, { useEffect, useState } from 'react'
     const date = new Date()
     const hoursUtc = date.getHours()
 
+    
     const [isDarkMode, setIsDarkMode] = useState(() => {
+        if (typeof window === 'undefined') return false
         const storedTheme = localStorage.getItem('theme')
         if (storedTheme === 'dark') return true
         if (storedTheme === 'light') return false

@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { useCreateUserWithEmailAndPassword } from 'react-firebase-hooks/auth'
 import { auth } from '@/lib/firebase'
 import { toast } from 'sonner'
+import { browserLocalPersistence, setPersistence } from 'firebase/auth'
 
 export const Main = () => {
   const [email, setEmail] = useState('')
@@ -41,6 +42,7 @@ export const Main = () => {
       setLocalError("Password must be at least 6 characters.")
       return
     }
+    await setPersistence(auth, browserLocalPersistence)
     await createUserWithEmailAndPassword(email.trim(), password)
     if (error) {
       toast.error((error.message || 'error registering'))
