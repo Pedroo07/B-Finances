@@ -37,6 +37,7 @@ export async function deleteTransaction(id: string): Promise<void> {
 
 export async function getTransaction(): Promise<Transaction[]> {
   const cardsRef = getUserCollection();
+  if (!cardsRef) return [];
   const foundCard = await getDocs(cardsRef);
 
   return foundCard.docs.map((doc) => ({

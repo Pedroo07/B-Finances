@@ -10,9 +10,11 @@ import { Button } from '@/components/ui/button';
 import { TransactionItem, TransactionHeader } from './transactions';
 import { DonutChart, GraphicListItem, } from './graphic';
 import { separateAmountByCategory } from './graphic';
+import { useAuthState } from 'react-firebase-hooks/auth';
 import Period from './period';
 import { Transaction } from '@/lib/entities/transaction';
 import { createTransaction, deleteTransaction, getTransaction, TransactionDto } from '@/lib/services/transactions';
+import { auth } from '@/lib/firebase';
 export const Main: FC = () => {
     const [text, setText] = useState('')
     const [category, setCategory] = useState('')
@@ -23,13 +25,14 @@ export const Main: FC = () => {
     const [expense, setExpense] = useState<number>(0)
     const [income, setIncome] = useState<number>(0)
     const [balance, setBalance] = useState<number>(0)
+    const [user, loading] =useAuthState(auth)
     const sortItemByDate = (items: Transaction[]): Transaction[] => {
         return [...items].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
     }
     const handleFetchTransaction = async () => {
         if (typeof window !== 'undefined') {
             try {
-                const transactions = await getTransaction() || "[]"
+                const transactions = await getTransaction() || []
                 setAllItems(transactions)
             } catch (error) {
                 console.error("Error fetching transactions:", error);
@@ -148,40 +151,46 @@ export const Main: FC = () => {
             setDate('')
         }
     }
-    const handleAddNewItem = (IsIncomeDialog: boolean): void => {
-        const adjustedPrice = IsIncomeDialog ? Math.abs(price) : -Math.abs(price)
+   const handleAddNewItem = async (IsIncomeDialog: boolean): Promise<void> => {
+    const adjustedPrice = IsIncomeDialog ? Math.abs(price) : -Math.abs(price);
 
-        const newItem: TransactionDto = {
-            amount: adjustedPrice,
-            date: date,
-            description: text,
-            category: category,
-            type: IsIncomeDialog ? 'income' : 'expense'
-        }
-        createTransaction(newItem).then((newTransaction) => {
-            const itemsArray = [newTransaction, ...allItems]
-            const sortedItems = sortItemByDate(itemsArray)
-            setAllItems(sortedItems)
+    const newItem: TransactionDto = {
+        amount: adjustedPrice,
+        date: date,
+        description: text,
+        category: category,
+        type: IsIncomeDialog ? 'income' : 'expense'
+    };
 
-            const filteredItems = sortedItems.filter(item => {
-                const [year, month] = item.date.split("-").map(Number)
-                return year === new Date().getFullYear() && month === selectedMonth
-            })
+    try {
+        const newTransaction = await createTransaction(newItem);
+        const itemsArray = [newTransaction, ...allItems];
+        const sortedItems = sortItemByDate(itemsArray);
+        setAllItems(sortedItems);
 
-            const { income, expense, balance } = calculateTotals(filteredItems);
-            setIncome(income);
-            setExpense(expense);
-            setBalance(balance);
-            handleFetchTransaction()
-            setAllItems(filteredItems)
-            filteredTransactions()
-            setText('')
-            setPrice(0)
-            setCategory('')
-            setDate('')
-        })
+        const filteredItems = sortedItems.filter(item => {
+            const [year, month] = item.date.split("-").map(Number);
+            return year === new Date().getFullYear() && month === selectedMonth;
+        });
 
+        const { income, expense, balance } = calculateTotals(filteredItems);
+        setIncome(income);
+        setExpense(expense);
+        setBalance(balance);
+
+        await handleFetchTransaction();
+
+        setAllItems(filteredItems);
+        filteredTransactions();
+
+        setText('');
+        setPrice(0);
+        setCategory('');
+        setDate('');
+    } catch (error) {
+        console.error('Error adding transaction:', error);
     }
+};
     const calculateTotals = (items: Transaction[]): { income: number; expense: number; balance: number } => {
         let totalIncome = 0;
         let totalExpense = 0;
@@ -219,8 +228,10 @@ export const Main: FC = () => {
     }, [selectedMonth, allItems]);
 
     useEffect(() => {
-        handleFetchTransaction();
-    }, []);
+        if (!loading && user ) {
+            handleFetchTransaction();
+        }
+    }, [user, loading]);
 
     const handleMonthChange = (newMonth: number) => {
         setSelectedMonth(newMonth);
