@@ -8,6 +8,8 @@ import { CiSettings } from "react-icons/ci";
 import { toast } from 'sonner';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from '@/lib/firebase';
+import { Skeleton } from '@/components/ui/skeleton';
+
 
 export const AccountMenu = () => {
     const [user, loading] = useAuthState(auth)
@@ -30,7 +32,7 @@ export const AccountMenu = () => {
                 <DropdownMenuContent align="end" className="w-56">
                     <DropdownMenuLabel className="flex flex-col">
                         {loading ? (
-                            <span className="text-xs text-muted-foreground">Loanding...</span>
+                           <Skeleton className='h-2' />
                         ) : (
                             <span className="text-xs font-normal text-muted-foreground">
                                 {user?.email || 'unknown user'}

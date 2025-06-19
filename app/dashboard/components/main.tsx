@@ -2,6 +2,7 @@
 import React, { ChangeEvent, useEffect } from 'react'
 import { FC, useState } from 'react';
 import { IoIosArrowRoundUp, IoIosArrowRoundDown } from "react-icons/io";
+import { AiOutlineLoading3Quarters } from "react-icons/ai"
 import { FiMinusCircle, FiPlusCircle } from "react-icons/fi";
 import { Dialog, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogContent } from '@/components/ui/dialog';
 import { Input } from "@/components/ui/input"
@@ -15,6 +16,9 @@ import Period from './period';
 import { Transaction } from '@/lib/entities/transaction';
 import { createTransaction, deleteTransaction, getTransaction, TransactionDto } from '@/lib/services/transactions';
 import { auth } from '@/lib/firebase';
+import { TransactionsLoadings } from '../loadings/TrasactionsLoadings';
+import { Skeleton } from '@/components/ui/skeleton';
+import { ValuesLoadings } from '../loadings/ValuesLoadings';
 export const Main: FC = () => {
     const [text, setText] = useState('')
     const [category, setCategory] = useState('')
@@ -25,7 +29,7 @@ export const Main: FC = () => {
     const [expense, setExpense] = useState<number>(0)
     const [income, setIncome] = useState<number>(0)
     const [balance, setBalance] = useState<number>(0)
-    const [user, loading] =useAuthState(auth)
+    const [user, loading] = useAuthState(auth)
     const sortItemByDate = (items: Transaction[]): Transaction[] => {
         return [...items].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
     }
@@ -151,46 +155,46 @@ export const Main: FC = () => {
             setDate('')
         }
     }
-   const handleAddNewItem = async (IsIncomeDialog: boolean): Promise<void> => {
-    const adjustedPrice = IsIncomeDialog ? Math.abs(price) : -Math.abs(price);
+    const handleAddNewItem = async (IsIncomeDialog: boolean): Promise<void> => {
+        const adjustedPrice = IsIncomeDialog ? Math.abs(price) : -Math.abs(price);
 
-    const newItem: TransactionDto = {
-        amount: adjustedPrice,
-        date: date,
-        description: text,
-        category: category,
-        type: IsIncomeDialog ? 'income' : 'expense'
+        const newItem: TransactionDto = {
+            amount: adjustedPrice,
+            date: date,
+            description: text,
+            category: category,
+            type: IsIncomeDialog ? 'income' : 'expense'
+        };
+
+        try {
+            const newTransaction = await createTransaction(newItem);
+            const itemsArray = [newTransaction, ...allItems];
+            const sortedItems = sortItemByDate(itemsArray);
+            setAllItems(sortedItems);
+
+            const filteredItems = sortedItems.filter(item => {
+                const [year, month] = item.date.split("-").map(Number);
+                return year === new Date().getFullYear() && month === selectedMonth;
+            });
+
+            const { income, expense, balance } = calculateTotals(filteredItems);
+            setIncome(income);
+            setExpense(expense);
+            setBalance(balance);
+
+            await handleFetchTransaction();
+
+            setAllItems(filteredItems);
+            filteredTransactions();
+
+            setText('');
+            setPrice(0);
+            setCategory('');
+            setDate('');
+        } catch (error) {
+            console.error('Error adding transaction:', error);
+        }
     };
-
-    try {
-        const newTransaction = await createTransaction(newItem);
-        const itemsArray = [newTransaction, ...allItems];
-        const sortedItems = sortItemByDate(itemsArray);
-        setAllItems(sortedItems);
-
-        const filteredItems = sortedItems.filter(item => {
-            const [year, month] = item.date.split("-").map(Number);
-            return year === new Date().getFullYear() && month === selectedMonth;
-        });
-
-        const { income, expense, balance } = calculateTotals(filteredItems);
-        setIncome(income);
-        setExpense(expense);
-        setBalance(balance);
-
-        await handleFetchTransaction();
-
-        setAllItems(filteredItems);
-        filteredTransactions();
-
-        setText('');
-        setPrice(0);
-        setCategory('');
-        setDate('');
-    } catch (error) {
-        console.error('Error adding transaction:', error);
-    }
-};
     const calculateTotals = (items: Transaction[]): { income: number; expense: number; balance: number } => {
         let totalIncome = 0;
         let totalExpense = 0;
@@ -210,9 +214,7 @@ export const Main: FC = () => {
         };
     };
     const [selectedMonth, setSelectedMonth] = useState<number>(() => new Date().getMonth() + 1)
-
     const [activeFilter, setActiveFilter] = useState("month")
-
     useEffect(() => {
         if (activeFilter !== "month") return
         const filteredItems = allItems.filter(item => {
@@ -226,18 +228,15 @@ export const Main: FC = () => {
         setExpense(expense);
         setBalance(balance);
     }, [selectedMonth, allItems]);
-
     useEffect(() => {
-        if (!loading && user ) {
+        if (!loading && user) {
             handleFetchTransaction();
         }
     }, [user, loading]);
-
     const handleMonthChange = (newMonth: number) => {
         setSelectedMonth(newMonth);
         setActiveFilter("month");
     };
-
     const thisMonthSelected = () => {
         setActiveFilter("month")
         const thisMonth = new Date().getMonth() + 1
@@ -248,7 +247,6 @@ export const Main: FC = () => {
         const lastMonth = new Date().getMonth()
         setSelectedMonth(lastMonth)
     }
-
     const lastYearFilter = () => {
         setActiveFilter("year")
 
@@ -265,7 +263,6 @@ export const Main: FC = () => {
         setBalance(balance);
         setSelectedMonth(0)
     }
-
     const differenceInPorcentage = () => {
 
         const filteredItems = allItems.filter(item => {
@@ -289,7 +286,6 @@ export const Main: FC = () => {
         return totalInPorcentage
 
     }
-
     const differenceInPorcentageIncome = () => {
 
         const filteredItems = allItems.filter(item => {
@@ -313,7 +309,6 @@ export const Main: FC = () => {
         return totalInPorcentage
 
     }
-
     const differenceInPorcentageExpense = () => {
 
         const filteredItems = allItems.filter(item => {
@@ -337,7 +332,6 @@ export const Main: FC = () => {
         return totalInPorcentage
 
     }
-
     const results = separateAmountByCategory(filterItems)
 
     return (
@@ -353,15 +347,17 @@ export const Main: FC = () => {
                     </ul>
                 </div>
                 <div className='grid lg:grid-flow-col grid-rows-2 gap-8  mx-auto max-w-screen-xl lg:items-center sm:grid-cols-2 sm:items-stretch'>
-                    <div className='bg-white flex justify-between p-6 rounded-lg border items-end shadow-md dark:bg-slate-700 '>
-                        <div>
-                            <p className='text-xs text-slate-400 dark:text-slate-200'>Balance</p>
-                            <h2 className='text-4xl font-semibold text-blue-600'>${balance.toFixed(2)}</h2>
-                        </div>
-                        <div className='border flex items-center text-center rounded-sm max-h-3 p-2.5 font-semibold tracking-wider shadow-md'>
-                            <p className='text-sm flex items-center'>{differenceInPorcentage() > 0 ? (<IoIosArrowRoundUp className='text-green-500 text-lg' />) : (<IoIosArrowRoundDown className='text-red-500 text-lg' />)}{differenceInPorcentage().toFixed(2)}%</p>
-                        </div>
-                    </div>
+                    {loading ? (<ValuesLoadings />) : (
+                        <div className='bg-white flex justify-between p-6 rounded-lg border items-end shadow-md dark:bg-slate-700 '>
+                            <div>
+                                <p className='text-xs text-slate-400 dark:text-slate-200'>Balance</p>
+                                <h2 className='text-4xl font-semibold text-blue-600'>${balance.toFixed(2)}</h2>
+                            </div>
+                            <div className='border flex items-center text-center rounded-sm max-h-3 p-2.5 font-semibold tracking-wider shadow-md'>
+                                <p className='text-sm flex items-center'>{differenceInPorcentage() > 0 ? (<IoIosArrowRoundUp className='text-green-500 text-lg' />) : (<IoIosArrowRoundDown className='text-red-500 text-lg' />)}{differenceInPorcentage().toFixed(2)}%</p>
+                            </div>
+                        </div>)}
+
                     <div className='bg-white border shadow-md rounded-lg flex items-center p-4 dark:bg-slate-700 '>
                         <Dialog>
                             <DialogTrigger asChild>
@@ -405,7 +401,7 @@ export const Main: FC = () => {
                             <p className='text-sm text-slate-500'>Create an income manually</p>
                         </div>
                     </div>
-                    <div className='bg-white flex justify-between p-6 rounded-lg border items-end shadow-md dark:bg-slate-700'>
+                    {loading ? (<ValuesLoadings />) : (<div className='bg-white flex justify-between p-6 rounded-lg border items-end shadow-md dark:bg-slate-700'>
                         <div>
                             <p className='text-xs text-slate-400 dark:text-slate-200'>Incomes</p>
                             <h2 className='text-4xl font-semibold text-green-600'>$ {income.toFixed(2)}</h2>
@@ -413,7 +409,7 @@ export const Main: FC = () => {
                         <div className='border flex items-center text-center rounded-sm max-h-3 p-2.5 font-semibold tracking-wider shadow-md'>
                             <p className='text-sm flex items-center'>{differenceInPorcentageIncome() > 0 ? (<IoIosArrowRoundUp className='text-green-500 text-lg' />) : (<IoIosArrowRoundDown className='text-red-500 text-lg' />)}{differenceInPorcentageIncome().toFixed(2)}%</p>
                         </div>
-                    </div>
+                    </div>)}
                     <div className='bg-white border shadow-md rounded-lg flex items-center p-4 dark:bg-slate-700'>
                         <Dialog>
                             <DialogTrigger asChild>
@@ -456,7 +452,7 @@ export const Main: FC = () => {
                             <p className='text-sm text-slate-500'>Create an expense manually</p>
                         </div>
                     </div>
-                    <div className='bg-white flex justify-between p-6 rounded-lg border items-end shadow-md dark:bg-slate-700'>
+                    {loading ? (<ValuesLoadings />) : (<div className='bg-white flex justify-between p-6 rounded-lg border items-end shadow-md dark:bg-slate-700'>
                         <div>
                             <p className='text-xs text-slate-400 dark:text-slate-200'>Expenses</p>
                             <h2 className='text-4xl font-semibold text-red-600'>$ {expense.toFixed(2)}</h2>
@@ -464,17 +460,23 @@ export const Main: FC = () => {
                         <div className='border flex items-center text-center rounded-sm max-h-3 p-2.5 font-semibold tracking-wider shadow-md'>
                             <p className='text-sm flex items-center'>{differenceInPorcentageExpense() < 0 ? (<IoIosArrowRoundUp className='text-green-500 text-lg' />) : (<IoIosArrowRoundDown className='text-red-500 text-lg' />)}{differenceInPorcentageExpense().toFixed(2)}%</p>
                         </div>
-                    </div>
+                    </div>)}
+
                 </div>
             </section>
             <div className='flex flex-col gap-8 xl:flex-row xl:justify-center xl:gap-16 items-stretch px-4'>
                 <section className='border rounded-lg bg-white p-4 m-4 dark:bg-slate-700'>
                     <p className='font-semibold'>Expenses by category</p>
-                    <div>
-                        <DonutChart results={results} />
+                    <div className='flex justify-center items-center'>
+                        {loading ? (
+                            <AiOutlineLoading3Quarters className='animate-spin m-auto h-28 w-28 p-8' />
+
+                        ) : (<DonutChart results={results} />)}
                     </div>
                     <div>
-                        <GraphicListItem results={results} />
+                        {loading ?
+                            (<Skeleton className='h-3' />)
+                            : (<GraphicListItem results={results} />)}
                     </div>
                 </section>
                 <section className='bg-white dark:bg-slate-700'>
@@ -486,8 +488,11 @@ export const Main: FC = () => {
                         <TransactionHeader />
                         <div className='border rounded-b-lg max-h-96 overflow-auto'>
                             <ul className='divide-y '>
-                                {filterItems.map((item => (
-                                    <TransactionItem key={item.id} item={item} onDelete={handleDeleteItem} />
+                                {filterItems.map((item => (loading ? (
+                                    <TransactionsLoadings key={item.id} />
+
+                                ) : <TransactionItem key={item.id} item={item} onDelete={handleDeleteItem} />
+
                                 )))}
                             </ul>
                         </div>

@@ -16,6 +16,11 @@ import Image from 'next/image'
 import mercadoImg from "../../imgs/mercado_pago_card.png"
 import picpayImg from "../../imgs/pic_pay_card.png"
 import nubankImg from "../../imgs/nubank_card.png"
+import { auth } from '@/lib/firebase'
+import { useAuthState } from 'react-firebase-hooks/auth'
+import { Skeleton } from '@/components/ui/skeleton'
+import { AiOutlineLoading3Quarters } from 'react-icons/ai'
+import { TransactionsLoadings } from '@/app/dashboard/loadings/TrasactionsLoadings'
 
 export const Main = () => {
     const cards = ['MercadoPago', 'PicPay', 'Nubank']
@@ -25,6 +30,7 @@ export const Main = () => {
     const [card, setCard] = useState('')
     const [price, setPrice] = useState(0)
     const [date, setDate] = useState('')
+    const [user, loading] = useAuthState(auth)
     const [items, setItems] = useState<CardTransaction[]>([])
     const [filterItems, setFilterItems] = useState<CardTransaction[]>([])
     const [expense, setExpense] = useState<number>(() => {
@@ -34,7 +40,6 @@ export const Main = () => {
         return [...items].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
 
     }
-
     const handleFetchTransaction = async () => {
         if (typeof window !== 'undefined') {
             try {
@@ -63,7 +68,6 @@ export const Main = () => {
         const newValue = +event.target.value
         setPrice(newValue)
     }
-
     const getCardImage = (cardName: string) => {
         switch (cardName) {
             case 'MercadoPago':
@@ -76,7 +80,6 @@ export const Main = () => {
                 return mercadoImg;
         }
     }
-
     const filterTransactionsByCard = async (card: string) => {
         if (typeof window !== 'undefined') {
             const allTransactions = await getCardTransaction()
@@ -85,7 +88,6 @@ export const Main = () => {
         }
 
     }
-
     const currentCard = cards[cardIndex]
     const handleDeleteItem = async (id: string) => {
         await deleteCardTransaction(id)
@@ -112,7 +114,6 @@ export const Main = () => {
         setCategory('')
         setDate('')
     }
-
     const handleAddNewItem = (isIncomeDialog: boolean) => {
         const adjustedPrice = isIncomeDialog ? Math.abs(price) : -Math.abs(price)
 
@@ -124,30 +125,29 @@ export const Main = () => {
             category: category,
         }
 
-            createCardTransaction(newItem).then((newTrasaction) => {
-                const itemsArray = [newTrasaction, ...items]
-                const sortedItems = sortItemByDate(itemsArray)
-                setItems(sortedItems)
+        createCardTransaction(newItem).then((newTrasaction) => {
+            const itemsArray = [newTrasaction, ...items]
+            const sortedItems = sortItemByDate(itemsArray)
+            setItems(sortedItems)
 
-                const filteredItems = sortedItems.filter(item => {
-                    const [year, month] = item.date.split("-").map(Number)
-                    return year === new Date().getFullYear() && month === selectedMonth
-                })
-
-                const total = filteredItems.reduce((acc, item) => acc + item.amount, 0);
-
-                handleFetchTransaction()
-                filterTransactionsByCard(cards[cardIndex]);
-                setItems(filteredItems)
-                setExpense(total)
-                setText('')
-                setPrice(0)
-                setCategory('')
-                setDate('')
+            const filteredItems = sortedItems.filter(item => {
+                const [year, month] = item.date.split("-").map(Number)
+                return year === new Date().getFullYear() && month === selectedMonth
             })
+
+            const total = filteredItems.reduce((acc, item) => acc + item.amount, 0);
+
+            handleFetchTransaction()
+            filterTransactionsByCard(cards[cardIndex]);
+            setItems(filteredItems)
+            setExpense(total)
+            setText('')
+            setPrice(0)
+            setCategory('')
+            setDate('')
+        })
     }
     const [selectedMonth, setSelectedMonth] = useState<number>(() => new Date().getMonth() + 1)
-
     const [activeFilter, setActiveFilter] = useState("month")
 
     useEffect(() => {
@@ -164,9 +164,11 @@ export const Main = () => {
     }, [selectedMonth, items])
 
     useEffect(() => {
-        handleFetchTransaction();
-        filterTransactionsByCard(cards[cardIndex]);
-    }, [cardIndex]);
+        if (!loading && user) {
+            handleFetchTransaction();
+            filterTransactionsByCard(cards[cardIndex]);
+        }
+    }, [loading, user, cardIndex]);
 
     const handleMonthChange = (newMonth: number) => {
         setSelectedMonth(newMonth);
@@ -229,7 +231,6 @@ export const Main = () => {
 
         return totalInDifference
     }
-
     const handleNext = () => {
         setCardIndex((prev) => {
             const nextIndex = (prev + 1) % cards.length
@@ -245,9 +246,6 @@ export const Main = () => {
         })
 
     }
-
-
-
     const results = separateAmountByCategory(filterItems)
 
     return (
@@ -336,8 +334,15 @@ export const Main = () => {
                         </div>
                         <div className="bg-white flex flex-wrap justify-between p-4 gap-4 rounded-lg border items-end shadow-md dark:bg-slate-700 w-full md:w-auto">
                             <div className="">
-                                <p className="text-xs text-slate-400 dark:text-slate-200">Expenses</p>
-                                <h2 className="text-4xl font-semibold text-red-600">${expense.toFixed(2)}</h2>
+                                {loading ? <div>
+                                    <p className='text-xs text-slate-400 dark:text-slate-200'>Balance</p>
+                                    <Skeleton className='w-40 h-6' />
+                                </div> : (
+                                    <div>
+                                        <p className="text-xs text-slate-400 dark:text-slate-200">Expenses</p>
+                                        <h2 className="text-4xl font-semibold text-red-600">${expense.toFixed(2)}</h2>
+                                    </div>
+                                )}
                             </div>
                             <div className="border flex items-center text-center rounded-sm max-h-3 p-2.5 font-semibold tracking-wider shadow-md">
                                 <p className="text-sm flex items-center">
@@ -357,10 +362,15 @@ export const Main = () => {
                 <section className="border rounded-lg bg-white p-4 m-4 dark:bg-slate-700 w-full md:w-auto">
                     <p className="font-semibold">Expenses by category</p>
                     <div>
-                        <DonutChart results={results} />
+                        {loading ? (
+                            <AiOutlineLoading3Quarters className='animate-spin m-auto h-28 w-28 p-8' />
+
+                        ) : (<DonutChart results={results} />)}
                     </div>
                     <div>
-                        <GraphicListItem results={results} />
+                        {loading ?
+                            (<Skeleton className='h-3' />)
+                            : (<GraphicListItem results={results} />)}
                     </div>
                 </section>
                 <section className="bg-white dark:bg-slate-700 w-full md:w-auto">
@@ -372,9 +382,12 @@ export const Main = () => {
                         <TransactionHeader />
                         <div className="border rounded-b-lg max-h-96 overflow-auto">
                             <ul className="divide-y">
-                                {filterItems.map((item) => (
-                                    <TransactionItem key={item.id} item={item} onDelete={handleDeleteItem} />
-                                ))}
+                                {filterItems.map((item => (loading ? (
+                                    <TransactionsLoadings key={item.id} />
+
+                                ) : <TransactionItem key={item.id} item={item} onDelete={handleDeleteItem} />
+
+                                )))}
                             </ul>
                         </div>
                     </main>
