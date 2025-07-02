@@ -335,9 +335,9 @@ export const Main: FC = () => {
     const results = separateAmountByCategory(filterItems)
 
     return (
-        <div className="max-w-screen-xl mx-auto w-full px-4">
+        <div className="max-w-screen-xl mx-auto w-full px-4 max-md:px-2">
             <section>
-                <div className='flex flex-col gap-4 md:flex-row md:justify-between md:items-center py-6'>
+                <div className='flex flex-col gap-4 justify-between md:flex-row py-6 max-md:justify-center max-md:items-center'>
                     <h1 className='font-semibold text-3xl'>Hello!</h1>
                     <ul className='flex flex-wrap text-sm font-semibold divide-x'>
                         <li className='border p-2 bg-white text-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-200'><button onClick={lastYearFilter}>Last Year</button></li>
@@ -346,30 +346,30 @@ export const Main: FC = () => {
                         <Period onMonthChange={handleMonthChange} selectedMonth={selectedMonth} />
                     </ul>
                 </div>
-                <div className='grid lg:grid-flow-col grid-rows-2 gap-8  mx-auto max-w-screen-xl lg:items-center sm:grid-cols-2 sm:items-stretch'>
+                <div className='grid grid-flow-col grid-rows-2 gap-8 mx-auto max-w-screen-xl items-center max-md:grid-cols-3 max-md:gap-4'>
                     {loading ? (<ValuesLoadings />) : (
-                        <div className='bg-white flex justify-between p-6 rounded-lg border items-end shadow-md dark:bg-slate-700 '>
+                        <div className='bg-white flex justify-between p-6 rounded-lg border items-end shadow-md dark:bg-slate-700 max-md:p-2 text-nowrap'>
                             <div>
                                 <p className='text-xs text-slate-400 dark:text-slate-200'>Balance</p>
-                                <h2 className='text-4xl font-semibold text-blue-600'>${balance.toFixed(2)}</h2>
+                                <h2 className='text-4xl font-semibold text-blue-600 max-md:text-base'>${balance.toFixed(2)}</h2>
                             </div>
-                            <div className='border flex items-center text-center rounded-sm max-h-3 p-2.5 font-semibold tracking-wider shadow-md'>
-                                <p className='text-sm flex items-center'>{differenceInPorcentage() > 0 ? (<IoIosArrowRoundUp className='text-green-500 text-lg' />) : (<IoIosArrowRoundDown className='text-red-500 text-lg' />)}{differenceInPorcentage().toFixed(2)}%</p>
+                            <div className='border flex items-center text-center rounded-sm max-h-3 p-2.5 font-semibold tracking-wider shadow-md max-md:p-1 '>
+                                <p className='text-sm flex items-center max-md:text-xs'>{differenceInPorcentage() > 0 ? (<IoIosArrowRoundUp className='text-green-500 text-lg max-md:text-xs' />) : (<IoIosArrowRoundDown className='text-red-500 text-lg max-md:text-xs' />)}{differenceInPorcentage().toFixed(2)}%</p>
                             </div>
                         </div>)}
 
-                    <div className='bg-white border shadow-md rounded-lg flex items-center p-4 dark:bg-slate-700 '>
+                    <div className='bg-white border shadow-md rounded-lg flex items-center p-4 dark:bg-slate-700 max-md:p-2'>
                         <Dialog>
                             <DialogTrigger asChild>
-                                <div className='bg-green-200 rounded-md p-3 text-green-700 cursor-pointer'>
-                                    <FiPlusCircle className='text-xl hover:scale-125' />
+                                <div className='bg-green-200 rounded-md p-3 text-green-700 cursor-pointer max-md:p-2 '>
+                                    <FiPlusCircle className='text-xl hover:scale-125 max-md:text-lg' />
                                 </div>
                             </DialogTrigger>
                             <DialogContent className='sm:max-w-[425px]'>
                                 <DialogHeader>
                                     <DialogTitle>Add new Income</DialogTitle>
                                 </DialogHeader>
-                                <div className='grid gap-4 py-4'>
+                                <div className='grid gap-4 py-4 '>
                                     <Input type='text' placeholder='Description' value={text} onChange={handleTextChange}></Input>
                                     <Input type='number' placeholder='Amount' value={price} onChange={handlePriceChange}></Input>
                                     <Input type='date' placeholder='Date' value={date} onChange={handleDateChange}></Input>
@@ -397,23 +397,23 @@ export const Main: FC = () => {
                             </DialogContent>
                         </Dialog>
                         <div className='px-2'>
-                            <p className='font-semibold'>Add income</p>
-                            <p className='text-sm text-slate-500'>Create an income manually</p>
+                            <p className='font-semibold max-md:text-base'>Add income</p>
+                            <p className='text-sm text-slate-500 max-md:hidden'>Create an income manually</p>
                         </div>
                     </div>
-                    {loading ? (<ValuesLoadings />) : (<div className='bg-white flex justify-between p-6 rounded-lg border items-end shadow-md dark:bg-slate-700'>
+                    {loading ? (<ValuesLoadings />) : (<div className='bg-white flex justify-between p-6 rounded-lg border items-end shadow-md dark:bg-slate-700 max-md:p-2  text-nowrap'>
                         <div>
                             <p className='text-xs text-slate-400 dark:text-slate-200'>Incomes</p>
-                            <h2 className='text-4xl font-semibold text-green-600'>$ {income.toFixed(2)}</h2>
+                            <h2 className='text-4xl font-semibold text-green-600 max-md:text-base'>$ {income.toFixed(2)}</h2>
                         </div>
-                        <div className='border flex items-center text-center rounded-sm max-h-3 p-2.5 font-semibold tracking-wider shadow-md'>
-                            <p className='text-sm flex items-center'>{differenceInPorcentageIncome() > 0 ? (<IoIosArrowRoundUp className='text-green-500 text-lg' />) : (<IoIosArrowRoundDown className='text-red-500 text-lg' />)}{differenceInPorcentageIncome().toFixed(2)}%</p>
+                        <div className='border flex items-center text-center rounded-sm max-h-3 p-2.5 font-semibold tracking-wider shadow-md max-md:p-1'>
+                            <p className='text-sm flex items-center max-md:text-xs'>{differenceInPorcentageIncome() > 0 ? (<IoIosArrowRoundUp className='text-green-500 text-lg max-md:text-xs' />) : (<IoIosArrowRoundDown className='text-red-500 text-lg max-md:text-xs' />)}{differenceInPorcentageIncome().toFixed(2)}%</p>
                         </div>
                     </div>)}
-                    <div className='bg-white border shadow-md rounded-lg flex items-center p-4 dark:bg-slate-700'>
+                    <div className='bg-white border shadow-md rounded-lg flex items-center p-4 dark:bg-slate-700 max-md:p-2'>
                         <Dialog>
                             <DialogTrigger asChild>
-                                <div className='bg-red-200 rounded-md p-3 text-red-700 cursor-pointer'><FiMinusCircle className='text-xl hover:scale-125 ' /></div>
+                                <div className='bg-red-200 rounded-md p-3 text-red-700 cursor-pointer max-md:p-2'><FiMinusCircle className='text-xl hover:scale-125 max-md:text-lg' /></div>
                             </DialogTrigger>
                             <DialogContent className='sm:max-w-[425px]'>
                                 <DialogHeader>
@@ -449,25 +449,25 @@ export const Main: FC = () => {
                         </Dialog>
                         <div className='px-2'>
                             <p className='font-semibold'>Add expense</p>
-                            <p className='text-sm text-slate-500'>Create an expense manually</p>
+                            <p className='text-sm text-slate-500 max-md:hidden'>Create an expense manually</p>
                         </div>
                     </div>
-                    {loading ? (<ValuesLoadings />) : (<div className='bg-white flex justify-between p-6 rounded-lg border items-end shadow-md dark:bg-slate-700'>
+                    {loading ? (<ValuesLoadings />) : (<div className='bg-white flex justify-between p-6 rounded-lg border items-end shadow-md dark:bg-slate-700 max-md:p-2 text-nowrap'>
                         <div>
                             <p className='text-xs text-slate-400 dark:text-slate-200'>Expenses</p>
-                            <h2 className='text-4xl font-semibold text-red-600'>$ {expense.toFixed(2)}</h2>
+                            <h2 className='text-4xl font-semibold text-red-600 max-md:text-base'>$ {expense.toFixed(2)}</h2>
                         </div>
-                        <div className='border flex items-center text-center rounded-sm max-h-3 p-2.5 font-semibold tracking-wider shadow-md'>
-                            <p className='text-sm flex items-center'>{differenceInPorcentageExpense() < 0 ? (<IoIosArrowRoundUp className='text-green-500 text-lg' />) : (<IoIosArrowRoundDown className='text-red-500 text-lg' />)}{differenceInPorcentageExpense().toFixed(2)}%</p>
+                        <div className='border flex items-center text-center rounded-sm max-h-3 p-2.5 font-semibold tracking-wider shadow-md max-md:p-1'>
+                            <p className='text-sm flex items-center max-md:text-xs'>{differenceInPorcentageExpense() < 0 ? (<IoIosArrowRoundUp className='text-green-500 text-lg max-md:text-xs' />) : (<IoIosArrowRoundDown className='text-red-500 text-lg max-md:text-xs' />)}{differenceInPorcentageExpense().toFixed(2)}%</p>
                         </div>
                     </div>)}
 
                 </div>
             </section>
-            <div className='flex flex-col gap-8 xl:flex-row xl:justify-center xl:gap-16 items-stretch px-4'>
+            <div className='flex flex-col gap-8 xl:flex-row xl:justify-center xl:gap-16 items-stretch px-4 max-md:flex-col-reverse max-md:items-center max-md:p-6'>
                 <section className='border rounded-lg bg-white p-4 m-4 dark:bg-slate-700'>
                     <p className='font-semibold'>Expenses by category</p>
-                    <div className='flex justify-center items-center'>
+                    <div className='flex justify-center items-center max-md:max-w-[330px]'>
                         {loading ? (
                             <AiOutlineLoading3Quarters className='animate-spin m-auto h-28 w-28 p-8' />
 

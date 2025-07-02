@@ -53,27 +53,52 @@ type DonutChartProps = {
 }
 
 export const DonutChart: FC<DonutChartProps> = ({ results }) => {
+    const [customScale, setCustomScale] = useState(1.0)
+
+    useEffect(() => {
+        const handleResize = () => {
+            const isMobile = window.innerWidth <= 768
+            setCustomScale(isMobile ? 0.8 : 1.0)
+        }
+
+        handleResize() 
+        window.addEventListener('resize', handleResize)
+        return () => window.removeEventListener('resize', handleResize)
+    }, [])
+
     const [chartData, setChartData] = useState({
         options: {
+            plotOptions: {
+                pie: {
+                    customScale,
+                    donut: { size: '60%' }
+                }
+            },
             labels: results.chartData.map((item) => item.category),
             dataLabels: {
                 enabled: false
-            },
+            }
         },
         series: results.chartData.map((item) => Math.abs(item.value))
+    })
 
-    });
     useEffect(() => {
         setChartData({
             options: {
+                plotOptions: {
+                    pie: {
+                        customScale,
+                        donut: { size: '60%' }
+                    }
+                },
                 labels: results.chartData.map((item) => item.category),
                 dataLabels: {
-                    enabled: false,
-                },
+                    enabled: false
+                }
             },
-            series: results.chartData.map((item) => Math.abs(item.value)),
-        });
-    }, [results]);
+            series: results.chartData.map((item) => Math.abs(item.value))
+        })
+    }, [results, customScale])
     return (
         <Chart options={chartData.options} series={chartData.series} type='donut' width={380} />
     )

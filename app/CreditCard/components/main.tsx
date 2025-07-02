@@ -249,7 +249,7 @@ export const Main = () => {
     const results = separateAmountByCategory(filterItems)
 
     return (
-        <div>
+        <div className='max-w-screen-xl mx-auto w-full px-4 max-md:px-2'>
             <section>
                 <div className="flex flex-col lg:flex-row justify-between items-center py-12 gap-1">
                     <h1 className="font-semibold text-3xl w-full text-center lg:text-center sm:text-left">Hello!</h1>
@@ -358,10 +358,10 @@ export const Main = () => {
                     </div>
                 </section>
             </section>
-            <div className="flex flex-wrap justify-center gap-16 items-stretch">
+            <div className="flex flex-wrap justify-center gap-16 items-stretch max-md:flex-col-reverse max-md:items-center max-md:p-6">
                 <section className="border rounded-lg bg-white p-4 m-4 dark:bg-slate-700 w-full md:w-auto">
                     <p className="font-semibold">Expenses by category</p>
-                    <div>
+                    <div className='max-md:max-w-[330px]'>
                         {loading ? (
                             <AiOutlineLoading3Quarters className='animate-spin m-auto h-28 w-28 p-8' />
 
@@ -373,7 +373,7 @@ export const Main = () => {
                             : (<GraphicListItem results={results} />)}
                     </div>
                 </section>
-                <section className="bg-white dark:bg-slate-700 w-full md:w-auto">
+                <section className="bg-white dark:bg-slate-700">
                     <header className="p-4 border rounded-t-lg">
                         <h4 className="font-semibold text-lg">Last transactions</h4>
                         <p className="text-sm font-semibold text-slate-400">Check your last transactions</p>
