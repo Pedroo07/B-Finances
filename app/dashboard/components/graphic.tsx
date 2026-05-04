@@ -66,7 +66,7 @@ export const DonutChart: FC<DonutChartProps> = ({ results }) => {
         return () => window.removeEventListener('resize', handleResize)
     }, [])
 
-    const [chartData, setChartData] = useState({
+    const chartData = {
         options: {
             plotOptions: {
                 pie: {
@@ -80,25 +80,8 @@ export const DonutChart: FC<DonutChartProps> = ({ results }) => {
             }
         },
         series: results.chartData.map((item) => Math.abs(item.value))
-    })
+    }
 
-    useEffect(() => {
-        setChartData({
-            options: {
-                plotOptions: {
-                    pie: {
-                        customScale,
-                        donut: { size: '60%' }
-                    }
-                },
-                labels: results.chartData.map((item) => item.category),
-                dataLabels: {
-                    enabled: false
-                }
-            },
-            series: results.chartData.map((item) => Math.abs(item.value))
-        })
-    }, [results, customScale])
     return (
         <Chart options={chartData.options} series={chartData.series} type='donut' width={380} />
     )

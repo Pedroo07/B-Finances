@@ -1,6 +1,5 @@
 "use client"
-import React, { ChangeEvent, useEffect } from 'react'
-import { FC, useState } from 'react';
+import { ChangeEvent, FC, useEffect, useState } from 'react';
 import { IoIosArrowRoundUp, IoIosArrowRoundDown } from "react-icons/io";
 import { AiOutlineLoading3Quarters } from "react-icons/ai"
 import { FiMinusCircle, FiPlusCircle } from "react-icons/fi";
@@ -9,8 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue, SelectLabel } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { TransactionItem, TransactionHeader } from './transactions';
-import { DonutChart, GraphicListItem, } from './graphic';
-import { separateAmountByCategory } from './graphic';
+import { DonutChart, GraphicListItem, separateAmountByCategory } from './graphic';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import Period from './period';
 import { Transaction } from '@/lib/entities/transaction';
@@ -19,182 +17,21 @@ import { auth } from '@/lib/firebase';
 import { TransactionsLoadings } from '../loadings/TrasactionsLoadings';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ValuesLoadings } from '../loadings/ValuesLoadings';
+
 export const Main: FC = () => {
     const [text, setText] = useState('')
     const [category, setCategory] = useState('')
     const [price, setPrice] = useState(0)
     const [date, setDate] = useState('')
     const [allItems, setAllItems] = useState<Transaction[]>([])
-    const [filterItems, setFilterItems] = useState<Transaction[]>([])
-    const [expense, setExpense] = useState<number>(0)
-    const [income, setIncome] = useState<number>(0)
-    const [balance, setBalance] = useState<number>(0)
     const [user, loading] = useAuthState(auth)
+    const [selectedMonth, setSelectedMonth] = useState<number>(() => new Date().getMonth() + 1)
+    const [activeFilter, setActiveFilter] = useState("month")
+
     const sortItemByDate = (items: Transaction[]): Transaction[] => {
         return [...items].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
     }
-    const handleFetchTransaction = async () => {
-        if (typeof window !== 'undefined') {
-            try {
-                const transactions = await getTransaction() || []
-                setAllItems(transactions)
-            } catch (error) {
-                console.error("Error fetching transactions:", error);
-            }
-        }
-    }
-    const filteredTransactions = async () => {
-        if (typeof window !== 'undefined') {
-            const filterTransactionsByType = (transactions: Transaction[], type: string): Transaction[] => {
-                return transactions.filter(transaction => transaction.type === type)
-            }
 
-            const allTransactions = await getTransaction()
-            const filteredTransactionsExpense = filterTransactionsByType(allTransactions, "expense")
-            const filteredTransactionsIncome = filterTransactionsByType(allTransactions, "income")
-            const expenses = filteredTransactionsExpense.reduce((sum, transaction) => sum + transaction.amount, 0)
-            const incomes = filteredTransactionsIncome.reduce((sum, transaction) => sum + transaction.amount, 0)
-            setExpense(expenses)
-            setIncome(incomes)
-            setBalance(incomes - Math.abs(expenses))
-        }
-    }
-    const handleTextChange = (event: ChangeEvent<HTMLInputElement>): void => {
-        const newValue = event.target.value
-        setText(newValue)
-
-    }
-    const handleCategoryChange = (value: string): void => {
-        setCategory(value)
-    }
-    const handleDateChange = (event: ChangeEvent<HTMLInputElement>): void => {
-        const newValue = event.target.value
-        setDate(newValue)
-
-    }
-    const handlePriceChange = (event: ChangeEvent<HTMLInputElement>): void => {
-        const newValue = +event.target.value
-        setPrice(newValue)
-    }
-    const cauculateCurrentMonthTotals = () => {
-        if (typeof window === 'undefined') return { expense: 0, income: 0, balance: 0 }
-
-
-        const today = new Date()
-        const currentYear = today.getFullYear()
-
-        let totalIncome = 0
-        let totalExpense = 0
-
-        allItems.forEach(item => {
-            const [year, month] = item.date.split("-").map(Number)
-            if (year === currentYear && month === selectedMonth) {
-                if (item.amount > 0) {
-                    totalIncome += item.amount
-                } else {
-                    totalExpense += Math.abs(item.amount)
-                }
-            }
-        })
-
-        return {
-            income: totalIncome,
-            expense: totalExpense,
-            balance: totalIncome - totalExpense
-        }
-    }
-    const cauculateCurrentYear = () => {
-        if (typeof window === 'undefined') return { expense: 0, income: 0, balance: 0 }
-
-        const today = new Date()
-        const currentYear = today.getFullYear()
-
-        let totalIncome = 0
-        let totalExpense = 0
-
-        allItems.forEach(item => {
-            const [year] = item.date.split("-").map(Number)
-            if (year === currentYear) {
-                if (item.amount > 0) {
-                    totalIncome += item.amount
-                } else {
-                    totalExpense += Math.abs(item.amount)
-                }
-            }
-        })
-
-        return {
-            income: totalIncome,
-            expense: totalExpense,
-            balance: totalIncome - totalExpense
-        }
-    }
-    const handleDeleteItem = async (id: string) => {
-        if (typeof window !== 'undefined') {
-            await deleteTransaction(id)
-            const itemArray = allItems.filter(item => {
-                return item.id !== id
-            })
-            const sortedItems = sortItemByDate(itemArray)
-
-            const filteredItems = sortedItems.filter(item => {
-                const [year, month] = item.date.split("-").map(Number)
-                return year === new Date().getFullYear() && month === selectedMonth
-            })
-
-            const { income, expense, balance } = calculateTotals(filteredItems);
-            setIncome(income);
-            setExpense(expense);
-            setBalance(balance);
-            setAllItems(sortedItems)
-            filteredTransactions()
-            handleFetchTransaction()
-            setText('')
-            setPrice(0)
-            setCategory('')
-            setDate('')
-        }
-    }
-    const handleAddNewItem = async (IsIncomeDialog: boolean): Promise<void> => {
-        const adjustedPrice = IsIncomeDialog ? Math.abs(price) : -Math.abs(price);
-
-        const newItem: TransactionDto = {
-            amount: adjustedPrice,
-            date: date,
-            description: text,
-            category: category,
-            type: IsIncomeDialog ? 'income' : 'expense'
-        };
-
-        try {
-            const newTransaction = await createTransaction(newItem);
-            const itemsArray = [newTransaction, ...allItems];
-            const sortedItems = sortItemByDate(itemsArray);
-            setAllItems(sortedItems);
-
-            const filteredItems = sortedItems.filter(item => {
-                const [year, month] = item.date.split("-").map(Number);
-                return year === new Date().getFullYear() && month === selectedMonth;
-            });
-
-            const { income, expense, balance } = calculateTotals(filteredItems);
-            setIncome(income);
-            setExpense(expense);
-            setBalance(balance);
-
-            await handleFetchTransaction();
-
-            setAllItems(filteredItems);
-            filteredTransactions();
-
-            setText('');
-            setPrice(0);
-            setCategory('');
-            setDate('');
-        } catch (error) {
-            console.error('Error adding transaction:', error);
-        }
-    };
     const calculateTotals = (items: Transaction[]): { income: number; expense: number; balance: number } => {
         let totalIncome = 0;
         let totalExpense = 0;
@@ -213,65 +50,128 @@ export const Main: FC = () => {
             balance: totalIncome - totalExpense
         };
     };
-    const [selectedMonth, setSelectedMonth] = useState<number>(() => new Date().getMonth() + 1)
-    const [activeFilter, setActiveFilter] = useState("month")
+
+    const resetForm = () => {
+        setText('')
+        setPrice(0)
+        setCategory('')
+        setDate('')
+    }
+
+    const handleTextChange = (event: ChangeEvent<HTMLInputElement>): void => {
+        const newValue = event.target.value
+        setText(newValue)
+    }
+
+    const handleCategoryChange = (value: string): void => {
+        setCategory(value)
+    }
+
+    const handleDateChange = (event: ChangeEvent<HTMLInputElement>): void => {
+        const newValue = event.target.value
+        setDate(newValue)
+    }
+
+    const handlePriceChange = (event: ChangeEvent<HTMLInputElement>): void => {
+        const newValue = +event.target.value
+        setPrice(newValue)
+    }
+
     useEffect(() => {
-        if (activeFilter !== "month") return
-        const filteredItems = allItems.filter(item => {
-            const [year, month] = item.date.split("-").map(Number);
-            return year === new Date().getFullYear() && month === selectedMonth;
-        });
-        const sortedItems = sortItemByDate(filteredItems)
-        setFilterItems(sortedItems)
-        const { income, expense, balance } = cauculateCurrentMonthTotals();
-        setIncome(income);
-        setExpense(expense);
-        setBalance(balance);
-    }, [selectedMonth, allItems]);
-    useEffect(() => {
-        if (!loading && user) {
-            handleFetchTransaction();
+        if (loading || !user || typeof window === 'undefined') return
+
+        let isMounted = true
+
+        const fetchTransactions = async () => {
+            try {
+                const transactions = await getTransaction() || []
+                const sortedItems = [...transactions].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+                if (isMounted) {
+                    setAllItems(sortedItems)
+                }
+            } catch (error) {
+                console.error("Error fetching transactions:", error);
+            }
+        }
+
+        void fetchTransactions()
+
+        return () => {
+            isMounted = false
         }
     }, [user, loading]);
+
+    const currentYear = new Date().getFullYear()
+    const filterItems = sortItemByDate(allItems.filter(item => {
+        const [year, month] = item.date.split("-").map(Number);
+
+        if (activeFilter === "year") {
+            return year === currentYear
+        }
+
+        return year === currentYear && month === selectedMonth;
+    }))
+
+    const { income, expense, balance } = calculateTotals(filterItems);
+
+    const handleDeleteItem = async (id: string) => {
+        if (typeof window === 'undefined') return
+
+        await deleteTransaction(id)
+        setAllItems((currentItems) => currentItems.filter(item => item.id !== id))
+        resetForm()
+    }
+
+    const handleAddNewItem = async (IsIncomeDialog: boolean): Promise<void> => {
+        const adjustedPrice = IsIncomeDialog ? Math.abs(price) : -Math.abs(price);
+
+        const newItem: TransactionDto = {
+            amount: adjustedPrice,
+            date: date,
+            description: text,
+            category: category,
+            type: IsIncomeDialog ? 'income' : 'expense'
+        };
+
+        try {
+            const newTransaction = await createTransaction(newItem);
+            setAllItems((currentItems) => sortItemByDate([newTransaction, ...currentItems]));
+            resetForm();
+        } catch (error) {
+            console.error('Error adding transaction:', error);
+        }
+    };
+
     const handleMonthChange = (newMonth: number) => {
         setSelectedMonth(newMonth);
         setActiveFilter("month");
     };
+
     const thisMonthSelected = () => {
         setActiveFilter("month")
         const thisMonth = new Date().getMonth() + 1
         setSelectedMonth(thisMonth)
     }
+
     const lastMonthSelected = () => {
         setActiveFilter("month")
         const lastMonth = new Date().getMonth()
         setSelectedMonth(lastMonth)
     }
+
     const lastYearFilter = () => {
         setActiveFilter("year")
-
-        const filteredItems = allItems.filter(item => {
-            const [year] = item.date.split("-").map(Number);
-            return year === new Date().getFullYear()
-        });
-
-        setFilterItems(filteredItems);
-
-        const { income, expense, balance } = cauculateCurrentYear();
-        setIncome(income);
-        setExpense(expense);
-        setBalance(balance);
         setSelectedMonth(0)
     }
-    const differenceInPorcentage = () => {
 
+    const differenceInPorcentage = () => {
         const filteredItems = allItems.filter(item => {
             const [year, month] = item.date.split("-").map(Number);
-            return year === new Date().getFullYear() && month === selectedMonth;
+            return year === currentYear && month === selectedMonth;
         });
         const lastItems = allItems.filter(item => {
             const [year, month] = item.date.split("-").map(Number);
-            return year === new Date().getFullYear() && month === new Date().getMonth();
+            return year === currentYear && month === new Date().getMonth();
         });
 
         const totalExpense = filteredItems.reduce((acc, item) => acc + item.amount, 0)
@@ -284,17 +184,16 @@ export const Main: FC = () => {
         const difference = totalExpense - lastExpense
         const totalInPorcentage = (difference / Math.abs(lastExpense)) * 100
         return totalInPorcentage
-
     }
-    const differenceInPorcentageIncome = () => {
 
+    const differenceInPorcentageIncome = () => {
         const filteredItems = allItems.filter(item => {
             const [year, month] = item.date.split("-").map(Number);
-            return year === new Date().getFullYear() && month === selectedMonth && item.amount > 0
+            return year === currentYear && month === selectedMonth && item.amount > 0
         });
         const lastItems = allItems.filter(item => {
             const [year, month] = item.date.split("-").map(Number);
-            return year === new Date().getFullYear() && month === new Date().getMonth() && item.amount > 0
+            return year === currentYear && month === new Date().getMonth() && item.amount > 0
         });
 
         const totalIncome = filteredItems.reduce((acc, item) => acc + item.amount, 0)
@@ -307,17 +206,16 @@ export const Main: FC = () => {
         const difference = totalIncome - lastIncome
         const totalInPorcentage = (difference / Math.abs(lastIncome)) * 100
         return totalInPorcentage
-
     }
-    const differenceInPorcentageExpense = () => {
 
+    const differenceInPorcentageExpense = () => {
         const filteredItems = allItems.filter(item => {
             const [year, month] = item.date.split("-").map(Number);
-            return year === new Date().getFullYear() && month === selectedMonth && item.amount < 0
+            return year === currentYear && month === selectedMonth && item.amount < 0
         });
         const lastItems = allItems.filter(item => {
             const [year, month] = item.date.split("-").map(Number);
-            return year === new Date().getFullYear() && month === new Date().getMonth() && item.amount < 0
+            return year === currentYear && month === new Date().getMonth() && item.amount < 0
         });
 
         const totalExpense = filteredItems.reduce((acc, item) => acc + item.amount, 0)
@@ -330,8 +228,8 @@ export const Main: FC = () => {
         const difference = totalExpense - lastExpense
         const totalInPorcentage = (difference / lastExpense * 100)
         return totalInPorcentage
-
     }
+
     const results = separateAmountByCategory(filterItems)
 
     return (

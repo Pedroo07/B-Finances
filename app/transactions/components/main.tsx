@@ -13,44 +13,44 @@ import { TransactionsLoadings } from '@/app/dashboard/loadings/TrasactionsLoadin
 export const Main = () => {
   const [user, loading] = useAuthState(auth)
   const [items, setItems] = useState<Transaction[]>([])
-  const [filterItems, setFilterItems] = useState<Transaction[]>([])
-
-  const handleFetchItems = async () => {
-    if (typeof window !== 'undefined') {
-      try {
-        const itemsOnStorage = await getTransaction() || "[]"
-        setItems(itemsOnStorage)
-      } catch (e) {
-        console.error("error parsing 'items'", e)
-        return []
-      }
-    }
-  }
   const handleDeleteItem = () => { }
 
-
   const [selectedMonth, setSelectedMonth] = useState<number>(() => new Date().getMonth() + 1)
-
   const [activeFilter, setActiveFilter] = useState('month')
+
   useEffect(() => {
-    if (activeFilter !== "month") return
+    if (loading || !user || typeof window === 'undefined') return
 
-    const currentYear = new Date().getFullYear()
+    let isMounted = true
 
-    const filteredItems = items.filter((item) => {
-      const [year, month] = item.date.split('-').map(Number)
-      return year === currentYear && month === selectedMonth
-    })
-
-    setFilterItems(filteredItems)
-
-  }, [selectedMonth, items])
-  useEffect(() => {
-    if (!loading && user) {
-      handleFetchItems()
+    const fetchItems = async () => {
+      try {
+        const itemsOnStorage = await getTransaction() || []
+        if (isMounted) {
+          setItems(itemsOnStorage)
+        }
+      } catch (e) {
+        console.error("error parsing 'items'", e)
+      }
     }
 
+    void fetchItems()
+
+    return () => {
+      isMounted = false
+    }
   }, [loading, user])
+
+  const currentYear = new Date().getFullYear()
+  const filterItems = items.filter((item) => {
+    const [year, month] = item.date.split('-').map(Number)
+
+    if (activeFilter === "year") {
+      return year === currentYear
+    }
+
+    return year === currentYear && month === selectedMonth
+  })
 
   const thisMonthSelected = () => {
     setActiveFilter('month')
@@ -64,16 +64,7 @@ export const Main = () => {
   }
   const lastYearFilter = () => {
     setActiveFilter('year')
-    handleFetchItems()
-
-    const filteredItems = items.filter(item => {
-      const [year] = item.date.split("-").map(Number);
-      return year === new Date().getFullYear()
-    });
-
-    setFilterItems(filteredItems);
     setSelectedMonth(0)
-
   }
 
   const results = separateAmountByCategory(filterItems)

@@ -32,42 +32,43 @@ export const Main = () => {
     const [date, setDate] = useState('')
     const [user, loading] = useAuthState(auth)
     const [items, setItems] = useState<CardTransaction[]>([])
-    const [filterItems, setFilterItems] = useState<CardTransaction[]>([])
-    const [expense, setExpense] = useState<number>(() => {
-        return items.reduce((acc, item) => acc + item.amount, 0)
-    })
-    const sortItemByDate = (items: CardTransaction[]): CardTransaction[] => {
-        return [...items].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+    const [selectedMonth, setSelectedMonth] = useState<number>(() => new Date().getMonth() + 1)
+    const [activeFilter, setActiveFilter] = useState("month")
 
+    const sortItemByDate = (currentItems: CardTransaction[]): CardTransaction[] => {
+        return [...currentItems].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
     }
-    const handleFetchTransaction = async () => {
-        if (typeof window !== 'undefined') {
-            try {
-                const transactions = await getCardTransaction() || "[]"
-                setItems(transactions)
-            } catch (error) {
-                console.error("Error fetching transactions:", error);
-            }
-        }
+
+    const resetForm = () => {
+        setText('')
+        setPrice(0)
+        setCategory('')
+        setDate('')
     }
+
     const handleTextChange = (event: ChangeEvent<HTMLInputElement>): void => {
         const newValue = event.target.value
         setText(newValue)
     }
+
     const handleCardChange = (value: string): void => {
         setCard(value)
     }
+
     const handlecategoryChange = (value: string): void => {
         setCategory(value)
     }
+
     const handleDateChange = (event: ChangeEvent<HTMLInputElement>): void => {
         const newValue = event.target.value
         setDate(newValue)
     }
+
     const handlePriceChange = (event: ChangeEvent<HTMLInputElement>): void => {
         const newValue = +event.target.value
         setPrice(newValue)
     }
+
     const getCardImage = (cardName: string) => {
         switch (cardName) {
             case 'MercadoPago':
@@ -80,41 +81,52 @@ export const Main = () => {
                 return mercadoImg;
         }
     }
-    const filterTransactionsByCard = async (card: string) => {
-        if (typeof window !== 'undefined') {
-            const allTransactions = await getCardTransaction()
-            const filtered = allTransactions.filter(transaction => transaction.card === card)
-            setItems(filtered)
+
+    useEffect(() => {
+        if (loading || !user || typeof window === 'undefined') return
+
+        let isMounted = true
+
+        const fetchTransactions = async () => {
+            try {
+                const transactions = await getCardTransaction() || []
+                const sortedItems = [...transactions].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+                if (isMounted) {
+                    setItems(sortedItems)
+                }
+            } catch (error) {
+                console.error("Error fetching transactions:", error);
+            }
         }
 
-    }
+        void fetchTransactions()
+
+        return () => {
+            isMounted = false
+        }
+    }, [loading, user]);
+
     const currentCard = cards[cardIndex]
+    const currentYear = new Date().getFullYear()
+    const currentCardItems = items.filter(transaction => transaction.card === currentCard)
+    const filterItems = sortItemByDate(currentCardItems.filter(item => {
+        const [year, month] = item.date.split("-").map(Number);
+
+        if (activeFilter === "year") {
+            return year === currentYear
+        }
+
+        return year === currentYear && month === selectedMonth;
+    }))
+    const expense = filterItems.reduce((acc, item) => acc + item.amount, 0)
+
     const handleDeleteItem = async (id: string) => {
         await deleteCardTransaction(id)
-        const itemArray = items.filter(item => {
-            return item.id !== id
-        })
-
-        setItems(itemArray)
-        const filteredItems = itemArray.filter(item => {
-            const [year, month] = item.date.split("-").map(Number)
-            return year === new Date().getFullYear() && month === selectedMonth
-        })
-
-
-        const total = filteredItems.reduce((acc, item) => acc + item.amount, 0);
-
-        setExpense(total);
-        setItems(filteredItems)
-
-        handleFetchTransaction()
-        filterTransactionsByCard(cards[cardIndex]);
-        setText('')
-        setPrice(0)
-        setCategory('')
-        setDate('')
+        setItems((currentItems) => currentItems.filter(item => item.id !== id))
+        resetForm()
     }
-    const handleAddNewItem = (isIncomeDialog: boolean) => {
+
+    const handleAddNewItem = async (isIncomeDialog: boolean) => {
         const adjustedPrice = isIncomeDialog ? Math.abs(price) : -Math.abs(price)
 
         const newItem: CardTransactionDto = {
@@ -125,99 +137,47 @@ export const Main = () => {
             category: category,
         }
 
-        createCardTransaction(newItem).then((newTrasaction) => {
-            const itemsArray = [newTrasaction, ...items]
-            const sortedItems = sortItemByDate(itemsArray)
-            setItems(sortedItems)
-
-            const filteredItems = sortedItems.filter(item => {
-                const [year, month] = item.date.split("-").map(Number)
-                return year === new Date().getFullYear() && month === selectedMonth
-            })
-
-            const total = filteredItems.reduce((acc, item) => acc + item.amount, 0);
-
-            handleFetchTransaction()
-            filterTransactionsByCard(cards[cardIndex]);
-            setItems(filteredItems)
-            setExpense(total)
-            setText('')
-            setPrice(0)
-            setCategory('')
-            setDate('')
-        })
-    }
-    const [selectedMonth, setSelectedMonth] = useState<number>(() => new Date().getMonth() + 1)
-    const [activeFilter, setActiveFilter] = useState("month")
-
-    useEffect(() => {
-        if (activeFilter !== "month") return
-        const filteredItems = items.filter(item => {
-            const [year, month] = item.date.split("-").map(Number);
-            return year === new Date().getFullYear() && month === selectedMonth;
-        });
-
-        setFilterItems(filteredItems)
-        const total = filteredItems.reduce((acc, item) => acc + item.amount, 0);
-        setExpense(total);
-
-    }, [selectedMonth, items])
-
-    useEffect(() => {
-        if (!loading && user) {
-            handleFetchTransaction();
-            filterTransactionsByCard(cards[cardIndex]);
+        try {
+            const newTrasaction = await createCardTransaction(newItem)
+            setItems((currentItems) => sortItemByDate([newTrasaction, ...currentItems]))
+            resetForm()
+        } catch (error) {
+            console.error("Error adding card transaction:", error)
         }
-    }, [loading, user, cardIndex]);
+    }
 
     const handleMonthChange = (newMonth: number) => {
         setSelectedMonth(newMonth);
         setActiveFilter("month");
-        filterTransactionsByCard(cards[cardIndex]);
     };
 
     const thisMonthSelected = () => {
         const thisMonth = new Date().getMonth() + 1
         setSelectedMonth(thisMonth)
         setActiveFilter("month")
-        filterTransactionsByCard(cards[cardIndex]);
     }
+
     const lastMonthSelected = () => {
         setActiveFilter("month")
         const lastMonth = new Date().getMonth()
         setSelectedMonth(lastMonth)
-        filterTransactionsByCard(cards[cardIndex]);
     }
+
     const lastYearFilter = () => {
         setActiveFilter("year")
-        handleFetchTransaction()
-
-        const filteredItems = items.filter(item => {
-            const [year] = item.date.split("-").map(Number);
-            return year === new Date().getFullYear()
-        });
-
-
-        const total = filteredItems.reduce((acc, item) => acc + item.amount, 0);
-
-        setFilterItems(filteredItems);
-        filterTransactionsByCard(cards[cardIndex]);
-        setExpense(total);
         setSelectedMonth(0)
-
     }
+
     const differenceInPorcentage = () => {
-
-        const filteredItems = items.filter(item => {
+        const filteredItems = currentCardItems.filter(item => {
             const [year, month] = item.date.split("-").map(Number)
-            return year === new Date().getFullYear() && month === selectedMonth
+            return year === currentYear && month === selectedMonth
         })
 
-        const lastItems = items.filter(item => {
+        const lastItems = currentCardItems.filter(item => {
             const [year, month] = item.date.split("-").map(Number)
-            return year === new Date().getFullYear() && month === new Date().getMonth()
+            return year === currentYear && month === new Date().getMonth()
         })
-
 
         const totalExpense = filteredItems.reduce((acc, item) => acc + item.amount, 0)
         const lastExpense = lastItems.reduce((acc, item) => acc + item.amount, 0)
@@ -231,21 +191,15 @@ export const Main = () => {
 
         return totalInDifference
     }
-    const handleNext = () => {
-        setCardIndex((prev) => {
-            const nextIndex = (prev + 1) % cards.length
-            filterTransactionsByCard(cards[nextIndex])
-            return nextIndex
-        })
-    }
-    const handlePrev = () => {
-        setCardIndex((prev) => {
-            const prevIndex = (prev - 1 + cards.length) % cards.length
-            filterTransactionsByCard(cards[prevIndex])
-            return prevIndex
-        })
 
+    const handleNext = () => {
+        setCardIndex((prev) => (prev + 1) % cards.length)
     }
+
+    const handlePrev = () => {
+        setCardIndex((prev) => (prev - 1 + cards.length) % cards.length)
+    }
+
     const results = separateAmountByCategory(filterItems)
 
     return (
