@@ -59,11 +59,11 @@ export const Main = () => {
   return (
     <div className='relative flex min-h-[calc(100vh-5.5rem)] items-center justify-center px-4 py-8 sm:px-6'>
       <div className='surface-card-strong grid w-full max-w-6xl overflow-hidden lg:grid-cols-[1.05fr_0.95fr]'>
-        <div className='hidden bg-linear-to-br from-[#0F172A] via-[#1E293B] to-[#334155] p-10 text-white lg:flex lg:flex-col lg:justify-between'>
+        <div className='hidden p-10 dark:text-white lg:flex lg:flex-col lg:justify-between'>
           <div className='space-y-6'>
             <div className='flex items-center gap-4'>
-              <div className='rounded-[28px] border border-white/15 bg-white/10 p-3 backdrop-blur-sm'>
-                <Image src='/Logo.png' alt='logo' width={64} height={64} className='h-16 w-16 object-contain invert' />
+              <div>
+                <Image src='/Logo.png' alt='logo' width={64} height={64} className='h-16 w-16 object-contain rounded-2xl' />
               </div>
               <div>
                 <h1 className='text-4xl font-semibold tracking-tight'>B Finance</h1>
@@ -71,7 +71,7 @@ export const Main = () => {
               </div>
             </div>
             <div className='space-y-3'>
-              <span className='inline-flex rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-medium text-[#E2E8F0] backdrop-blur-sm'>
+              <span className='inline-flex rounded-full border dark:border-white/15 dark:bg-white/10 px-4 py-2 text-sm font-medium dark:text-[#E2E8F0] backdrop-blur-sm'>
                 Comece com um ambiente mais elegante e intuitivo
               </span>
               <h2 className='text-3xl font-semibold leading-tight'>
@@ -79,9 +79,9 @@ export const Main = () => {
               </h2>
             </div>
           </div>
-          <div className='grid gap-3 text-sm text-[#CBD5E1]'>
-            <p className='rounded-2xl border border-white/10 bg-white/5 px-4 py-4 backdrop-blur-sm'>Uma interface mais moderna para acompanhar tudo com rapidez.</p>
-            <p className='rounded-2xl border border-white/10 bg-white/5 px-4 py-4 backdrop-blur-sm'>Paleta refinada, leitura confortável e foco no essencial.</p>
+          <div className='grid gap-3 text-sm dark:text-[#CBD5E1]'>
+            <p className='rounded-2xl border dark:border-white/10 dark:bg-white/5 px-4 py-4 backdrop-blur-sm'>Uma interface mais moderna para acompanhar tudo com rapidez.</p>
+            <p className='rounded-2xl border dark:border-white/10 dark:bg-white/5 px-4 py-4 backdrop-blur-sm'>Paleta refinada, leitura confortável e foco no essencial.</p>
           </div>
         </div>
         <div className='p-6 sm:p-8 lg:p-10'>

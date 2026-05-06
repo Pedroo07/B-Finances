@@ -7,8 +7,8 @@ const Header = () => {
     <header className='sticky top-0 z-40 border-b soft-divider bg-[#F8FAFC]/75 backdrop-blur-xl dark:bg-[#0F172A]/80'>
         <div className='mx-auto flex max-w-screen-xl items-center justify-between gap-4 px-4 py-4 sm:px-6'>
             <div className='flex items-center gap-3'>
-                <div className='rounded-2xl border border-white/20 bg-white/70 p-2 shadow-[0_10px_30px_rgba(15,23,42,0.08)] backdrop-blur-sm dark:bg-white/5'>
-                    <Image src='/Logo.png' alt='logo' width={40} height={40} className='h-10 w-10 object-contain dark:invert' />
+                <div >
+                    <Image src='/Logo.png' alt='logo' width={40} height={40} className='h-10 w-10 object-contain rounded-xl' />
                 </div>
                 <div>
                     <p className='text-base font-semibold text-[#0F172A] dark:text-white'>B Finance</p>
