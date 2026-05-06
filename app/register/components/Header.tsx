@@ -4,14 +4,20 @@ import  ThemeToggle  from '../../ThemeToggle';
 
 const Header = () => {
   return (
-    <div className='w-full h-12  flex items-center justify-around border-b-2 bg-white dark:bg-slate-700 border-none'>
-        <div><Image src='/Logo.png' alt='logo' width={120} height={120} className='dark:invert'/></div>
-        <div>
-            <ul className='flex gap-1'>
-                <li className='text-xl'><ThemeToggle/></li>
-            </ul>
+    <header className='sticky top-0 z-40 border-b soft-divider bg-[#F8FAFC]/75 backdrop-blur-xl dark:bg-[#0F172A]/80'>
+        <div className='mx-auto flex max-w-screen-xl items-center justify-between gap-4 px-4 py-4 sm:px-6'>
+            <div className='flex items-center gap-3'>
+                <div className='rounded-2xl border border-white/20 bg-white/70 p-2 shadow-[0_10px_30px_rgba(15,23,42,0.08)] backdrop-blur-sm dark:bg-white/5'>
+                    <Image src='/Logo.png' alt='logo' width={40} height={40} className='h-10 w-10 object-contain dark:invert' />
+                </div>
+                <div>
+                    <p className='text-base font-semibold text-[#0F172A] dark:text-white'>B Finance</p>
+                    <p className='text-[11px] uppercase tracking-[0.28em] text-[#94A3BB]'>Sistema financeiro</p>
+                </div>
+            </div>
+            <ThemeToggle/>
         </div>
-    </div>
+    </header>
   )
 }
 

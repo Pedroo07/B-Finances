@@ -1,5 +1,5 @@
 "use client"
-import { ChangeEvent, FC, useEffect, useState } from 'react';
+import React, { ChangeEvent, FC, useEffect, useState } from 'react';
 import { IoIosArrowRoundUp, IoIosArrowRoundDown } from "react-icons/io";
 import { AiOutlineLoading3Quarters } from "react-icons/ai"
 import { FiMinusCircle, FiPlusCircle } from "react-icons/fi";
@@ -17,6 +17,7 @@ import { auth } from '@/lib/firebase';
 import { TransactionsLoadings } from '../loadings/TrasactionsLoadings';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ValuesLoadings } from '../loadings/ValuesLoadings';
+import { formatCurrency } from '@/lib/utils';
 
 export const Main: FC = () => {
     const [text, setText] = useState('')
@@ -231,161 +232,172 @@ export const Main: FC = () => {
     }
 
     const results = separateAmountByCategory(filterItems)
+    const filterButtonClass = 'surface-chip inline-flex items-center px-4 py-2'
 
     return (
-        <div className="max-w-screen-xl mx-auto w-full px-4 max-md:px-2">
-            <section>
-                <div className='flex flex-col gap-4 justify-between md:flex-row py-6 max-md:justify-center max-md:items-center'>
-                    <h1 className='font-semibold text-3xl'>Hello!</h1>
-                    <ul className='flex flex-wrap text-sm font-semibold divide-x'>
-                        <li className='border p-2 bg-white text-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-200'><button onClick={lastYearFilter}>Last Year</button></li>
-                        <li className='border p-2 bg-white text-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-200'><button onClick={lastMonthSelected}>Last Month</button></li>
-                        <li className='border p-2 bg-white text-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-200'><button onClick={thisMonthSelected}>This Month</button></li>
+        <div className="mx-auto flex max-w-screen-xl flex-col gap-6 px-4 py-6 sm:px-6">
+            <section className='surface-card p-6 sm:p-7'>
+                <div className='flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between'>
+                    <div className='space-y-2'>
+                        <span className='inline-flex rounded-full border border-[#22C55E]/20 bg-[#22C55E]/10 px-4 py-2 text-sm font-medium text-[#15803D] dark:text-[#4ADE80]'>
+                            Painel financeiro
+                        </span>
+                        <h1 className='text-3xl font-semibold tracking-tight text-[#0F172A] dark:text-white'>Olá!</h1>
+                        <p className='max-w-2xl text-sm leading-6 text-[#64748B] dark:text-[#94A3BB]'>
+                            Visualize seu saldo, acompanhe entradas e despesas e registre novos lançamentos com mais clareza.
+                        </p>
+                    </div>
+                    <ul className='flex flex-wrap gap-2'>
+                        <li><button className={filterButtonClass} onClick={lastYearFilter}>Último ano</button></li>
+                        <li><button className={filterButtonClass} onClick={lastMonthSelected}>Último mês</button></li>
+                        <li><button className={filterButtonClass} onClick={thisMonthSelected}>Este mês</button></li>
                         <Period onMonthChange={handleMonthChange} selectedMonth={selectedMonth} />
                     </ul>
                 </div>
-                <div className='grid grid-flow-col grid-rows-2 gap-8 mx-auto max-w-screen-xl items-center max-md:grid-cols-3 max-md:gap-4'>
-                    {loading ? (<ValuesLoadings />) : (
-                        <div className='bg-white flex justify-between p-6 rounded-lg border items-end shadow-md dark:bg-slate-700 max-md:p-2 text-nowrap'>
-                            <div>
-                                <p className='text-xs text-slate-400 dark:text-slate-200'>Balance</p>
-                                <h2 className='text-4xl font-semibold text-blue-600 max-md:text-base'>${balance.toFixed(2)}</h2>
-                            </div>
-                            <div className='border flex items-center text-center rounded-sm max-h-3 p-2.5 font-semibold tracking-wider shadow-md max-md:p-1 '>
-                                <p className='text-sm flex items-center max-md:text-xs'>{differenceInPorcentage() > 0 ? (<IoIosArrowRoundUp className='text-green-500 text-lg max-md:text-xs' />) : (<IoIosArrowRoundDown className='text-red-500 text-lg max-md:text-xs' />)}{differenceInPorcentage().toFixed(2)}%</p>
-                            </div>
-                        </div>)}
-
-                    <div className='bg-white border shadow-md rounded-lg flex items-center p-4 dark:bg-slate-700 max-md:p-2'>
-                        <Dialog>
-                            <DialogTrigger asChild>
-                                <div className='bg-green-200 rounded-md p-3 text-green-700 cursor-pointer max-md:p-2 '>
-                                    <FiPlusCircle className='text-xl hover:scale-125 max-md:text-lg' />
-                                </div>
-                            </DialogTrigger>
-                            <DialogContent className='sm:max-w-[425px]'>
-                                <DialogHeader>
-                                    <DialogTitle>Add new Income</DialogTitle>
-                                </DialogHeader>
-                                <div className='grid gap-4 py-4 '>
-                                    <Input type='text' placeholder='Description' value={text} onChange={handleTextChange}></Input>
-                                    <Input type='number' placeholder='Amount' value={price} onChange={handlePriceChange}></Input>
-                                    <Input type='date' placeholder='Date' value={date} onChange={handleDateChange}></Input>
-                                    <Select value={category} onValueChange={handleCategoryChange}>
-                                        <SelectTrigger className="w-[180px]">
-                                            <SelectValue placeholder="Select a category" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectGroup>
-                                                <SelectLabel>Categorys</SelectLabel>
-                                                <SelectItem value="salary">Salary</SelectItem>
-                                                <SelectItem value="extra">Extra</SelectItem>
-                                                <SelectItem value="other">Others</SelectItem>
-                                            </SelectGroup>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                <DialogFooter>
-                                    <Button
-                                        onClick={() => handleAddNewItem(true)}
-                                        type='button'
-                                        disabled={!text || !price || !category || !date}
-                                    ><span>Create new</span></Button>
-                                </DialogFooter>
-                            </DialogContent>
-                        </Dialog>
-                        <div className='px-2'>
-                            <p className='font-semibold max-md:text-base'>Add income</p>
-                            <p className='text-sm text-slate-500 max-md:hidden'>Create an income manually</p>
-                        </div>
-                    </div>
-                    {loading ? (<ValuesLoadings />) : (<div className='bg-white flex justify-between p-6 rounded-lg border items-end shadow-md dark:bg-slate-700 max-md:p-2  text-nowrap'>
-                        <div>
-                            <p className='text-xs text-slate-400 dark:text-slate-200'>Incomes</p>
-                            <h2 className='text-4xl font-semibold text-green-600 max-md:text-base'>$ {income.toFixed(2)}</h2>
-                        </div>
-                        <div className='border flex items-center text-center rounded-sm max-h-3 p-2.5 font-semibold tracking-wider shadow-md max-md:p-1'>
-                            <p className='text-sm flex items-center max-md:text-xs'>{differenceInPorcentageIncome() > 0 ? (<IoIosArrowRoundUp className='text-green-500 text-lg max-md:text-xs' />) : (<IoIosArrowRoundDown className='text-red-500 text-lg max-md:text-xs' />)}{differenceInPorcentageIncome().toFixed(2)}%</p>
-                        </div>
-                    </div>)}
-                    <div className='bg-white border shadow-md rounded-lg flex items-center p-4 dark:bg-slate-700 max-md:p-2'>
-                        <Dialog>
-                            <DialogTrigger asChild>
-                                <div className='bg-red-200 rounded-md p-3 text-red-700 cursor-pointer max-md:p-2'><FiMinusCircle className='text-xl hover:scale-125 max-md:text-lg' /></div>
-                            </DialogTrigger>
-                            <DialogContent className='sm:max-w-[425px]'>
-                                <DialogHeader>
-                                    <DialogTitle>Add new Expense</DialogTitle>
-                                </DialogHeader>
-                                <div className='grid gap-4 py-4'>
-                                    <Input type='text' placeholder='Description' value={text} onChange={handleTextChange}></Input>
-                                    <Input type='number' placeholder='Amount' value={price} onChange={handlePriceChange}></Input>
-                                    <Input type='date' placeholder='Date' value={date} onChange={handleDateChange}></Input>
-                                    <Select value={category} onValueChange={handleCategoryChange}>
-                                        <SelectTrigger className="w-[180px]">
-                                            <SelectValue placeholder="Select a Category" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectGroup>
-                                                <SelectLabel>Categorys</SelectLabel>
-                                                <SelectItem value="fixes">Fixes</SelectItem>
-                                                <SelectItem value="foods">Foods</SelectItem>
-                                                <SelectItem value="entertainment">Entertainment</SelectItem>
-                                                <SelectItem value="other">Others</SelectItem>
-                                            </SelectGroup>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                <DialogFooter>
-                                    <Button
-                                        onClick={() => handleAddNewItem(false)}
-                                        type='button'
-                                        disabled={!text || !price || !category || !date}
-                                    ><span>Create new</span></Button>
-                                </DialogFooter>
-                            </DialogContent>
-                        </Dialog>
-                        <div className='px-2'>
-                            <p className='font-semibold'>Add expense</p>
-                            <p className='text-sm text-slate-500 max-md:hidden'>Create an expense manually</p>
-                        </div>
-                    </div>
-                    {loading ? (<ValuesLoadings />) : (<div className='bg-white flex justify-between p-6 rounded-lg border items-end shadow-md dark:bg-slate-700 max-md:p-2 text-nowrap'>
-                        <div>
-                            <p className='text-xs text-slate-400 dark:text-slate-200'>Expenses</p>
-                            <h2 className='text-4xl font-semibold text-red-600 max-md:text-base'>$ {expense.toFixed(2)}</h2>
-                        </div>
-                        <div className='border flex items-center text-center rounded-sm max-h-3 p-2.5 font-semibold tracking-wider shadow-md max-md:p-1'>
-                            <p className='text-sm flex items-center max-md:text-xs'>{differenceInPorcentageExpense() < 0 ? (<IoIosArrowRoundUp className='text-green-500 text-lg max-md:text-xs' />) : (<IoIosArrowRoundDown className='text-red-500 text-lg max-md:text-xs' />)}{differenceInPorcentageExpense().toFixed(2)}%</p>
-                        </div>
-                    </div>)}
-
-                </div>
             </section>
-            <div className='flex flex-col gap-8 xl:flex-row xl:justify-center xl:gap-16 items-stretch px-4 max-md:flex-col-reverse max-md:items-center max-md:p-6'>
-                <section className='border rounded-lg bg-white p-4 m-4 dark:bg-slate-700'>
-                    <p className='font-semibold'>Expenses by category</p>
-                    <div className='flex justify-center items-center max-md:max-w-[330px]'>
+            <section className='grid gap-4 md:grid-cols-2 2xl:grid-cols-5'>
+                {loading ? (<ValuesLoadings />) : (
+                    <div className='surface-card flex flex-col justify-between gap-5 p-5 sm:p-6'>
+                        <div>
+                            <p className='text-xs uppercase tracking-[0.22em] text-[#94A3BB]'>Saldo</p>
+                            <h2 className='mt-3 text-3xl font-semibold text-[#0F172A] dark:text-white sm:text-4xl'>{formatCurrency(balance)}</h2>
+                        </div>
+                        <div className='flex w-fit items-center rounded-full border border-border/60 px-3 py-2 text-sm font-semibold text-[#334155] dark:text-[#E2E8F0]'>
+                            {differenceInPorcentage() > 0 ? (<IoIosArrowRoundUp className='text-[#22C55E] text-lg' />) : (<IoIosArrowRoundDown className='text-rose-500 text-lg' />)}{differenceInPorcentage().toFixed(2)}%
+                        </div>
+                    </div>)}
+
+                <div className='surface-card flex items-center gap-4 p-5 sm:p-6'>
+                    <Dialog>
+                        <DialogTrigger asChild>
+                            <div className='flex h-14 w-14 cursor-pointer items-center justify-center rounded-2xl bg-[#22C55E]/12 text-[#16A34A] transition-transform hover:scale-[1.03] dark:bg-[#22C55E]/18 dark:text-[#4ADE80]'>
+                                <FiPlusCircle className='text-2xl' />
+                            </div>
+                        </DialogTrigger>
+                        <DialogContent className='sm:max-w-[425px]'>
+                            <DialogHeader>
+                                <DialogTitle>Adicionar nova receita</DialogTitle>
+                            </DialogHeader>
+                            <div className='grid gap-4 py-4 '>
+                                <Input type='text' placeholder='Descrição' value={text} onChange={handleTextChange}></Input>
+                                <Input type='number' placeholder='Valor' value={price} onChange={handlePriceChange}></Input>
+                                <Input type='date' placeholder='Data' value={date} onChange={handleDateChange}></Input>
+                                <Select value={category} onValueChange={handleCategoryChange}>
+                                    <SelectTrigger className="w-full">
+                                        <SelectValue placeholder="Selecione uma categoria" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectGroup>
+                                            <SelectLabel>Categorias</SelectLabel>
+                                            <SelectItem value="salary">Salário</SelectItem>
+                                            <SelectItem value="extra">Extra</SelectItem>
+                                            <SelectItem value="other">Outros</SelectItem>
+                                        </SelectGroup>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <DialogFooter>
+                                <Button
+                                    onClick={() => handleAddNewItem(true)}
+                                    type='button'
+                                    disabled={!text || !price || !category || !date}
+                                    className='w-full sm:w-auto'
+                                ><span>Criar lançamento</span></Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
+                    <div>
+                        <p className='font-semibold text-[#0F172A] dark:text-white'>Adicionar receita</p>
+                        <p className='text-sm text-[#64748B] dark:text-[#94A3BB]'>Cadastre uma entrada manualmente.</p>
+                    </div>
+                </div>
+                {loading ? (<ValuesLoadings />) : (<div className='surface-card flex flex-col justify-between gap-5 p-5 sm:p-6'>
+                    <div>
+                        <p className='text-xs uppercase tracking-[0.22em] text-[#94A3BB]'>Entradas</p>
+                        <h2 className='mt-3 text-3xl font-semibold text-[#16A34A] sm:text-4xl dark:text-[#4ADE80]'>{formatCurrency(income)}</h2>
+                    </div>
+                    <div className='flex w-fit items-center rounded-full border border-border/60 px-3 py-2 text-sm font-semibold text-[#334155] dark:text-[#E2E8F0]'>
+                        {differenceInPorcentageIncome() > 0 ? (<IoIosArrowRoundUp className='text-[#22C55E] text-lg' />) : (<IoIosArrowRoundDown className='text-rose-500 text-lg' />)}{differenceInPorcentageIncome().toFixed(2)}%
+                    </div>
+                </div>)}
+                <div className='surface-card flex items-center gap-4 p-5 sm:p-6'>
+                    <Dialog>
+                        <DialogTrigger asChild>
+                            <div className='flex h-14 w-14 cursor-pointer items-center justify-center rounded-2xl bg-rose-500/12 text-rose-500 transition-transform hover:scale-[1.03] dark:bg-rose-500/18 dark:text-rose-300'><FiMinusCircle className='text-2xl' /></div>
+                        </DialogTrigger>
+                        <DialogContent className='sm:max-w-[425px]'>
+                            <DialogHeader>
+                                <DialogTitle>Adicionar nova despesa</DialogTitle>
+                            </DialogHeader>
+                            <div className='grid gap-4 py-4'>
+                                <Input type='text' placeholder='Descrição' value={text} onChange={handleTextChange}></Input>
+                                <Input type='number' placeholder='Valor' value={price} onChange={handlePriceChange}></Input>
+                                <Input type='date' placeholder='Data' value={date} onChange={handleDateChange}></Input>
+                                <Select value={category} onValueChange={handleCategoryChange}>
+                                    <SelectTrigger className="w-full">
+                                        <SelectValue placeholder="Selecione uma categoria" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectGroup>
+                                            <SelectLabel>Categorias</SelectLabel>
+                                            <SelectItem value="fixes">Fixas</SelectItem>
+                                            <SelectItem value="foods">Alimentação</SelectItem>
+                                            <SelectItem value="entertainment">Lazer</SelectItem>
+                                            <SelectItem value="other">Outros</SelectItem>
+                                        </SelectGroup>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <DialogFooter>
+                                <Button
+                                    onClick={() => handleAddNewItem(false)}
+                                    type='button'
+                                    disabled={!text || !price || !category || !date}
+                                    className='w-full sm:w-auto'
+                                ><span>Criar lançamento</span></Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
+                    <div>
+                        <p className='font-semibold text-[#0F172A] dark:text-white'>Adicionar despesa</p>
+                        <p className='text-sm text-[#64748B] dark:text-[#94A3BB]'>Cadastre uma saída manualmente.</p>
+                    </div>
+                </div>
+                {loading ? (<ValuesLoadings />) : (<div className='surface-card flex flex-col justify-between gap-5 p-5 sm:p-6'>
+                    <div>
+                        <p className='text-xs uppercase tracking-[0.22em] text-[#94A3BB]'>Despesas</p>
+                        <h2 className='mt-3 text-3xl font-semibold text-rose-500 sm:text-4xl dark:text-rose-300'>{formatCurrency(expense)}</h2>
+                    </div>
+                    <div className='flex w-fit items-center rounded-full border border-border/60 px-3 py-2 text-sm font-semibold text-[#334155] dark:text-[#E2E8F0]'>
+                        {differenceInPorcentageExpense() < 0 ? (<IoIosArrowRoundUp className='text-[#22C55E] text-lg' />) : (<IoIosArrowRoundDown className='text-rose-500 text-lg' />)}{differenceInPorcentageExpense().toFixed(2)}%
+                    </div>
+                </div>)}
+            </section>
+            <div className='flex flex-col gap-6 xl:flex-row xl:items-stretch'>
+                <section className='surface-card w-full p-6 xl:max-w-[420px]'>
+                    <p className='text-lg font-semibold text-[#0F172A] dark:text-white'>Despesas por categoria</p>
+                    <p className='mt-1 text-sm text-[#64748B] dark:text-[#94A3BB]'>Entenda rapidamente a distribuição das saídas.</p>
+                    <div className='mt-6 flex justify-center items-center max-md:max-w-[330px]'>
                         {loading ? (
-                            <AiOutlineLoading3Quarters className='animate-spin m-auto h-28 w-28 p-8' />
+                            <AiOutlineLoading3Quarters className='h-24 w-24 animate-spin p-6 text-[#22C55E]' />
 
                         ) : (<DonutChart results={results} />)}
                     </div>
-                    <div>
+                    <div className='mt-4'>
                         {loading ?
-                            (<Skeleton className='h-3' />)
+                            (<Skeleton className='h-28 w-full' />)
                             : (<GraphicListItem results={results} />)}
                     </div>
                 </section>
-                <section className='bg-white dark:bg-slate-700'>
-                    <header className='p-4 border rounded-t-lg '>
-                        <h4 className='font-semibold text-lg'>Last transactions</h4>
-                        <p className='text-sm font-semibold text-slate-400 '>Check your last transactions</p>
+                <section className='surface-card-strong w-full overflow-hidden'>
+                    <header className='border-b soft-divider px-5 py-5 sm:px-6'>
+                        <h4 className='text-xl font-semibold text-[#0F172A] dark:text-white'>Últimas transações</h4>
+                        <p className='text-sm text-[#64748B] dark:text-[#94A3BB]'>Acompanhe seus lançamentos recentes com leitura mais limpa.</p>
                     </header>
                     <main>
                         <TransactionHeader />
-                        <div className='border rounded-b-lg max-h-96 overflow-auto'>
-                            <ul className='divide-y '>
+                        <div className='max-h-96 overflow-auto'>
+                            <ul className='divide-y divide-border/40'>
                                 {filterItems.map((item => (loading ? (
                                     <TransactionsLoadings key={item.id} />
 

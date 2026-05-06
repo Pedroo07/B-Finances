@@ -12,14 +12,14 @@ const Period: React.FC<PeriodProps> = ({ onMonthChange, selectedMonth }) => {
 
     return (
             <li>
-                <Select name='Choose the Month' value={String(selectedMonth)} onValueChange={(value) => onMonthChange(Number(value))}  >
-                    <SelectTrigger className='bg-white text-slate-600 rounded-none p-2 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-200'>
-                        <SelectValue placeholder='Choose the Month' />
+                <Select name='Escolher mês' value={String(selectedMonth)} onValueChange={(value) => onMonthChange(Number(value))}  >
+                    <SelectTrigger className='min-w-[170px]'>
+                        <SelectValue placeholder='Escolher mês' />
                     </SelectTrigger>
                     <SelectContent >
                         {Array.from({ length: 12 }, (_, i) => (
                             <SelectItem key={i + 1} value={String(i + 1)}>
-                                {new Date(0, i).toLocaleString("en-US", { month: "long" })}
+                                {new Date(0, i).toLocaleString("pt-BR", { month: "long" })}
                             </SelectItem>
                         ))}
 

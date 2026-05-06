@@ -1,42 +1,35 @@
 'use client'
 import React, { useEffect, useState } from 'react'
+import { MoonStar, SunMedium } from 'lucide-react'
 
- const ThemeToggle = () => {
-    const date = new Date()
-    const hoursUtc = date.getHours()
+import { useTheme } from 'next-themes'
 
-    
-    const [isDarkMode, setIsDarkMode] = useState(() => {
-        if (typeof window === 'undefined') return false
-        const storedTheme = localStorage.getItem('theme')
-        if (storedTheme === 'dark') return true
-        if (storedTheme === 'light') return false
-
-        return hoursUtc >= 18 || hoursUtc < 6
-    })
-
-    const toggleTheme = () => {
-        const newTheme = !isDarkMode
-        setIsDarkMode(newTheme)
-        localStorage.setItem('theme', newTheme ? 'dark' : 'light')
-    }
+const ThemeToggle = () => {
+    const { resolvedTheme, setTheme } = useTheme()
+    const [mounted, setMounted] = useState(false)
 
     useEffect(() => {
-        if(isDarkMode) {
-            document.documentElement.classList.add('dark')
-        }else {
-            document.documentElement.classList.remove('dark')
-        }
+        setMounted(true)
+    }, [])
 
-    }, [isDarkMode])
-  return (
-    <button
-    onClick={toggleTheme}
-    className='p-2 bg-gray-200 dark:bg-gray-800 rounded-lg'
-    >
-        {isDarkMode ? '🌙' : '☀️'}
-    </button>
-  )
+    if (!mounted) return null
+
+    const isDarkMode = resolvedTheme === 'dark'
+
+    const toggleTheme = () => {
+        setTheme(isDarkMode ? 'light' : 'dark')
+    }
+
+    return (
+        <button
+            onClick={toggleTheme}
+            className='flex h-11 w-11 items-center justify-center rounded-full border border-white/15 bg-white/80 text-[#334155] shadow-[0_10px_24px_rgba(15,23,42,0.08)] backdrop-blur-sm transition-all hover:scale-[1.02] hover:border-[#22C55E]/40 hover:text-[#22C55E] dark:bg-white/5 dark:text-[#E2E8F0] dark:hover:text-[#22C55E]'
+            aria-label={isDarkMode ? 'Ativar modo claro' : 'Ativar modo escuro'}
+            title={isDarkMode ? 'Ativar modo claro' : 'Ativar modo escuro'}
+        >
+            {isDarkMode ? <SunMedium className='h-5 w-5' /> : <MoonStar className='h-5 w-5' />}
+        </button>
+    )
 }
 
 export default ThemeToggle

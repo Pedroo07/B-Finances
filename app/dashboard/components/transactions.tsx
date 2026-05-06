@@ -1,5 +1,6 @@
 import React from 'react'
-import { FcCurrencyExchange } from 'react-icons/fc'
+import { ArrowRightLeft, Trash2 } from 'lucide-react'
+import { formatCurrency, translateCategory } from '@/lib/utils'
 
 export type Item = {
     id: string
@@ -16,40 +17,60 @@ type TransactionItemProps = {
 
 export const TransactionHeader = () => {
     return (
-        <div className="w-full">
-      <ul className="grid grid-cols-5 bg-neutral-100 dark:bg-slate-800 border px-4 py-2 text-sm text-slate-500 dark:text-slate-200 font-medium">
-        <li className="col-span-2">Description</li>
-        <li>Category</li>
-        <li>Date</li>
-        <li>Amount</li>
-      </ul>
-    </div>
+        <div className="hidden w-full md:block">
+            <ul className="grid grid-cols-5 rounded-t-[26px] border-b border-border/60 bg-[#E2E8F0]/65 px-5 py-3 text-sm font-semibold text-[#334155] dark:bg-[#0F172A]/45 dark:text-[#CBD5E1]">
+                <li className="col-span-2">Descrição</li>
+                <li>Categoria</li>
+                <li>Data</li>
+                <li>Valor</li>
+            </ul>
+        </div>
     )
 }
 
 export const TransactionItem: React.FC<TransactionItemProps> = ({ item, onDelete }) => {
     return (
-        <li className="w-full">
-        <div className="grid grid-cols-5 items-center p-2 gap-2 text-sm">
-          <p className="col-span-2 flex items-center gap-2 text-slate-700 dark:text-slate-200">
-            <FcCurrencyExchange />
-            {item.description}
-          </p>
-          <p className="text-slate-600 dark:text-slate-300">{item.category}</p>
-          <p className="text-slate-500 dark:text-slate-200">{item.date}</p>
-          <div className="flex justify-between items-center">
-            <span className={`${item.amount > 0 ? 'text-green-500' : 'text-red-500'}`}>
-              {item.amount > 0 ? '+' : ''}
-              {item.amount}
-            </span>
-            <button
-              onClick={() => onDelete(item.id)}
-              className="ml-2 text-slate-500 dark:text-slate-300 font-semibold"
-            >
-              X
-            </button>
-          </div>
-        </div>
-      </li>
+        <li className="w-full border-b border-border/50 last:border-b-0">
+            <div className="flex flex-col gap-4 px-4 py-4 md:grid md:grid-cols-5 md:items-center md:gap-3 md:px-5">
+                <div className="flex items-start justify-between gap-3 md:col-span-2 md:justify-start">
+                    <p className="flex items-center gap-3 text-sm font-medium text-[#0F172A] dark:text-[#E2E8F0]">
+                        <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-[#22C55E]/12 text-[#16A34A] dark:bg-[#22C55E]/18 dark:text-[#4ADE80]">
+                            <ArrowRightLeft className="h-4 w-4" />
+                        </span>
+                        {item.description}
+                    </p>
+                    <button
+                        onClick={() => onDelete(item.id)}
+                        className="flex h-9 w-9 items-center justify-center rounded-full border border-border/60 text-[#64748B] transition-all hover:border-rose-400/50 hover:text-rose-500 md:hidden dark:text-[#94A3BB]"
+                        aria-label="Excluir transação"
+                    >
+                        <Trash2 className="h-4 w-4" />
+                    </button>
+                </div>
+                <div className="grid grid-cols-2 gap-3 text-sm md:contents">
+                    <div className="space-y-1 md:space-y-0">
+                        <p className="text-xs uppercase tracking-[0.22em] text-[#94A3BB] md:hidden">Categoria</p>
+                        <p className="text-[#334155] dark:text-[#CBD5E1]">{translateCategory(item.category)}</p>
+                    </div>
+                    <div className="space-y-1 md:space-y-0">
+                        <p className="text-xs uppercase tracking-[0.22em] text-[#94A3BB] md:hidden">Data</p>
+                        <p className="text-[#64748B] dark:text-[#94A3BB]">{item.date}</p>
+                    </div>
+                    <div className="space-y-1 md:flex md:items-center md:justify-between md:gap-3 md:space-y-0">
+                        <p className="text-xs uppercase tracking-[0.22em] text-[#94A3BB] md:hidden">Valor</p>
+                        <span className={`font-semibold ${item.amount > 0 ? 'text-[#16A34A] dark:text-[#4ADE80]' : 'text-rose-500 dark:text-rose-300'}`}>
+                            {item.amount > 0 ? `+${formatCurrency(item.amount)}` : formatCurrency(item.amount)}
+                        </span>
+                        <button
+                            onClick={() => onDelete(item.id)}
+                            className="hidden rounded-full border border-border/60 p-2 text-[#64748B] transition-all hover:border-rose-400/50 hover:text-rose-500 md:flex dark:text-[#94A3BB]"
+                            aria-label="Excluir transação"
+                        >
+                            <Trash2 className="h-4 w-4" />
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </li>
     )
 }

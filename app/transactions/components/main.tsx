@@ -10,6 +10,7 @@ import { auth } from '@/lib/firebase'
 import { AiOutlineLoading3Quarters } from 'react-icons/ai'
 import { Skeleton } from '@/components/ui/skeleton'
 import { TransactionsLoadings } from '@/app/dashboard/loadings/TrasactionsLoadings'
+
 export const Main = () => {
   const [user, loading] = useAuthState(auth)
   const [items, setItems] = useState<Transaction[]>([])
@@ -68,42 +69,56 @@ export const Main = () => {
   }
 
   const results = separateAmountByCategory(filterItems)
+  const filterButtonClass = 'surface-chip inline-flex items-center px-4 py-2'
 
   return (
-    <div className='lg:flex max-w-screen-xl mx-auto w-full px-4 py-4 lg:items-center'>
-      <section className="flex flex-col gap-6 lg:justify-between">
-        <div className="flex flex-col w-full">
-          <ul className='flex flex-wrap  text-sm font-semibold justify-center my-4'>
-            <li className='border p-2 bg-white text-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-200'><button onClick={lastYearFilter}>Last Year</button></li>
-            <li className='border p-2 bg-white text-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-200'><button onClick={lastMonthSelected}>Last Month</button></li>
-            <li className='border p-2 bg-white text-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-200'><button onClick={thisMonthSelected}>This Month</button></li>
+    <div className='mx-auto flex max-w-screen-xl flex-col gap-6 px-4 py-6 sm:px-6 xl:flex-row'>
+      <section className="flex w-full flex-col gap-6 xl:max-w-[420px]">
+        <div className="surface-card p-6">
+          <div className='space-y-2'>
+            <span className='inline-flex rounded-full border border-[#22C55E]/20 bg-[#22C55E]/10 px-4 py-2 text-sm font-medium text-[#15803D] dark:text-[#4ADE80]'>
+              Histórico financeiro
+            </span>
+            <h1 className='text-3xl font-semibold tracking-tight text-[#0F172A] dark:text-white'>Transações</h1>
+            <p className='text-sm leading-6 text-[#64748B] dark:text-[#94A3BB]'>
+              Filtre seu histórico e acompanhe a distribuição das despesas por categoria.
+            </p>
+          </div>
+          <ul className='mt-6 flex flex-wrap gap-2'>
+            <li><button className={filterButtonClass} onClick={lastYearFilter}>Último ano</button></li>
+            <li><button className={filterButtonClass} onClick={lastMonthSelected}>Último mês</button></li>
+            <li><button className={filterButtonClass} onClick={thisMonthSelected}>Este mês</button></li>
             <Period onMonthChange={setSelectedMonth} selectedMonth={selectedMonth} />
           </ul>
-          <section className="border rounded-lg bg-white dark:bg-slate-700 p-6 shadow-md lg:m-8">
-            <p className='font-semibold text-2xl p-4'>Expenses by category</p>
-            <div >
-              {loading ? (
-                <AiOutlineLoading3Quarters className='animate-spin m-auto h-28 w-28 p-8' />
-
-              ) : (<DonutChart results={results} />)}
-            </div>
-            <div className='text-xl'>
-              {loading ?
-                (<Skeleton className='h-3' />)
-                : (<GraphicListItem results={results} />)}
-            </div>
-          </section>
         </div>
+        <section className="surface-card p-6">
+          <p className='text-lg font-semibold text-[#0F172A] dark:text-white'>Despesas por categoria</p>
+          <p className='mt-1 text-sm text-[#64748B] dark:text-[#94A3BB]'>Uma visão rápida do que mais pesa no seu mês.</p>
+          <div className='mt-6 flex justify-center'>
+            {loading ? (
+              <AiOutlineLoading3Quarters className='h-24 w-24 animate-spin p-6 text-[#22C55E]' />
+            ) : (<DonutChart results={results} />)}
+          </div>
+          <div className='mt-4 text-xl'>
+            {loading ? (
+              <Skeleton className='h-28 w-full' />
+            ) : (
+              <GraphicListItem results={results} />
+            )}
+          </div>
+        </section>
       </section>
-      <section className="bg-white dark:bg-slate-700 border rounded-lg w-full sm:w-[58%] flex flex-col">
+      <section className="surface-card-strong w-full overflow-hidden">
+        <div className='border-b soft-divider px-5 py-5 sm:px-6'>
+          <h2 className='text-xl font-semibold text-[#0F172A] dark:text-white'>Últimas transações</h2>
+          <p className='mt-1 text-sm text-[#64748B] dark:text-[#94A3BB]'>Consulte suas movimentações mais recentes com mais conforto no desktop e no celular.</p>
+        </div>
         <TransactionHeader />
-        <div className='border-t rounded-b-lg max-h-[70vh] overflow-auto'>
-          <ul className='divide-y '>
+        <div className='max-h-[70vh] overflow-auto'>
+          <ul className='divide-y divide-border/40'>
             {filterItems.map((item => (loading ? (
               <TransactionsLoadings key={item.id} />
-
             ) : <TransactionItem key={item.id} item={item} onDelete={handleDeleteItem} />
-
             )))}
           </ul>
         </div>
@@ -111,4 +126,3 @@ export const Main = () => {
     </div>
   )
 }
-

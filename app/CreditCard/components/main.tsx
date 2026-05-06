@@ -21,6 +21,7 @@ import { useAuthState } from 'react-firebase-hooks/auth'
 import { Skeleton } from '@/components/ui/skeleton'
 import { AiOutlineLoading3Quarters } from 'react-icons/ai'
 import { TransactionsLoadings } from '@/app/dashboard/loadings/TrasactionsLoadings'
+import { formatCurrency } from '@/lib/utils'
 
 export const Main = () => {
     const cards = ['MercadoPago', 'PicPay', 'Nubank']
@@ -201,152 +202,164 @@ export const Main = () => {
     }
 
     const results = separateAmountByCategory(filterItems)
+    const filterButtonClass = 'surface-chip inline-flex items-center px-4 py-2'
 
     return (
-        <div className='max-w-screen-xl mx-auto w-full px-4 max-md:px-2'>
-            <section>
-                <div className="flex flex-col lg:flex-row justify-between items-center py-12 gap-1">
-                    <h1 className="font-semibold text-3xl w-full text-center lg:text-center sm:text-left">Hello!</h1>
-                    <ul className="flex  text-sm font-semibold divide-x w-full justify-center md:justify-start">
-                        <li className="border p-2 bg-white text-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-200">
-                            <button onClick={lastYearFilter}>Last Year</button>
-                        </li>
-                        <li className="border p-2 bg-white text-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-200">
-                            <button onClick={lastMonthSelected}>Last Month</button>
-                        </li>
-                        <li className="border p-2 bg-white text-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-200">
-                            <button onClick={thisMonthSelected}>This Month</button>
-                        </li>
+        <div className='mx-auto flex max-w-screen-xl flex-col gap-6 px-4 py-6 sm:px-6'>
+            <section className='surface-card p-6 sm:p-7'>
+                <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
+                    <div className='space-y-2'>
+                        <span className='inline-flex rounded-full border border-[#22C55E]/20 bg-[#22C55E]/10 px-4 py-2 text-sm font-medium text-[#15803D] dark:text-[#4ADE80]'>
+                            Gestão de cartões
+                        </span>
+                        <h1 className="text-3xl font-semibold tracking-tight text-[#0F172A] dark:text-white">Cartões de crédito</h1>
+                        <p className='max-w-2xl text-sm leading-6 text-[#64748B] dark:text-[#94A3BB]'>
+                            Acompanhe gastos por cartão e compare os resultados mês a mês em uma visualização mais limpa.
+                        </p>
+                    </div>
+                    <ul className="flex flex-wrap gap-2">
+                        <li><button className={filterButtonClass} onClick={lastYearFilter}>Último ano</button></li>
+                        <li><button className={filterButtonClass} onClick={lastMonthSelected}>Último mês</button></li>
+                        <li><button className={filterButtonClass} onClick={thisMonthSelected}>Este mês</button></li>
                         <Period onMonthChange={handleMonthChange} selectedMonth={selectedMonth} />
                     </ul>
                 </div>
-                <section className='flex flex-wrap justify-center items-center'>
-                    <div className="flex items-center py-6 space-x-4">
-                        <FaChevronLeft className="cursor-pointer" onClick={handlePrev} />
-                        <Image src={getCardImage(currentCard)} alt="card" width={120} height={120} className="-rotate-90" />
-                        <FaChevronRight className="cursor-pointer" onClick={handleNext} />
-                    </div>
-                    <div className="flex flex-wrap justify-center gap-5 p-6">
-                        <div className="bg-white border shadow-md rounded-lg flex p-4 items-center dark:bg-slate-700 w-full md:w-auto">
-                            <Dialog>
-                                <DialogTrigger asChild>
-                                    <div className="bg-red-200 rounded-md p-3 text-red-700 cursor-pointer">
-                                        <FiMinusCircle className="text-xl hover:scale-125 " />
-                                    </div>
-                                </DialogTrigger>
-                                <DialogContent className="sm:max-w-[425px]">
-                                    <DialogHeader>
-                                        <DialogTitle>Add new Expense</DialogTitle>
-                                    </DialogHeader>
-                                    <div className="grid gap-4 py-4">
-                                        <Input type="text" placeholder="Description" value={text} onChange={handleTextChange}></Input>
-                                        <Input type="number" placeholder="Amount" value={price} onChange={handlePriceChange}></Input>
-                                        <Input type="date" placeholder="Date" value={date} onChange={handleDateChange}></Input>
-                                        <Select value={category} onValueChange={handlecategoryChange}>
-                                            <SelectTrigger className="w-[180px]">
-                                                <SelectValue placeholder="Select a category" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectGroup>
-                                                    <SelectLabel>categorys</SelectLabel>
-                                                    <SelectItem value="fixes">Fixes</SelectItem>
-                                                    <SelectItem value="foods">Foods</SelectItem>
-                                                    <SelectItem value="entertainment">Entertainment</SelectItem>
-                                                    <SelectItem value="other">Others</SelectItem>
-                                                </SelectGroup>
-                                            </SelectContent>
-                                        </Select>
-                                        <Select value={card} onValueChange={handleCardChange} defaultValue="PicPay">
-                                            <SelectTrigger className="w-[180px]">
-                                                <SelectValue placeholder="Select a is card" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectGroup>
-                                                    <SelectLabel>Cards</SelectLabel>
-                                                    <SelectItem value="PicPay">PicPay</SelectItem>
-                                                    <SelectItem value="Nubank">Nubank</SelectItem>
-                                                    <SelectItem value="MercadoPago">MercadoPago</SelectItem>
-                                                </SelectGroup>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                    <DialogFooter>
-                                        <Button
-                                            onClick={() => handleAddNewItem(false)}
-                                            type="button"
-                                            disabled={!text || !price || !category || !date || !card}
-                                        >
-                                            <span>Create new</span>
-                                        </Button>
-                                    </DialogFooter>
-                                </DialogContent>
-                            </Dialog>
-                            <div className="px-2">
-                                <p className="font-semibold">Add expense</p>
-                                <p className="text-sm text-slate-500">Create an expense manually</p>
-                            </div>
-                        </div>
-                        <div className="bg-white flex flex-wrap justify-between p-4 gap-4 rounded-lg border items-end shadow-md dark:bg-slate-700 w-full md:w-auto">
-                            <div className="">
-                                {loading ? <div>
-                                    <p className='text-xs text-slate-400 dark:text-slate-200'>Balance</p>
-                                    <Skeleton className='w-40 h-6' />
-                                </div> : (
-                                    <div>
-                                        <p className="text-xs text-slate-400 dark:text-slate-200">Expenses</p>
-                                        <h2 className="text-4xl font-semibold text-red-600">${expense.toFixed(2)}</h2>
-                                    </div>
-                                )}
-                            </div>
-                            <div className="border flex items-center text-center rounded-sm max-h-3 p-2.5 font-semibold tracking-wider shadow-md">
-                                <p className="text-sm flex items-center">
-                                    {differenceInPorcentage() < 0 ? (
-                                        <IoIosArrowRoundUp className="text-green-500 text-lg" />
-                                    ) : (
-                                        <IoIosArrowRoundDown className="text-red-500 text-lg" />
-                                    )}
-                                    {differenceInPorcentage().toFixed(2)}%
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                </section>
             </section>
-            <div className="flex flex-wrap justify-center gap-16 items-stretch max-md:flex-col-reverse max-md:items-center max-md:p-6">
-                <section className="border rounded-lg bg-white p-4 m-4 dark:bg-slate-700 w-full md:w-auto">
-                    <p className="font-semibold">Expenses by category</p>
-                    <div className='max-md:max-w-[330px]'>
+            <section className='grid gap-6 xl:grid-cols-[1.15fr_0.85fr]'>
+                <div className='surface-card p-6'>
+                    <div className="flex flex-col gap-6 xl:flex-row xl:items-center xl:justify-between">
+                        <div className="space-y-2">
+                            <p className='text-sm uppercase tracking-[0.28em] text-[#94A3BB]'>Cartão selecionado</p>
+                            <h2 className='text-2xl font-semibold text-[#0F172A] dark:text-white'>{currentCard}</h2>
+                        </div>
+                        <div className="flex items-center justify-center gap-4 rounded-[28px] border border-border/60 bg-white/50 px-4 py-4 backdrop-blur-sm dark:bg-white/5">
+                            <button className='flex h-11 w-11 items-center justify-center rounded-full border border-border/60 text-[#334155] transition-all hover:border-[#22C55E]/40 hover:text-[#22C55E] dark:text-[#CBD5E1]' onClick={handlePrev}>
+                                <FaChevronLeft />
+                            </button>
+                            <Image src={getCardImage(currentCard)} alt="cartão" width={140} height={140} className="h-auto w-[110px] -rotate-90 sm:w-[130px]" />
+                            <button className='flex h-11 w-11 items-center justify-center rounded-full border border-border/60 text-[#334155] transition-all hover:border-[#22C55E]/40 hover:text-[#22C55E] dark:text-[#CBD5E1]' onClick={handleNext}>
+                                <FaChevronRight />
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div className="surface-card flex flex-col justify-between gap-5 p-6">
+                    <div>
+                        <p className="text-xs uppercase tracking-[0.22em] text-[#94A3BB]">Despesas do cartão</p>
+                        {loading ? <div className='mt-3'>
+                            <Skeleton className='h-10 w-40' />
+                        </div> : (
+                            <div>
+                                <h2 className="mt-3 text-4xl font-semibold text-rose-500 dark:text-rose-300">{formatCurrency(expense)}</h2>
+                            </div>
+                        )}
+                    </div>
+                    <div className="flex w-fit items-center rounded-full border border-border/60 px-3 py-2 text-sm font-semibold text-[#334155] dark:text-[#E2E8F0]">
+                        {differenceInPorcentage() < 0 ? (
+                            <IoIosArrowRoundUp className="text-[#22C55E] text-lg" />
+                        ) : (
+                            <IoIosArrowRoundDown className="text-rose-500 text-lg" />
+                        )}
+                        {differenceInPorcentage().toFixed(2)}%
+                    </div>
+                </div>
+            </section>
+            <section className='grid gap-6 xl:grid-cols-[0.8fr_1.2fr]'>
+                <div className="surface-card flex items-center gap-4 p-5 sm:p-6">
+                    <Dialog>
+                        <DialogTrigger asChild>
+                            <div className="flex h-14 w-14 cursor-pointer items-center justify-center rounded-2xl bg-rose-500/12 text-rose-500 transition-transform hover:scale-[1.03] dark:bg-rose-500/18 dark:text-rose-300">
+                                <FiMinusCircle className="text-2xl" />
+                            </div>
+                        </DialogTrigger>
+                        <DialogContent className="sm:max-w-[425px]">
+                            <DialogHeader>
+                                <DialogTitle>Adicionar nova despesa</DialogTitle>
+                            </DialogHeader>
+                            <div className="grid gap-4 py-4">
+                                <Input type="text" placeholder="Descrição" value={text} onChange={handleTextChange}></Input>
+                                <Input type="number" placeholder="Valor" value={price} onChange={handlePriceChange}></Input>
+                                <Input type="date" placeholder="Data" value={date} onChange={handleDateChange}></Input>
+                                <Select value={category} onValueChange={handlecategoryChange}>
+                                    <SelectTrigger className="w-full">
+                                        <SelectValue placeholder="Selecione uma categoria" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectGroup>
+                                            <SelectLabel>Categorias</SelectLabel>
+                                            <SelectItem value="fixes">Fixas</SelectItem>
+                                            <SelectItem value="foods">Alimentação</SelectItem>
+                                            <SelectItem value="entertainment">Lazer</SelectItem>
+                                            <SelectItem value="other">Outros</SelectItem>
+                                        </SelectGroup>
+                                    </SelectContent>
+                                </Select>
+                                <Select value={card} onValueChange={handleCardChange} defaultValue="PicPay">
+                                    <SelectTrigger className="w-full">
+                                        <SelectValue placeholder="Selecione um cartão" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectGroup>
+                                            <SelectLabel>Cartões</SelectLabel>
+                                            <SelectItem value="PicPay">PicPay</SelectItem>
+                                            <SelectItem value="Nubank">Nubank</SelectItem>
+                                            <SelectItem value="MercadoPago">MercadoPago</SelectItem>
+                                        </SelectGroup>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <DialogFooter>
+                                <Button
+                                    onClick={() => handleAddNewItem(false)}
+                                    type="button"
+                                    disabled={!text || !price || !category || !date || !card}
+                                    className='w-full sm:w-auto'
+                                >
+                                    <span>Criar lançamento</span>
+                                </Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
+                    <div className="px-1">
+                        <p className="font-semibold text-[#0F172A] dark:text-white">Adicionar despesa</p>
+                        <p className="text-sm text-[#64748B] dark:text-[#94A3BB]">Registre uma nova compra no cartão selecionado.</p>
+                    </div>
+                </div>
+                <section className="surface-card p-6">
+                    <p className="text-lg font-semibold text-[#0F172A] dark:text-white">Despesas por categoria</p>
+                    <p className='mt-1 text-sm text-[#64748B] dark:text-[#94A3BB]'>Veja em quais categorias este cartão está sendo mais utilizado.</p>
+                    <div className='mt-6 flex justify-center'>
                         {loading ? (
-                            <AiOutlineLoading3Quarters className='animate-spin m-auto h-28 w-28 p-8' />
+                            <AiOutlineLoading3Quarters className='h-24 w-24 animate-spin p-6 text-[#22C55E]' />
 
                         ) : (<DonutChart results={results} />)}
                     </div>
-                    <div>
+                    <div className='mt-4'>
                         {loading ?
-                            (<Skeleton className='h-3' />)
+                            (<Skeleton className='h-28 w-full' />)
                             : (<GraphicListItem results={results} />)}
                     </div>
                 </section>
-                <section className="bg-white dark:bg-slate-700">
-                    <header className="p-4 border rounded-t-lg">
-                        <h4 className="font-semibold text-lg">Last transactions</h4>
-                        <p className="text-sm font-semibold text-slate-400">Check your last transactions</p>
-                    </header>
-                    <main>
-                        <TransactionHeader />
-                        <div className="border rounded-b-lg max-h-96 overflow-auto">
-                            <ul className="divide-y">
-                                {filterItems.map((item => (loading ? (
-                                    <TransactionsLoadings key={item.id} />
+            </section>
+            <section className="surface-card-strong overflow-hidden">
+                <header className="border-b soft-divider px-5 py-5 sm:px-6">
+                    <h4 className="text-xl font-semibold text-[#0F172A] dark:text-white">Últimas transações do cartão</h4>
+                    <p className="text-sm text-[#64748B] dark:text-[#94A3BB]">Acompanhe os lançamentos recentes do cartão selecionado.</p>
+                </header>
+                <main>
+                    <TransactionHeader />
+                    <div className="max-h-96 overflow-auto">
+                        <ul className="divide-y divide-border/40">
+                            {filterItems.map((item => (loading ? (
+                                <TransactionsLoadings key={item.id} />
 
-                                ) : <TransactionItem key={item.id} item={item} onDelete={handleDeleteItem} />
+                            ) : <TransactionItem key={item.id} item={item} onDelete={handleDeleteItem} />
 
-                                )))}
-                            </ul>
-                        </div>
-                    </main>
-                </section>
-            </div>
+                            )))}
+                        </ul>
+                    </div>
+                </main>
+            </section>
         </div>
     )
 }

@@ -3,16 +3,17 @@ import { Skeleton } from "@/components/ui/skeleton"
 export const TransactionsLoadings= () => {
     return (
         <li className="w-full">
-        <div className="grid grid-cols-5 items-center p-2 gap-2 text-sm">
-          <p className="col-span-2 flex items-center gap-2 text-slate-700 dark:text-slate-200">
-            <Skeleton className="w-24 h-6" />
-          </p>
-          <p className="text-slate-600 dark:text-slate-300"><Skeleton className="h-2 w-12"/></p>
-          <p className="text-slate-500 dark:text-slate-200"><Skeleton className="h-2 w-12"/></p>
-          <div className="flex justify-between items-center">
-            <Skeleton className="h-2 w-12"/>
-          </div>
-        </div>
+            <div className="flex flex-col gap-3 px-4 py-4 md:grid md:grid-cols-5 md:items-center md:gap-3 md:px-5">
+                <p className="col-span-2 flex items-center gap-3">
+                    <Skeleton className="h-9 w-9 rounded-2xl" />
+                    <Skeleton className="h-5 w-32" />
+                </p>
+                <Skeleton className="h-4 w-20" />
+                <Skeleton className="h-4 w-24" />
+                <div className="flex justify-between items-center md:justify-start">
+                    <Skeleton className="h-4 w-20" />
+                </div>
+            </div>
       </li>
     )
 }
