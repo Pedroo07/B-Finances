@@ -14,6 +14,7 @@ const config = {
         xxs: "0.5rem",
       },
       fontFamily: {
+        sans: ['var(--font-mont)'],
         Inter: ["Inter", "sans-serif"],
       },
       colors: {

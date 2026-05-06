@@ -10,8 +10,8 @@ const Header = () => {
         <div className='mx-auto flex max-w-screen-xl flex-col gap-4 px-4 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between'>
             <div className='flex items-center justify-between gap-4'>
                 <div className='flex items-center gap-3'>
-                    <div className='rounded-2xl border border-white/20 bg-white/70 p-2 shadow-[0_10px_30px_rgba(15,23,42,0.08)] backdrop-blur-sm dark:bg-white/5'>
-                        <Image src='/Logo.png' alt='logo' width={42} height={42} className='h-10 w-10 object-contain dark:invert' />
+                    <div>
+                        <Image src='/Logo.png' alt='logo' width={42} height={42} className='h-10 w-10 object-contain rounded-xl' />
                     </div>
                     <div>
                         <p className='text-base font-semibold text-[#0F172A] dark:text-white'>B Finance</p>
