@@ -1,18 +1,13 @@
 'use client'
-import React, { useEffect, useState } from 'react'
+import React from 'react'
 import { MoonStar, SunMedium } from 'lucide-react'
 
 import { useTheme } from 'next-themes'
 
 const ThemeToggle = () => {
     const { resolvedTheme, setTheme } = useTheme()
-    const [mounted, setMounted] = useState(false)
 
-    useEffect(() => {
-        setMounted(true)
-    }, [])
-
-    if (!mounted) return null
+    if (!resolvedTheme) return null
 
     const isDarkMode = resolvedTheme === 'dark'
 

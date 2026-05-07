@@ -247,7 +247,7 @@ export const Main: FC = () => {
                             Visualize seu saldo, acompanhe entradas e despesas e registre novos lançamentos com mais clareza.
                         </p>
                     </div>
-                    <ul className='flex flex-wrap gap-2'>
+                    <ul className='flex max-sm:flex-wrap gap-2'>
                         <li><button className={filterButtonClass} onClick={lastYearFilter}>Último ano</button></li>
                         <li><button className={filterButtonClass} onClick={lastMonthSelected}>Último mês</button></li>
                         <li><button className={filterButtonClass} onClick={thisMonthSelected}>Este mês</button></li>
@@ -257,10 +257,10 @@ export const Main: FC = () => {
             </section>
             <section className='grid gap-4 md:grid-cols-2 2xl:grid-cols-5'>
                 {loading ? (<ValuesLoadings />) : (
-                    <div className='surface-card flex flex-col justify-between gap-5 p-5 sm:p-6'>
+                    <div className='surface-card flex flex-col justify-between gap-2 p-5 sm:p-6'>
                         <div>
                             <p className='text-xs uppercase tracking-[0.22em] text-[#94A3BB]'>Saldo</p>
-                            <h2 className='mt-3 text-3xl font-semibold text-[#0F172A] dark:text-white sm:text-4xl'>{formatCurrency(balance)}</h2>
+                            <h2 className='mt-3 text-3xl font-semibold text-[#0F172A] dark:text-white sm:text-3xl'>{formatCurrency(balance)}</h2>
                         </div>
                         <div className='flex w-fit items-center rounded-full border border-border/60 px-3 py-2 text-sm font-semibold text-[#334155] dark:text-[#E2E8F0]'>
                             {differenceInPorcentage() > 0 ? (<IoIosArrowRoundUp className='text-[#22C55E] text-lg' />) : (<IoIosArrowRoundDown className='text-rose-500 text-lg' />)}{differenceInPorcentage().toFixed(2)}%
@@ -311,10 +311,10 @@ export const Main: FC = () => {
                         <p className='text-sm text-[#64748B] dark:text-[#94A3BB]'>Cadastre uma entrada manualmente.</p>
                     </div>
                 </div>
-                {loading ? (<ValuesLoadings />) : (<div className='surface-card flex flex-col justify-between gap-5 p-5 sm:p-6'>
+                {loading ? (<ValuesLoadings />) : (<div className='surface-card flex flex-col justify-between gap-5 p-2 sm:p-6'>
                     <div>
                         <p className='text-xs uppercase tracking-[0.22em] text-[#94A3BB]'>Entradas</p>
-                        <h2 className='mt-3 text-3xl font-semibold text-[#16A34A] sm:text-4xl dark:text-[#4ADE80]'>{formatCurrency(income)}</h2>
+                        <h2 className='mt-3 text-3xl font-semibold text-[#16A34A] sm:text-3xl dark:text-[#4ADE80]'>{formatCurrency(income)}</h2>
                     </div>
                     <div className='flex w-fit items-center rounded-full border border-border/60 px-3 py-2 text-sm font-semibold text-[#334155] dark:text-[#E2E8F0]'>
                         {differenceInPorcentageIncome() > 0 ? (<IoIosArrowRoundUp className='text-[#22C55E] text-lg' />) : (<IoIosArrowRoundDown className='text-rose-500 text-lg' />)}{differenceInPorcentageIncome().toFixed(2)}%
@@ -366,7 +366,7 @@ export const Main: FC = () => {
                 {loading ? (<ValuesLoadings />) : (<div className='surface-card flex flex-col justify-between gap-5 p-5 sm:p-6'>
                     <div>
                         <p className='text-xs uppercase tracking-[0.22em] text-[#94A3BB]'>Despesas</p>
-                        <h2 className='mt-3 text-3xl font-semibold text-rose-500 sm:text-4xl dark:text-rose-300'>{formatCurrency(expense)}</h2>
+                        <h2 className='mt-3 text-3xl font-semibold text-rose-500 sm:text-3xl dark:text-rose-300'>{formatCurrency(expense)}</h2>
                     </div>
                     <div className='flex w-fit items-center rounded-full border border-border/60 px-3 py-2 text-sm font-semibold text-[#334155] dark:text-[#E2E8F0]'>
                         {differenceInPorcentageExpense() < 0 ? (<IoIosArrowRoundUp className='text-[#22C55E] text-lg' />) : (<IoIosArrowRoundDown className='text-rose-500 text-lg' />)}{differenceInPorcentageExpense().toFixed(2)}%
