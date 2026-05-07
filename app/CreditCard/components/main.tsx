@@ -386,9 +386,9 @@ export const Main = () => {
     const filterButtonClass = 'surface-chip inline-flex items-center px-4 py-2'
 
     return (
-        <div className='mx-auto flex max-w-screen-xl flex-col gap-6 px-4 py-6 sm:px-6'>
+        <div className='mx-auto flex max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6'>
             <Dialog open={isAddCardDialogOpen} onOpenChange={setIsAddCardDialogOpen}>
-                <DialogContent className="sm:max-w-[425px]">
+                <DialogContent className="sm:max-w-106">
                     <DialogHeader>
                         <DialogTitle>Adicionar cartao</DialogTitle>
                         <DialogDescription>
@@ -432,7 +432,7 @@ export const Main = () => {
             </Dialog>
 
             <Dialog open={isRemoveCardDialogOpen} onOpenChange={setIsRemoveCardDialogOpen}>
-                <DialogContent className="sm:max-w-[425px]">
+                <DialogContent className="sm:max-w-106">
                     <DialogHeader>
                         <DialogTitle>Remover cartao?</DialogTitle>
                         <DialogDescription>
@@ -463,7 +463,7 @@ export const Main = () => {
             </Dialog>
 
             <Dialog open={isPayInvoiceDialogOpen} onOpenChange={setIsPayInvoiceDialogOpen}>
-                <DialogContent className="sm:max-w-[425px]">
+                <DialogContent className="sm:max-w-106">
                     <DialogHeader>
                         <DialogTitle>Pagar fatura</DialogTitle>
                         <DialogDescription>
@@ -604,7 +604,7 @@ export const Main = () => {
                                         <FaChevronLeft />
                                     </button>
                                     {currentCard && (
-                                        <Image src={currentCard.image} alt="cartao" width={140} height={140} className="h-auto w-[110px] -rotate-90 sm:w-[130px]" />
+                                        <Image src={currentCard.image} alt="cartao" width={140} height={140} className="h-auto w-27 -rotate-90 sm:w-32" />
                                     )}
                                     <button
                                         className='flex h-11 w-11 items-center justify-center rounded-full border border-border/60 text-[#334155] transition-all hover:border-[#22C55E]/40 hover:text-[#22C55E] disabled:cursor-not-allowed disabled:opacity-50 dark:text-[#CBD5E1]'
@@ -668,7 +668,7 @@ export const Main = () => {
                                         <FiMinusCircle className="text-2xl" />
                                     </div>
                                 </DialogTrigger>
-                                <DialogContent className="sm:max-w-[425px]">
+                                <DialogContent className="sm:max-w-106">
                                     <DialogHeader>
                                         <DialogTitle>Adicionar nova despesa</DialogTitle>
                                     </DialogHeader>

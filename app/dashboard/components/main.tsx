@@ -235,7 +235,7 @@ export const Main: FC = () => {
     const filterButtonClass = 'surface-chip inline-flex items-center px-4 py-2'
 
     return (
-        <div className="mx-auto flex max-w-screen-xl flex-col gap-6 px-4 py-6 sm:px-6">
+        <div className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6">
             <section className='surface-card p-6 sm:p-7'>
                 <div className='flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between'>
                     <div className='space-y-2'>
@@ -274,7 +274,7 @@ export const Main: FC = () => {
                                 <FiPlusCircle className='text-2xl' />
                             </div>
                         </DialogTrigger>
-                        <DialogContent className='sm:max-w-[425px]'>
+                        <DialogContent className='sm:max-w-106'>
                             <DialogHeader>
                                 <DialogTitle>Adicionar nova receita</DialogTitle>
                             </DialogHeader>
@@ -325,7 +325,7 @@ export const Main: FC = () => {
                         <DialogTrigger asChild>
                             <div className='flex h-14 w-14 cursor-pointer items-center justify-center rounded-2xl bg-rose-500/12 text-rose-500 transition-transform hover:scale-[1.03] dark:bg-rose-500/18 dark:text-rose-300'><FiMinusCircle className='text-2xl' /></div>
                         </DialogTrigger>
-                        <DialogContent className='sm:max-w-[425px]'>
+                        <DialogContent className='sm:max-w-106'>
                             <DialogHeader>
                                 <DialogTitle>Adicionar nova despesa</DialogTitle>
                             </DialogHeader>
@@ -374,10 +374,10 @@ export const Main: FC = () => {
                 </div>)}
             </section>
             <div className='flex flex-col gap-6 xl:flex-row xl:items-stretch'>
-                <section className='surface-card w-full p-6 xl:max-w-[420px]'>
+                <section className='surface-card w-full p-6 xl:max-w-105'>
                     <p className='text-lg font-semibold text-[#0F172A] dark:text-white'>Despesas por categoria</p>
                     <p className='mt-1 text-sm text-[#64748B] dark:text-[#94A3BB]'>Entenda rapidamente a distribuição das saídas.</p>
-                    <div className='mt-6 flex justify-center items-center max-md:max-w-[330px]'>
+                    <div className='mt-6 flex justify-center items-center max-md:max-w-82'>
                         {loading ? (
                             <AiOutlineLoading3Quarters className='h-24 w-24 animate-spin p-6 text-[#22C55E]' />
 
