@@ -13,13 +13,23 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectGroup, SelectL
 import { Input } from '@/components/ui/input'
 import { FiMinusCircle, FiPlusCircle } from 'react-icons/fi'
 import { CardTransactionDto, createCardTransaction, deleteCardTransaction, getCardTransaction } from '@/lib/services/cardTransactions'
-import { createUserCreditCard, deleteUserCreditCard, getUserCreditCards } from '@/lib/services/userCreditCards'
+import { createUserCreditCard, deleteUserCreditCard, getUserCreditCards, payCreditCardInvoice } from '@/lib/services/userCreditCards'
 import Image from 'next/image'
 import { auth } from '@/lib/firebase'
 import { useAuthState } from 'react-firebase-hooks/auth'
 import { Skeleton } from '@/components/ui/skeleton'
 import { formatCurrency } from '@/lib/utils'
 import { BANKS, BankKey, isBankKey } from '@/app/CreditCard/banks'
+import { UserCreditCard } from '@/lib/entities/userCreditCard'
+
+const getTodayDate = () => {
+    const now = new Date()
+    const timezoneAdjustedDate = new Date(now.getTime() - now.getTimezoneOffset() * 60000)
+
+    return timezoneAdjustedDate.toISOString().split('T')[0]
+}
+
+const getInvoicePeriodKey = (year: number, month: number) => `${year}-${String(month).padStart(2, '0')}`
 
 export const Main = () => {
     const [selectedCardKey, setSelectedCardKey] = useState<BankKey | null>(null)
@@ -33,9 +43,12 @@ export const Main = () => {
     const [isSavingCard, setIsSavingCard] = useState(false)
     const [isRemoveCardDialogOpen, setIsRemoveCardDialogOpen] = useState(false)
     const [isRemovingCard, setIsRemovingCard] = useState(false)
+    const [isPayInvoiceDialogOpen, setIsPayInvoiceDialogOpen] = useState(false)
+    const [isPayingInvoice, setIsPayingInvoice] = useState(false)
+    const [invoicePaymentDate, setInvoicePaymentDate] = useState(() => getTodayDate())
     const [user, loading] = useAuthState(auth)
     const [items, setItems] = useState<CardTransaction[]>([])
-    const [addedCardKeys, setAddedCardKeys] = useState<BankKey[]>([])
+    const [userCards, setUserCards] = useState<UserCreditCard[]>([])
     const [selectedMonth, setSelectedMonth] = useState<number>(() => new Date().getMonth() + 1)
     const [activeFilter, setActiveFilter] = useState("month")
     const [isDataLoading, setIsDataLoading] = useState(true)
@@ -45,7 +58,14 @@ export const Main = () => {
     }
 
     const visibleItems = user ? items : []
-    const visibleAddedCardKeys = user ? addedCardKeys : []
+    const visibleUserCards = user ? userCards : []
+    const visibleAddedCardKeys = visibleUserCards.reduce<BankKey[]>((currentKeys, currentCard) => {
+        if (isBankKey(currentCard.bankKey)) {
+            currentKeys.push(currentCard.bankKey)
+        }
+
+        return currentKeys
+    }, [])
 
     const cards = (Object.keys(BANKS) as BankKey[])
         .filter((bankKey) => visibleAddedCardKeys.includes(bankKey))
@@ -64,6 +84,9 @@ export const Main = () => {
 
     const currentSelection = selectedCardIndex >= 0 ? cards[selectedCardIndex] : cards[0] ?? null
     const currentCard = currentSelection?.[1] ?? null
+    const currentUserCard = effectiveSelectedCardKey
+        ? visibleUserCards.find(({ bankKey }) => bankKey === effectiveSelectedCardKey) ?? null
+        : null
     const selectedTransactionCard = cards.some(([, currentBank]) => currentBank.name === card)
         ? card
         : currentCard?.name ?? ''
@@ -101,6 +124,11 @@ export const Main = () => {
         setDate(newValue)
     }
 
+    const handleInvoicePaymentDateChange = (event: ChangeEvent<HTMLInputElement>): void => {
+        const newValue = event.target.value
+        setInvoicePaymentDate(newValue)
+    }
+
     const handlePriceChange = (event: ChangeEvent<HTMLInputElement>): void => {
         const newValue = +event.target.value
         setPrice(newValue)
@@ -127,12 +155,10 @@ export const Main = () => {
                 const sortedItems = [...(transactions || [])]
                     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
 
-                const validCardKeys = userCards
-                    .map(({ bankKey }) => bankKey)
-                    .filter(isBankKey)
+                const validUserCards = userCards.filter(({ bankKey }) => isBankKey(bankKey))
 
                 setItems(sortedItems)
-                setAddedCardKeys(Array.from(new Set(validCardKeys)))
+                setUserCards(validUserCards)
             } catch (error) {
                 console.error("Error fetching credit card data:", error)
             } finally {
@@ -165,6 +191,26 @@ export const Main = () => {
     }))
 
     const expense = filterItems.reduce((acc, item) => acc + item.amount, 0)
+    const currentInvoiceAmount = Math.abs(expense)
+    const currentInvoicePeriodKey = activeFilter === 'month' && selectedMonth > 0
+        ? getInvoicePeriodKey(currentYear, selectedMonth)
+        : null
+    const currentInvoicePayment = currentInvoicePeriodKey
+        ? currentUserCard?.invoices?.[currentInvoicePeriodKey]
+        : undefined
+    const invoicePaidAmount = currentInvoicePayment?.amountPaid ?? 0
+    const isInvoicePaid = Boolean(currentInvoicePeriodKey) && currentInvoiceAmount > 0 && invoicePaidAmount >= currentInvoiceAmount
+    const canPayInvoice = Boolean(currentCard) && Boolean(currentInvoicePeriodKey) && currentInvoiceAmount > 0 && !isInvoicePaid
+    const invoiceStatusLabel = !currentInvoicePeriodKey
+        ? 'Selecione um mes'
+        : isInvoicePaid
+            ? 'Fatura paga'
+            : 'Fatura em aberto'
+    const invoiceStatusClass = !currentInvoicePeriodKey
+        ? 'border-border/60 bg-[#F8FAFC] text-[#334155] dark:bg-white/5 dark:text-[#CBD5E1]'
+        : isInvoicePaid
+            ? 'border-[#22C55E]/20 bg-[#22C55E]/10 text-[#15803D] dark:text-[#4ADE80]'
+            : 'border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-300'
 
     const handleDeleteItem = async (id: string) => {
         await deleteCardTransaction(id)
@@ -199,8 +245,11 @@ export const Main = () => {
 
         try {
             setIsSavingCard(true)
-            await createUserCreditCard(cardToAdd)
-            setAddedCardKeys((currentKeys) => currentKeys.includes(cardToAdd) ? currentKeys : [...currentKeys, cardToAdd])
+            const newCard = await createUserCreditCard(cardToAdd)
+            setUserCards((currentCards) => currentCards.some((currentCard) => currentCard.bankKey === cardToAdd)
+                ? currentCards
+                : [...currentCards, newCard]
+            )
             setSelectedCardKey(cardToAdd)
             setCard(BANKS[cardToAdd].name)
             setCardToAdd('')
@@ -220,7 +269,7 @@ export const Main = () => {
         try {
             setIsRemovingCard(true)
             await deleteUserCreditCard(bankKey)
-            setAddedCardKeys((currentKeys) => currentKeys.filter((key) => key !== bankKey))
+            setUserCards((currentCards) => currentCards.filter((currentCard) => currentCard.bankKey !== bankKey))
             setIsRemoveCardDialogOpen(false)
 
             if (selectedCardKey === bankKey) {
@@ -230,6 +279,48 @@ export const Main = () => {
             console.error("Error removing credit card:", error)
         } finally {
             setIsRemovingCard(false)
+        }
+    }
+
+    const handleOpenPayInvoiceDialog = () => {
+        setInvoicePaymentDate(getTodayDate())
+        setIsPayInvoiceDialogOpen(true)
+    }
+
+    const handlePayCurrentInvoice = async () => {
+        if (!effectiveSelectedCardKey || !currentInvoicePeriodKey || !invoicePaymentDate || currentInvoiceAmount <= 0 || isPayingInvoice) {
+            return
+        }
+
+        try {
+            setIsPayingInvoice(true)
+
+            const { card: updatedCard } = await payCreditCardInvoice({
+                bankKey: effectiveSelectedCardKey,
+                periodKey: currentInvoicePeriodKey,
+                amountPaid: currentInvoiceAmount,
+                paidAt: invoicePaymentDate,
+            })
+
+            setUserCards((currentCards) => currentCards.map((currentCard) => {
+                if (currentCard.bankKey !== updatedCard.bankKey) {
+                    return currentCard
+                }
+
+                return {
+                    ...currentCard,
+                    invoices: {
+                        ...currentCard.invoices,
+                        ...updatedCard.invoices,
+                    },
+                }
+            }))
+
+            setIsPayInvoiceDialogOpen(false)
+        } catch (error) {
+            console.error("Error paying credit card invoice:", error)
+        } finally {
+            setIsPayingInvoice(false)
         }
     }
 
@@ -371,6 +462,49 @@ export const Main = () => {
                 </DialogContent>
             </Dialog>
 
+            <Dialog open={isPayInvoiceDialogOpen} onOpenChange={setIsPayInvoiceDialogOpen}>
+                <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader>
+                        <DialogTitle>Pagar fatura</DialogTitle>
+                        <DialogDescription>
+                            Marque sua fatura como paga, e adicione a despesa automaticamente a suas transações.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                        <div className="rounded-2xl border border-border/60 bg-[#F8FAFC] px-4 py-4 dark:bg-white/5">
+                            <p className="text-xs uppercase tracking-[0.22em] text-[#94A3BB]">Valor da fatura</p>
+                            <p className="mt-2 text-2xl font-semibold text-[#0F172A] dark:text-white">
+                                {formatCurrency(-currentInvoiceAmount)}
+                            </p>
+                        </div>
+                        <Input
+                            type="date"
+                            placeholder="Data do pagamento"
+                            value={invoicePaymentDate}
+                            onChange={handleInvoicePaymentDateChange}
+                        />
+                    </div>
+                    <DialogFooter>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setIsPayInvoiceDialogOpen(false)}
+                            className='w-full sm:w-auto'
+                        >
+                            Cancelar
+                        </Button>
+                        <Button
+                            type="button"
+                            onClick={handlePayCurrentInvoice}
+                            disabled={!invoicePaymentDate || !canPayInvoice || isPayingInvoice}
+                            className='w-full sm:w-auto'
+                        >
+                            <span>{isPayingInvoice ? 'Pagando...' : 'Confirmar pagamento'}</span>
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
             <section className='surface-card p-6 sm:p-7'>
                 <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
                     <div className='space-y-2'>
@@ -483,17 +617,45 @@ export const Main = () => {
                             </div>
                         </div>
                         <div className="surface-card flex flex-col justify-between gap-5 p-6">
-                            <div>
-                                <p className="text-xs uppercase tracking-[0.22em] text-[#94A3BB]">Despesas do cartao</p>
-                                <h2 className="mt-3 text-4xl font-semibold text-rose-500 dark:text-rose-300">{formatCurrency(expense)}</h2>
+                            <div className="space-y-4">
+                                <div>
+                                    <p className="text-xs uppercase tracking-[0.22em] text-[#94A3BB]">Fatura do periodo</p>
+                                    <h2 className="mt-3 text-4xl font-semibold text-rose-500 dark:text-rose-300">
+                                        {formatCurrency(currentInvoiceAmount)}
+                                    </h2>
+                                </div>
+                                <div className="flex flex-wrap items-center gap-3">
+                                    <span className={`inline-flex rounded-full border px-3 py-2 text-sm font-semibold ${invoiceStatusClass}`}>
+                                        {invoiceStatusLabel}
+                                    </span>
+                                    <div className="flex w-fit items-center rounded-full border border-border/60 px-3 py-2 text-sm font-semibold text-[#334155] dark:text-[#E2E8F0]">
+                                        {differenceInPorcentage() < 0 ? (
+                                            <IoIosArrowRoundUp className="text-[#22C55E] text-lg" />
+                                        ) : (
+                                            <IoIosArrowRoundDown className="text-rose-500 text-lg" />
+                                        )}
+                                        {differenceInPorcentage().toFixed(2)}%
+                                    </div>
+                                </div>
                             </div>
-                            <div className="flex w-fit items-center rounded-full border border-border/60 px-3 py-2 text-sm font-semibold text-[#334155] dark:text-[#E2E8F0]">
-                                {differenceInPorcentage() < 0 ? (
-                                    <IoIosArrowRoundUp className="text-[#22C55E] text-lg" />
-                                ) : (
-                                    <IoIosArrowRoundDown className="text-rose-500 text-lg" />
-                                )}
-                                {differenceInPorcentage().toFixed(2)}%
+                            <div className="space-y-3">
+                                <Button
+                                    type="button"
+                                    onClick={handleOpenPayInvoiceDialog}
+                                    disabled={!canPayInvoice || isPageLoading}
+                                    className='w-full sm:w-auto'
+                                >
+                                    <span>Pagar fatura</span>
+                                </Button>
+                                <p className="text-sm text-[#64748B] dark:text-[#94A3BB]">
+                                    {activeFilter === 'year'
+                                        ? 'Selecione um mes para pagar a fatura deste cartao.'
+                                        : currentInvoiceAmount === 0
+                                            ? 'Nao ha lancamentos neste periodo para gerar uma fatura.'
+                                            : currentInvoicePayment
+                                                ? `Ultimo pagamento registrado em ${currentInvoicePayment.paidAt}.`
+                                                : 'Escolha a data do pagamento para registrar a fatura e gerar a despesa automaticamente.'}
+                                </p>
                             </div>
                         </div>
                     </section>
@@ -522,7 +684,7 @@ export const Main = () => {
                                                 <SelectGroup>
                                                     <SelectLabel>Categorias</SelectLabel>
                                                     <SelectItem value="fixes">Fixas</SelectItem>
-                                                    <SelectItem value="foods">Alimentacao</SelectItem>
+                                                    <SelectItem value="foods">Alimentação</SelectItem>
                                                     <SelectItem value="entertainment">Lazer</SelectItem>
                                                     <SelectItem value="other">Outros</SelectItem>
                                                 </SelectGroup>
@@ -534,7 +696,7 @@ export const Main = () => {
                                             </SelectTrigger>
                                             <SelectContent>
                                                 <SelectGroup>
-                                                    <SelectLabel>Cartoes adicionados</SelectLabel>
+                                                    <SelectLabel>Cartões adicionados</SelectLabel>
                                                     {cards.map(([bankKey, bank]) => (
                                                         <SelectItem key={bankKey} value={bank.name}>
                                                             {bank.name}
@@ -551,19 +713,19 @@ export const Main = () => {
                                                     disabled={!text || !price || !category || !date || !selectedTransactionCard}
                                                     className='w-full sm:w-auto'
                                                 >
-                                            <span>Criar lancamento</span>
+                                            <span>Criar lançamento</span>
                                         </Button>
                                     </DialogFooter>
                                 </DialogContent>
                             </Dialog>
                             <div className="px-1">
                                 <p className="font-semibold text-[#0F172A] dark:text-white">Adicionar despesa</p>
-                                <p className="text-sm text-[#64748B] dark:text-[#94A3BB]">Registre uma nova compra no cartao selecionado.</p>
+                                <p className="text-sm text-[#64748B] dark:text-[#94A3BB]">Registre uma nova compra no cartão selecionado.</p>
                             </div>
                         </div>
                         <section className="surface-card p-6">
                             <p className="text-lg font-semibold text-[#0F172A] dark:text-white">Despesas por categoria</p>
-                            <p className='mt-1 text-sm text-[#64748B] dark:text-[#94A3BB]'>Veja em quais categorias este cartao esta sendo mais utilizado.</p>
+                            <p className='mt-1 text-sm text-[#64748B] dark:text-[#94A3BB]'>Veja em quais categorias este cartão esta sendo mais utilizado.</p>
                             <div className='mt-6 flex justify-center'>
                                 <DonutChart results={results} />
                             </div>
@@ -575,8 +737,8 @@ export const Main = () => {
 
                     <section className="surface-card-strong overflow-hidden">
                         <header className="border-b soft-divider px-5 py-5 sm:px-6">
-                            <h4 className="text-xl font-semibold text-[#0F172A] dark:text-white">Ultimas transacoes do cartao</h4>
-                            <p className="text-sm text-[#64748B] dark:text-[#94A3BB]">Acompanhe os lancamentos recentes do cartao selecionado.</p>
+                            <h4 className="text-xl font-semibold text-[#0F172A] dark:text-white">Ultimas transações do cartão</h4>
+                            <p className="text-sm text-[#64748B] dark:text-[#94A3BB]">Acompanhe os lançamentos recentes do cartão selecionado.</p>
                         </header>
                         <main>
                             <TransactionHeader />
@@ -589,7 +751,7 @@ export const Main = () => {
                                     </ul>
                                 ) : (
                                     <p className="px-5 py-8 text-sm text-[#64748B] dark:text-[#94A3BB] sm:px-6">
-                                        Nenhuma transacao encontrada para este cartao no periodo selecionado.
+                                        Nenhuma transação encontrada para este cartão no periodo selecionado.
                                     </p>
                                 )}
                             </div>
