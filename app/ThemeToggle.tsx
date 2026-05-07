@@ -1,13 +1,18 @@
 'use client'
-import React from 'react'
+import React, { useSyncExternalStore } from 'react'
 import { MoonStar, SunMedium } from 'lucide-react'
 
 import { useTheme } from 'next-themes'
 
+const emptySubscribe = () => () => {}
+
 const ThemeToggle = () => {
+    const mounted = useSyncExternalStore(emptySubscribe, () => true, () => false)
     const { resolvedTheme, setTheme } = useTheme()
 
-    if (!resolvedTheme) return null
+    if (!mounted || !resolvedTheme) {
+        return <span className='flex h-11 w-11' aria-hidden='true' />
+    }
 
     const isDarkMode = resolvedTheme === 'dark'
 
