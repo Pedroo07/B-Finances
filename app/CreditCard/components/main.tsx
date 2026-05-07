@@ -6,13 +6,14 @@ import Period from '../../dashboard/components/period'
 import { CardTransaction } from '@/lib/entities/cardTransaction'
 import { IoIosArrowRoundDown, IoIosArrowRoundUp } from 'react-icons/io'
 import { FaChevronRight, FaChevronLeft } from "react-icons/fa"
+import { Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { DialogHeader, DialogFooter, Dialog, DialogContent, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/dialog'
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectGroup, SelectLabel, SelectItem } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import { FiMinusCircle, FiPlusCircle } from 'react-icons/fi'
 import { CardTransactionDto, createCardTransaction, deleteCardTransaction, getCardTransaction } from '@/lib/services/cardTransactions'
-import { createUserCreditCard, getUserCreditCards } from '@/lib/services/userCreditCards'
+import { createUserCreditCard, deleteUserCreditCard, getUserCreditCards } from '@/lib/services/userCreditCards'
 import Image from 'next/image'
 import { auth } from '@/lib/firebase'
 import { useAuthState } from 'react-firebase-hooks/auth'
@@ -30,6 +31,8 @@ export const Main = () => {
     const [cardToAdd, setCardToAdd] = useState<BankKey | ''>('')
     const [isAddCardDialogOpen, setIsAddCardDialogOpen] = useState(false)
     const [isSavingCard, setIsSavingCard] = useState(false)
+    const [isRemoveCardDialogOpen, setIsRemoveCardDialogOpen] = useState(false)
+    const [isRemovingCard, setIsRemovingCard] = useState(false)
     const [user, loading] = useAuthState(auth)
     const [items, setItems] = useState<CardTransaction[]>([])
     const [addedCardKeys, setAddedCardKeys] = useState<BankKey[]>([])
@@ -209,6 +212,27 @@ export const Main = () => {
         }
     }
 
+    const handleRemoveCurrentCard = async () => {
+        if (!currentSelection || isRemovingCard) return
+
+        const [bankKey] = currentSelection
+
+        try {
+            setIsRemovingCard(true)
+            await deleteUserCreditCard(bankKey)
+            setAddedCardKeys((currentKeys) => currentKeys.filter((key) => key !== bankKey))
+            setIsRemoveCardDialogOpen(false)
+
+            if (selectedCardKey === bankKey) {
+                setSelectedCardKey(null)
+            }
+        } catch (error) {
+            console.error("Error removing credit card:", error)
+        } finally {
+            setIsRemovingCard(false)
+        }
+    }
+
     const handleMonthChange = (newMonth: number) => {
         setSelectedMonth(newMonth)
         setActiveFilter("month")
@@ -316,6 +340,37 @@ export const Main = () => {
                 </DialogContent>
             </Dialog>
 
+            <Dialog open={isRemoveCardDialogOpen} onOpenChange={setIsRemoveCardDialogOpen}>
+                <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader>
+                        <DialogTitle>Remover cartao?</DialogTitle>
+                        <DialogDescription>
+                            Tem certeza que deseja remover o cartao {currentCard?.name}?
+                            As transacoes dele nao serao apagadas, mas ele deixara de aparecer aqui ate ser adicionado novamente.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setIsRemoveCardDialogOpen(false)}
+                            className='w-full sm:w-auto'
+                        >
+                            Cancelar
+                        </Button>
+                        <Button
+                            type="button"
+                            variant="destructive"
+                            onClick={handleRemoveCurrentCard}
+                            disabled={!currentCard || isRemovingCard}
+                            className='w-full sm:w-auto'
+                        >
+                            <span>{isRemovingCard ? 'Removendo...' : 'Remover cartao'}</span>
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
             <section className='surface-card p-6 sm:p-7'>
                 <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
                     <div className='space-y-2'>
@@ -372,7 +427,7 @@ export const Main = () => {
                     <div className='space-y-2'>
                         <h2 className='text-2xl font-semibold text-[#0F172A] dark:text-white'>Nenhum cartao adicionado</h2>
                         <p className='max-w-2xl text-sm leading-6 text-[#64748B] dark:text-[#94A3BB]'>
-                            Antes de aparecer qualquer cartao, o usuario precisa adicionar pelo menos uma opcao disponivel no arquivo `banks.ts`.
+                            Antes de aparecer qualquer cartão, você precisa adicionar pelo menos uma opção disponivel.
                             Depois disso, somente os cartoes adicionados ficam visiveis por aqui.
                         </p>
                     </div>
@@ -381,7 +436,7 @@ export const Main = () => {
                         disabled={availableCardKeys.length === 0}
                     >
                         <FiPlusCircle className='text-base' />
-                        <span>Adicionar primeiro cartao</span>
+                        <span>Adicionar primeiro cartão</span>
                     </Button>
                 </section>
             ) : (
@@ -392,6 +447,19 @@ export const Main = () => {
                                 <div className="space-y-2">
                                     <p className='text-sm uppercase tracking-[0.28em] text-[#94A3BB]'>Cartao selecionado</p>
                                     <h2 className='text-2xl font-semibold text-[#0F172A] dark:text-white'>{currentCard?.name}</h2>
+                                    <p className='text-sm text-[#64748B] dark:text-[#94A3BB]'>
+                                        Remova este cartao da lista se nao quiser mais exibi-lo nesta tela.
+                                    </p>
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => setIsRemoveCardDialogOpen(true)}
+                                        className='w-fit text-rose-600 hover:text-rose-600 dark:text-rose-300 dark:hover:text-rose-300'
+                                    >
+                                        <Trash2 className='h-4 w-4' />
+                                        <span>Remover cartao</span>
+                                    </Button>
                                 </div>
                                 <div className="flex items-center justify-center gap-4 rounded-[28px] border border-border/60 bg-white/50 px-4 py-4 backdrop-blur-sm dark:bg-white/5">
                                     <button

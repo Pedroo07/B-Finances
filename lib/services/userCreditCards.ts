@@ -1,4 +1,4 @@
-import { collection, doc, getDocs, setDoc } from 'firebase/firestore'
+import { collection, deleteDoc, doc, getDocs, setDoc } from 'firebase/firestore'
 import { getAuth } from 'firebase/auth'
 import { db } from '../firebase'
 import { UserCreditCard } from '../entities/userCreditCard'
@@ -34,4 +34,12 @@ export async function getUserCreditCards(): Promise<UserCreditCard[]> {
     id: cardDoc.id,
     ...cardDoc.data(),
   })) as UserCreditCard[]
+}
+
+export async function deleteUserCreditCard(bankKey: string): Promise<void> {
+  const user = auth.currentUser
+  if (!user) throw new Error("User not authenticated")
+
+  const cardRef = doc(db, `users/${user.uid}/creditCards`, bankKey)
+  await deleteDoc(cardRef)
 }
