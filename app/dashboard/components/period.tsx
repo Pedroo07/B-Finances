@@ -13,7 +13,7 @@ const Period: React.FC<PeriodProps> = ({ onMonthChange, selectedMonth }) => {
     return (
             <li>
                 <Select name='Escolher mês' value={String(selectedMonth)} onValueChange={(value) => onMonthChange(Number(value))}  >
-                    <SelectTrigger className='min-w-[170px]'>
+                    <SelectTrigger className='min-w-42'>
                         <SelectValue placeholder='Escolher mês' />
                     </SelectTrigger>
                     <SelectContent >

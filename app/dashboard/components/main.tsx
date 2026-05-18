@@ -380,7 +380,6 @@ export const Main: FC = () => {
                     <div className='mt-6 flex justify-center items-center max-md:max-w-82'>
                         {loading ? (
                             <AiOutlineLoading3Quarters className='h-24 w-24 animate-spin p-6 text-[#22C55E]' />
-
                         ) : (<DonutChart results={results} />)}
                     </div>
                     <div className='mt-4'>
@@ -389,25 +388,25 @@ export const Main: FC = () => {
                             : (<GraphicListItem results={results} />)}
                     </div>
                 </section>
-                <section className='surface-card-strong w-full overflow-hidden'>
-                    <header className='border-b soft-divider px-5 py-5 sm:px-6'>
-                        <h4 className='text-xl font-semibold text-[#0F172A] dark:text-white'>Últimas transações</h4>
-                        <p className='text-sm text-[#64748B] dark:text-[#94A3BB]'>Acompanhe seus lançamentos recentes com leitura mais limpa.</p>
-                    </header>
-                    <main>
-                        <TransactionHeader />
-                        <div className='max-h-96 overflow-auto'>
-                            <ul className='divide-y divide-border/40'>
-                                {filterItems.map((item => (loading ? (
-                                    <TransactionsLoadings key={item.id} />
-
-                                ) : <TransactionItem key={item.id} item={item} onDelete={handleDeleteItem} />
-
-                                )))}
-                            </ul>
-                        </div>
-                    </main>
-                </section>
+                <div className='w-full xl:relative xl:flex-1'>
+                    <section className='surface-card-strong w-full flex flex-col xl:absolute xl:inset-0 overflow-hidden'>
+                        <header className='border-b soft-divider px-5 py-5 sm:px-6'>
+                            <h4 className='text-xl font-semibold text-[#0F172A] dark:text-white'>Últimas transações</h4>
+                            <p className='text-sm text-[#64748B] dark:text-[#94A3BB]'>Acompanhe seus lançamentos recentes com leitura mais limpa.</p>
+                        </header>
+                        <main className="flex min-h-0 flex-1 flex-col">
+                            <TransactionHeader />
+                            <div className='min-h-0 flex-1 overflow-auto'>
+                                <ul className='divide-y divide-border/40'>
+                                    {filterItems.map((item => (loading ? (
+                                        <TransactionsLoadings key={item.id} />
+                                    ) : <TransactionItem key={item.id} item={item} onDelete={handleDeleteItem} />
+                                    )))}
+                                </ul>
+                            </div>
+                        </main>
+                    </section>
+                </div>
             </div>
         </div>
     )
