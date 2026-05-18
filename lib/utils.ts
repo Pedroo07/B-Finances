@@ -20,6 +20,11 @@ export function translateCategory(category: string) {
     fixes: "Fixas",
     foods: "Alimentação",
     entertainment: "Lazer",
+    cdb: "CDB",
+    imoveis: "Imóveis",
+    cripto: "Cripto",
+    acoes: "Ações",
+    fundos: "Fundos",
   }
 
   return categoryMap[category] ?? category
