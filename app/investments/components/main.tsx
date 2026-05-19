@@ -551,9 +551,9 @@ export const Main: FC = () => {
                               </p>
                             </div>
                             {!!investment.rescued_amount && investment.rescued_amount > 0 && (
-                              <div className='col-span-2 rounded-lg bg-orange-500/5 dark:bg-orange-500/10 p-3'>
+                              <div className='col-span-2 rounded-lg bg-rose-500/5 dark:bg-rose-500/10 p-3'>
                                 <p className='text-[#64748B] dark:text-[#94A3BB] text-xs uppercase tracking-wider'>Valor já resgatado</p>
-                                <p className='mt-2 font-semibold text-orange-600 dark:text-orange-400'>
+                                <p className='mt-2 font-semibold text-rose-500 dark:text-rose-300'>
                                   {formatCurrency(investment.rescued_amount)}
                                 </p>
                               </div>
@@ -619,7 +619,7 @@ export const Main: FC = () => {
                             }}>
                               <DialogTrigger asChild>
                                 <button
-                                  className='inline-flex items-center justify-center px-3 py-2 rounded-lg bg-orange-500/10 text-orange-600 hover:bg-orange-500/20 dark:bg-orange-500/18 dark:text-orange-400 dark:hover:bg-orange-500/25 transition-colors text-sm font-medium w-fit'
+                                  className='inline-flex items-center justify-center px-3 py-2 rounded-lg bg-rose-500/10 text-rose-700 hover:bg-rose-500/20 dark:bg-rose-500/18 dark:text-rose-400 dark:hover:bg-rose-500/25 transition-colors text-sm font-medium w-fit'
                                 >
                                   Resgatar Saldo
                                 </button>

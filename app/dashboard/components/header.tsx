@@ -29,6 +29,7 @@ const Header = () => {
                     <li><Link href="/transactions" className='surface-chip inline-flex items-center px-4 py-2'>Transações</Link></li>
                     <li><Link href="/investments" className='surface-chip inline-flex items-center px-4 py-2'>Investimentos</Link></li>
                     <li><Link href='/CreditCard' className='surface-chip inline-flex items-center px-4 py-2'>Cartões</Link></li>
+                    <li><Link href='/accounts' className='surface-chip inline-flex items-center px-4 py-2'>Contas a Pagar</Link></li>
                 </ul>
                 <div className='hidden lg:block'>
                     <ul className='flex gap-2 items-center'>
