@@ -5,6 +5,9 @@ import { auth } from '@/lib/firebase'
 import { BillAccount, BillAccountDto, createBillAccount, getBillAccounts, payBillAccount, deleteBillAccount, updateBillAccount } from '@/lib/services/billAccounts'
 import { getTransaction } from '@/lib/services/transactions'
 import { getUserCreditCards } from '@/lib/services/userCreditCards'
+import { getCardTransaction } from '@/lib/services/cardTransactions'
+import { CardTransaction } from '@/lib/entities/cardTransaction'
+import { BANKS, BankKey } from '@/app/CreditCard/banks'
 import { Dialog, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogContent } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue, SelectLabel } from '@/components/ui/select'
@@ -72,6 +75,7 @@ export const Main: FC = () => {
   const [bills, setBills] = useState<BillAccount[]>([])
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [userCards, setUserCards] = useState<UserCreditCard[]>([])
+  const [cardTransactions, setCardTransactions] = useState<CardTransaction[]>([])
   const [user, loading] = useAuthState(auth)
   const [isLoading, setIsLoading] = useState(true)
 
@@ -160,16 +164,18 @@ export const Main: FC = () => {
 
     const fetchData = async () => {
       try {
-        const [billsData, transactionsData, cardsData] = await Promise.all([
+        const [billsData, transactionsData, cardsData, cardTransactionsData] = await Promise.all([
           getBillAccounts(),
           getTransaction(),
           getUserCreditCards(),
+          getCardTransaction(),
         ])
 
         if (isMounted) {
           setBills(sortBillsByDate(billsData))
           setTransactions(transactionsData || [])
           setUserCards(cardsData || [])
+          setCardTransactions(cardTransactionsData || [])
           setIsLoading(false)
         }
       } catch (error) {
@@ -220,14 +226,29 @@ export const Main: FC = () => {
 
     return userCards
       .map((card) => {
-        const invoiceAmount = card.invoices?.[periodKey]?.amountPaid || 0
-        return { card, invoiceAmount }
+        const cardName = BANKS[card.bankKey as BankKey]?.name
+        const cardItems = cardTransactions.filter((t) => t.card === cardName)
+        const currentMonthItems = cardItems.filter((item) => {
+          const [year, month] = item.date.split('-').map(Number)
+          return year === currentYear && month === currentMonth
+        })
+
+        const totalAmount = Math.abs(
+          currentMonthItems.reduce((acc, item) => acc + item.amount, 0)
+        )
+
+        const invoicePaidAmount = card.invoices?.[periodKey]?.amountPaid || 0
+        const isPaid = totalAmount > 0 && invoicePaidAmount >= totalAmount
+        const invoiceAmount = totalAmount - invoicePaidAmount
+
+        return { card, invoiceAmount, isPaid }
       })
-      .filter(({ invoiceAmount }) => invoiceAmount > 0)
+      .filter(({ invoiceAmount, isPaid }) => invoiceAmount > 0 && !isPaid)
   }
 
   const handleSelectCardSuggestion = (card: UserCreditCard, invoiceAmount: number) => {
-    setDescription(`Fatura do cartão ${card.bankKey}`)
+    const cardName = BANKS[card.bankKey as BankKey]?.name || card.bankKey
+    setDescription(`Fatura do cartão ${cardName}`)
     setAmount(invoiceAmount)
     setIsDescriptionFocused(false)
   }
@@ -368,13 +389,9 @@ export const Main: FC = () => {
                     <button
                       key={card.id}
                       onClick={() => handleSelectCardSuggestion(card, invoiceAmount)}
-                      className='w-full px-4 py-3 text-left hover:bg-[#F8FAFC] dark:hover:bg-white/10 border-b border-border/30 last:border-b-0 transition-colors'
-                    >
-                      <p className='font-semibold text-[#0F172A] dark:text-white'>
-                        Fatura do cartão {card.bankKey}
-                      </p>
-                      <p className='text-sm text-[#64748B] dark:text-[#94A3BB]'>
-                        {formatCurrency(invoiceAmount)}
+                      className='w-full px-3 py-1 text-left hover:bg-[#F8FAFC] dark:hover:bg-white/10 border-b border-border/30 last:border-b-0 transition-colors'>
+                      <p className='text-sm text-[#0F172A] dark:text-white'>
+                        Fatura do cartão {BANKS[card.bankKey as BankKey]?.name || card.bankKey}
                       </p>
                     </button>
                   ))}
@@ -546,7 +563,7 @@ export const Main: FC = () => {
           <>
             <div className='surface-card flex flex-col justify-between gap-2 p-5 sm:p-6'>
               <div>
-                <p className='text-xs uppercase tracking-[0.22em] text-[#94A3BB]'>Saldo Atual</p>
+                <p className='text-xs uppercase tracking-[0.22em] text-[#94A3BB]'>Saldo do mês Atual</p>
                 <h2 className='mt-3 text-3xl font-semibold text-[#0F172A] dark:text-white'>
                   {formatCurrency(totalBalance)}
                 </h2>
@@ -564,7 +581,7 @@ export const Main: FC = () => {
 
             <div className='surface-card flex flex-col justify-between gap-2 p-5 sm:p-6'>
               <div>
-                <p className='text-xs uppercase tracking-[0.22em] text-[#94A3BB]'>Saldo Projetado</p>
+                <p className='text-xs uppercase tracking-[0.22em] text-[#94A3BB]'>Saldo do mês Projetado</p>
                 <h2 className={`mt-3 text-3xl font-semibold ${
                   projectedBalance >= 0
                     ? 'text-[#22C55E] dark:text-[#4ADE80]'

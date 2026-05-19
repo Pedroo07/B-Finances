@@ -6,7 +6,7 @@ import { AccountMenu } from '@/app/AccountMenu';
 
 const Header = () => {
   return (
-    <header className='sticky top-0 z-40 border-b soft-divider bg-[#F8FAFC]/75 backdrop-blur-xl dark:bg-[#0F172A]/80'>
+    <header className='relative lg:sticky lg:top-0 z-40 border-b soft-divider bg-[#F8FAFC]/75 backdrop-blur-xl dark:bg-[#0F172A]/80'>
         <div className='mx-auto flex max-w-screen-xl flex-col gap-4 px-4 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between'>
             <div className='flex items-center justify-between gap-4'>
                 <div className='flex items-center gap-3'>
