@@ -1,4 +1,4 @@
-import { collection, doc, addDoc, deleteDoc, getDocs, updateDoc, writeBatch } from 'firebase/firestore'
+import { collection, doc, addDoc, deleteDoc, getDocs, updateDoc } from 'firebase/firestore'
 import { db } from '../firebase'
 import { BillAccount, BillAccountRecurrence } from '../entities/billAccount'
 import { getAuth } from 'firebase/auth'

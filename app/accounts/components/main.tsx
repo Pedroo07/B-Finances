@@ -1,8 +1,9 @@
 'use client'
-import React, { ChangeEvent, FC, useEffect, useState } from 'react'
+import  { FC, useEffect, useState } from 'react'
 import { useAuthState } from 'react-firebase-hooks/auth'
 import { auth } from '@/lib/firebase'
-import { BillAccount, BillAccountDto, createBillAccount, getBillAccounts, payBillAccount, deleteBillAccount, updateBillAccount } from '@/lib/services/billAccounts'
+import { BillAccountDto, createBillAccount, getBillAccounts, payBillAccount, deleteBillAccount, updateBillAccount } from '@/lib/services/billAccounts'
+import { BillAccount } from '@/lib/entities/billAccount'
 import { getTransaction } from '@/lib/services/transactions'
 import { getUserCreditCards } from '@/lib/services/userCreditCards'
 import { getCardTransaction } from '@/lib/services/cardTransactions'
@@ -535,7 +536,7 @@ export const Main: FC = () => {
               setCustomMonth(val) 
             }}
           >
-            <SelectTrigger className='h-9 w-[150px] rounded-full'>
+            <SelectTrigger className='h-9 w-37 rounded-full'>
               <SelectValue placeholder='Mês específico' />
             </SelectTrigger>
             <SelectContent>
