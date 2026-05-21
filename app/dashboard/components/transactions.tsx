@@ -1,5 +1,5 @@
 import React from 'react'
-import { ArrowRightLeft, Trash2 } from 'lucide-react'
+import { ArrowRightLeft, BanknoteArrowDown, BanknoteArrowUp, Trash2 } from 'lucide-react'
 import { formatCurrency, translateCategory } from '@/lib/utils'
 
 export type Item = {
@@ -34,9 +34,17 @@ export const TransactionItem: React.FC<TransactionItemProps> = ({ item, onDelete
             <div className="flex flex-col gap-4 px-4 py-4 md:grid md:grid-cols-5 md:items-center md:gap-3 md:px-5">
                 <div className="flex items-start justify-between gap-3 md:col-span-2 md:justify-start">
                     <p className="flex items-center gap-3 text-sm font-medium text-[#0F172A] dark:text-[#E2E8F0]">
-                        <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-[#22C55E]/12 text-[#16A34A] dark:bg-[#22C55E]/18 dark:text-[#4ADE80]">
-                            <ArrowRightLeft className="h-4 w-4" />
-                        </span>
+                        {item.amount > 0 ? (
+                            <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-[#22C55E]/12 text-[#16A34A] dark:bg-[#22C55E]/18 dark:text-[#4ADE80]">
+                                <BanknoteArrowUp className="h-4 w-4" />
+                            </span>
+                        ) :
+                            (
+                                <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-[#c52222]/12 text-[#a31616] dark:bg-[#c52222]/18 dark:text-[#de4a4a]">
+                                    <BanknoteArrowDown className="h-4 w-4" />
+                                </span>
+                            )}
+
                         {item.description}
                     </p>
                     <button

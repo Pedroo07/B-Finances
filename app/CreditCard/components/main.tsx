@@ -390,7 +390,7 @@ export const Main = () => {
             <Dialog open={isAddCardDialogOpen} onOpenChange={setIsAddCardDialogOpen}>
                 <DialogContent className="sm:max-w-106">
                     <DialogHeader>
-                        <DialogTitle>Adicionar cartao</DialogTitle>
+                        <DialogTitle>Adicionar cartão</DialogTitle>
                         <DialogDescription>
                             Escolha um dos cartões disponiveis para liberar o acompanhamento dele nesta tela.
                         </DialogDescription>
@@ -403,7 +403,7 @@ export const Main = () => {
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectGroup>
-                                        <SelectLabel>Cartoes disponiveis</SelectLabel>
+                                        <SelectLabel>Cartões disponiveis</SelectLabel>
                                         {availableCardKeys.map((bankKey) => (
                                             <SelectItem key={bankKey} value={bankKey}>
                                                 {BANKS[bankKey].name}
@@ -434,10 +434,10 @@ export const Main = () => {
             <Dialog open={isRemoveCardDialogOpen} onOpenChange={setIsRemoveCardDialogOpen}>
                 <DialogContent className="sm:max-w-106">
                     <DialogHeader>
-                        <DialogTitle>Remover cartao?</DialogTitle>
+                        <DialogTitle>Remover cartão?</DialogTitle>
                         <DialogDescription>
-                            Tem certeza que deseja remover o cartao {currentCard?.name}?
-                            As transacoes dele nao serao apagadas, mas ele deixara de aparecer aqui ate ser adicionado novamente.
+                            Tem certeza que deseja remover o cartão {currentCard?.name}?
+                            As transações dele nao serão apagadas, mas ele deixará de aparecer aqui ate ser adicionado novamente.
                         </DialogDescription>
                     </DialogHeader>
                     <DialogFooter>
@@ -509,9 +509,9 @@ export const Main = () => {
                 <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
                     <div className='space-y-2'>
                         <span className='inline-flex rounded-full border border-[#22C55E]/20 bg-[#22C55E]/10 px-4 py-2 text-sm font-medium text-[#15803D] dark:text-[#4ADE80]'>
-                            Gestao de cartoes
+                            Gestão de cartões
                         </span>
-                        <h1 className="text-3xl font-semibold tracking-tight text-[#0F172A] dark:text-white">Cartoes de credito</h1>
+                        <h1 className="text-3xl font-semibold tracking-tight text-[#0F172A] dark:text-white">Cartões de crédito</h1>
                         <p className='max-w-2xl text-sm leading-6 text-[#64748B] dark:text-[#94A3BB]'>
                             Acompanhe gastos do seu cartão e compare os resultados mês a mês em uma visualização mais limpa.
                         </p>
@@ -562,7 +562,7 @@ export const Main = () => {
                         <h2 className='text-2xl font-semibold text-[#0F172A] dark:text-white'>Nenhum cartao adicionado</h2>
                         <p className='max-w-2xl text-sm leading-6 text-[#64748B] dark:text-[#94A3BB]'>
                             Antes de aparecer qualquer cartão, você precisa adicionar pelo menos uma opção disponivel.
-                            Depois disso, somente os cartoes adicionados ficam visiveis por aqui.
+                            Depois disso, somente os cartões adicionados ficam visiveis por aqui.
                         </p>
                     </div>
                     <Button
@@ -582,7 +582,7 @@ export const Main = () => {
                                     <p className='text-sm uppercase tracking-[0.28em] text-[#94A3BB]'>Cartao selecionado</p>
                                     <h2 className='text-2xl font-semibold text-[#0F172A] dark:text-white'>{currentCard?.name}</h2>
                                     <p className='text-sm text-[#64748B] dark:text-[#94A3BB]'>
-                                        Remova este cartao da lista se nao quiser mais exibi-lo nesta tela.
+                                        Remova este cartão da lista se nao quiser mais exibi-lo nesta tela.
                                     </p>
                                     <Button
                                         type="button"
@@ -592,7 +592,7 @@ export const Main = () => {
                                         className='w-fit text-rose-600 hover:text-rose-600 dark:text-rose-300 dark:hover:text-rose-300'
                                     >
                                         <Trash2 className='h-4 w-4' />
-                                        <span>Remover cartao</span>
+                                        <span>Remover cartão</span>
                                     </Button>
                                 </div>
                                 <div className="flex items-center justify-center gap-4 rounded-[28px] border border-border/60 bg-white/50 px-4 py-4 backdrop-blur-sm dark:bg-white/5">

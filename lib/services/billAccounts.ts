@@ -1,4 +1,4 @@
-import { collection, doc, addDoc, deleteDoc, getDocs, updateDoc } from 'firebase/firestore'
+import { collection, doc, addDoc, deleteDoc, getDocs, updateDoc, writeBatch, setDoc } from 'firebase/firestore'
 import { db } from '../firebase'
 import { BillAccount, BillAccountRecurrence } from '../entities/billAccount'
 import { getAuth } from 'firebase/auth'
@@ -16,6 +16,8 @@ export type BillAccountDto = {
   currentInstallment?: number
   creditCardId?: string
 }
+
+const getInvoicePeriodKey = (year: number, month: number) => `${year}-${String(month).padStart(2, '0')}`
 
 function getUserBillAccountsCollection() {
   const user = auth.currentUser
@@ -73,6 +75,10 @@ export async function payBillAccount(id: string, paymentDate: string): Promise<B
   const bill = (await getBillAccounts()).find((b) => b.id === id)
   if (!bill) throw new Error('Bill not found')
 
+  const batch = writeBatch(db)
+  const transactionRef = doc(collection(db, `users/${user.uid}/transactions`))
+  const billRef = doc(db, `users/${user.uid}/billAccounts`, id)
+
   const transactionData: TransactionDto = {
     description: bill.description,
     amount: -Math.abs(bill.amount),
@@ -81,10 +87,27 @@ export async function payBillAccount(id: string, paymentDate: string): Promise<B
     type: 'expense',
   }
 
-  const transactionResult = await createTransaction(transactionData)
+  batch.set(transactionRef, transactionData)
+  batch.update(billRef, { status: 'paid' })
 
-  const billRef = doc(db, `users/${user.uid}/billAccounts`, id)
-  await updateDoc(billRef, { status: 'paid' })
+  if (bill.creditCardId) {
+    const [year, month, day] = paymentDate.split('-').map(Number)
+    const periodKey = getInvoicePeriodKey(year, month)
+    const cardRef = doc(db, `users/${user.uid}/creditCards`, bill.creditCardId)
+
+    batch.set(cardRef, {
+      bankKey: bill.creditCardId,
+      invoices: {
+        [periodKey]: {
+          amountPaid: Math.abs(bill.amount),
+          paidAt: paymentDate,
+          transactionId: transactionRef.id,
+        },
+      },
+    }, { merge: true })
+  }
+
+  await batch.commit()
 
   return {
     ...bill,

@@ -13,6 +13,7 @@ import { useAuthState } from 'react-firebase-hooks/auth';
 import Period from './period';
 import { Transaction } from '@/lib/entities/transaction';
 import { createTransaction, deleteTransaction, getTransaction, TransactionDto } from '@/lib/services/transactions';
+import { getBillAccounts } from '@/lib/services/billAccounts';
 import { auth } from '@/lib/firebase';
 import { TransactionsLoadings } from '../loadings/TrasactionsLoadings';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -25,6 +26,7 @@ export const Main: FC = () => {
     const [price, setPrice] = useState(0)
     const [date, setDate] = useState('')
     const [allItems, setAllItems] = useState<Transaction[]>([])
+    const [bills, setBills] = useState<any[]>([])
     const [user, loading] = useAuthState(auth)
     const [selectedMonth, setSelectedMonth] = useState<number>(() => new Date().getMonth() + 1)
     const [activeFilter, setActiveFilter] = useState("month")
@@ -50,6 +52,17 @@ export const Main: FC = () => {
             expense: totalExpense,
             balance: totalIncome - totalExpense
         };
+    };
+
+    const calculatePendingBills = (): number => {
+        return bills
+            .filter(bill => bill.status === 'pending')
+            .filter(bill => {
+                const [year, month] = bill.dueDate.split('-').map(Number)
+                const currentYear = new Date().getFullYear()
+                return year === currentYear && month === selectedMonth
+            })
+            .reduce((acc, bill) => acc + bill.amount, 0)
     };
 
     const resetForm = () => {
@@ -85,10 +98,14 @@ export const Main: FC = () => {
 
         const fetchTransactions = async () => {
             try {
-                const transactions = await getTransaction() || []
-                const sortedItems = [...transactions].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+                const [transactionsData, billsData] = await Promise.all([
+                    getTransaction(),
+                    getBillAccounts(),
+                ])
+                const sortedItems = [...(transactionsData || [])].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
                 if (isMounted) {
                     setAllItems(sortedItems)
+                    setBills(billsData || [])
                 }
             } catch (error) {
                 console.error("Error fetching transactions:", error);
@@ -231,6 +248,26 @@ export const Main: FC = () => {
         return totalInPorcentage
     }
 
+    const differenceInPorcentagePendingBills = () => {
+        const currentPending = calculatePendingBills()
+        const lastMonthBills = bills
+            .filter(bill => bill.status === 'pending')
+            .filter(bill => {
+                const [year, month] = bill.dueDate.split('-').map(Number)
+                const currentYear = new Date().getFullYear()
+                const lastMonth = new Date().getMonth()
+                return year === currentYear && month === lastMonth
+            })
+            .reduce((acc, bill) => acc + bill.amount, 0)
+
+        if (lastMonthBills === 0) {
+            return 0
+        }
+
+        const difference = currentPending - lastMonthBills
+        return (difference / lastMonthBills) * 100
+    }
+
     const results = separateAmountByCategory(filterItems)
     const filterButtonClass = 'surface-chip inline-flex items-center px-4 py-2'
 
@@ -255,7 +292,8 @@ export const Main: FC = () => {
                     </ul>
                 </div>
             </section>
-            <section className='grid gap-4 md:grid-cols-2 2xl:grid-cols-5'>
+            <section className='grid gap-4 grid-cols-1 md:grid-cols-2 xl:grid-cols-4 grid-rows-2 h-full'>
+               
                 {loading ? (<ValuesLoadings />) : (
                     <div className='surface-card flex flex-col justify-between gap-2 p-5 sm:p-6'>
                         <div>
@@ -266,8 +304,36 @@ export const Main: FC = () => {
                             {differenceInPorcentage() > 0 ? (<IoIosArrowRoundUp className='text-[#22C55E] text-lg' />) : (<IoIosArrowRoundDown className='text-rose-500 text-lg' />)}{differenceInPorcentage().toFixed(2)}%
                         </div>
                     </div>)}
-
-                <div className='surface-card flex items-center gap-4 p-5 sm:p-6'>
+                {loading ? (<ValuesLoadings />) : (<div className='surface-card flex flex-col justify-between gap-5 p-2 sm:p-6'>
+                    <div>
+                        <p className='text-xs uppercase tracking-[0.22em] text-[#94A3BB]'>Entradas</p>
+                        <h2 className='mt-3 text-3xl font-semibold text-[#16A34A] sm:text-3xl dark:text-[#4ADE80]'>{formatCurrency(income)}</h2>
+                    </div>
+                    <div className='flex w-fit items-center rounded-full border border-border/60 px-3 py-2 text-sm font-semibold text-[#334155] dark:text-[#E2E8F0]'>
+                        {differenceInPorcentageIncome() > 0 ? (<IoIosArrowRoundUp className='text-[#22C55E] text-lg' />) : (<IoIosArrowRoundDown className='text-rose-500 text-lg' />)}{differenceInPorcentageIncome().toFixed(2)}%
+                    </div>
+                </div>)}
+                {loading ? (<ValuesLoadings />) : (<div className='surface-card flex flex-col justify-between gap-5 p-5 sm:p-6'>
+                    <div>
+                        <p className='text-xs uppercase tracking-[0.22em] text-[#94A3BB]'>Despesas</p>
+                        <h2 className='mt-3 text-3xl font-semibold text-rose-500 sm:text-3xl dark:text-rose-300'>{formatCurrency(expense)}</h2>
+                    </div>
+                    <div className='flex w-fit items-center rounded-full border border-border/60 px-3 py-2 text-sm font-semibold text-[#334155] dark:text-[#E2E8F0]'>
+                        {differenceInPorcentageExpense() < 0 ? (<IoIosArrowRoundUp className='text-[#22C55E] text-lg' />) : (<IoIosArrowRoundDown className='text-rose-500 text-lg' />)}{differenceInPorcentageExpense().toFixed(2)}%
+                    </div>
+                </div>)}
+                {loading ? (<ValuesLoadings />) : (<div className='surface-card flex flex-col justify-between gap-5 p-5 sm:p-6'>
+                    <div>
+                        <p className='text-xs uppercase tracking-[0.22em] text-[#94A3BB]'>Contas a Pagar</p>
+                        <h2 className='mt-3 text-3xl font-semibold text-amber-600 sm:text-3xl dark:text-amber-400'>{formatCurrency(calculatePendingBills())}</h2>
+                    </div>
+                    <div className='flex w-fit items-center rounded-full border border-border/60 px-3 py-2 text-sm font-semibold text-[#334155] dark:text-[#E2E8F0]'>
+                        {differenceInPorcentagePendingBills() > 0 ? (<IoIosArrowRoundUp className='text-rose-500 text-lg' />) : (<IoIosArrowRoundDown className='text-[#22C55E] text-lg' />)}{differenceInPorcentagePendingBills().toFixed(2)}%
+                    </div>
+                </div>)}
+                
+               
+                <div className='surface-card flex items-center gap-4 p-5 sm:p-6 md:col-span-1 xl:col-span-2'>
                     <Dialog>
                         <DialogTrigger asChild>
                             <div className='flex h-14 w-14 cursor-pointer items-center justify-center rounded-2xl bg-[#22C55E]/12 text-[#16A34A] transition-transform hover:scale-[1.03] dark:bg-[#22C55E]/18 dark:text-[#4ADE80]'>
@@ -311,16 +377,7 @@ export const Main: FC = () => {
                         <p className='text-sm text-[#64748B] dark:text-[#94A3BB]'>Cadastre uma entrada manualmente.</p>
                     </div>
                 </div>
-                {loading ? (<ValuesLoadings />) : (<div className='surface-card flex flex-col justify-between gap-5 p-2 sm:p-6'>
-                    <div>
-                        <p className='text-xs uppercase tracking-[0.22em] text-[#94A3BB]'>Entradas</p>
-                        <h2 className='mt-3 text-3xl font-semibold text-[#16A34A] sm:text-3xl dark:text-[#4ADE80]'>{formatCurrency(income)}</h2>
-                    </div>
-                    <div className='flex w-fit items-center rounded-full border border-border/60 px-3 py-2 text-sm font-semibold text-[#334155] dark:text-[#E2E8F0]'>
-                        {differenceInPorcentageIncome() > 0 ? (<IoIosArrowRoundUp className='text-[#22C55E] text-lg' />) : (<IoIosArrowRoundDown className='text-rose-500 text-lg' />)}{differenceInPorcentageIncome().toFixed(2)}%
-                    </div>
-                </div>)}
-                <div className='surface-card flex items-center gap-4 p-5 sm:p-6'>
+                <div className='surface-card flex items-center gap-4 p-5 sm:p-6 md:col-span-1 xl:col-span-2'>
                     <Dialog>
                         <DialogTrigger asChild>
                             <div className='flex h-14 w-14 cursor-pointer items-center justify-center rounded-2xl bg-rose-500/12 text-rose-500 transition-transform hover:scale-[1.03] dark:bg-rose-500/18 dark:text-rose-300'><FiMinusCircle className='text-2xl' /></div>
@@ -363,15 +420,6 @@ export const Main: FC = () => {
                         <p className='text-sm text-[#64748B] dark:text-[#94A3BB]'>Cadastre uma saída manualmente.</p>
                     </div>
                 </div>
-                {loading ? (<ValuesLoadings />) : (<div className='surface-card flex flex-col justify-between gap-5 p-5 sm:p-6'>
-                    <div>
-                        <p className='text-xs uppercase tracking-[0.22em] text-[#94A3BB]'>Despesas</p>
-                        <h2 className='mt-3 text-3xl font-semibold text-rose-500 sm:text-3xl dark:text-rose-300'>{formatCurrency(expense)}</h2>
-                    </div>
-                    <div className='flex w-fit items-center rounded-full border border-border/60 px-3 py-2 text-sm font-semibold text-[#334155] dark:text-[#E2E8F0]'>
-                        {differenceInPorcentageExpense() < 0 ? (<IoIosArrowRoundUp className='text-[#22C55E] text-lg' />) : (<IoIosArrowRoundDown className='text-rose-500 text-lg' />)}{differenceInPorcentageExpense().toFixed(2)}%
-                    </div>
-                </div>)}
             </section>
             <div className='flex flex-col gap-6 xl:flex-row xl:items-stretch'>
                 <section className='surface-card w-full p-6 xl:max-w-105'>

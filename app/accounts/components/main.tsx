@@ -86,6 +86,7 @@ export const Main: FC = () => {
   const [recurrence, setRecurrence] = useState<'unique' | 'monthly' | 'installments'>('unique')
   const [installments, setInstallments] = useState(1)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [creditCardId, setCreditCardId] = useState('')
   const [isDescriptionFocused, setIsDescriptionFocused] = useState(false)
   const [paymentDate, setPaymentDate] = useState(getTodayDate_YYYYMMDD())
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false)
@@ -95,6 +96,7 @@ export const Main: FC = () => {
   const [statusFilter, setStatusFilter] = useState<'all' | 'paid' | 'overdue' | 'pending'>('all')
   const [periodFilter, setPeriodFilter] = useState<'current' | 'next' | 'all' | 'custom'>('current')
   const [customMonth, setCustomMonth] = useState<string>('')
+  const [showAddTransactionDialog, setShowAddTransactionDialog] = useState(false)
 
   const sortBillsByDate = (bills: BillAccount[]): BillAccount[] => {
     return [...bills].sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
@@ -218,6 +220,7 @@ export const Main: FC = () => {
     setRecurrence('unique')
     setInstallments(1)
     setDateError('')
+    setCreditCardId('')
   }
 
   const getCardsWithOpenInvoices = () => {
@@ -251,6 +254,7 @@ export const Main: FC = () => {
     const cardName = BANKS[card.bankKey as BankKey]?.name || card.bankKey
     setDescription(`Fatura do cartão ${cardName}`)
     setAmount(invoiceAmount)
+    setCreditCardId(card.id)
     setIsDescriptionFocused(false)
   }
 
@@ -285,6 +289,7 @@ export const Main: FC = () => {
             recurrence: 'installments',
             currentInstallment: i,
             installments,
+            ...(creditCardId && { creditCardId }),
           }
           const newBill = await createBillAccount(billData)
           setBills((prev) => sortBillsByDate([...prev, newBill]))
@@ -296,6 +301,7 @@ export const Main: FC = () => {
           dueDate,
           status: 'pending',
           recurrence,
+          ...(creditCardId && { creditCardId }),
         }
         const newBill = await createBillAccount(billData)
         setBills((prev) => sortBillsByDate([...prev, newBill]))
@@ -312,17 +318,28 @@ export const Main: FC = () => {
 
   const handlePayBill = async () => {
     if (!selectedBillForPayment) return
+    setShowAddTransactionDialog(true)
+  }
+
+  const handleConfirmPayment = async (addTransaction: boolean) => {
+    if (!selectedBillForPayment) return
 
     setIsProcessing(true)
 
     try {
-      await payBillAccount(selectedBillForPayment.id, paymentDate)
+      if (addTransaction) {
+        await payBillAccount(selectedBillForPayment.id, paymentDate)
+      } else {
+        await updateBillAccount(selectedBillForPayment.id, { status: 'paid' })
+      }
+
       setBills((prev) =>
         prev.map((bill) =>
           bill.id === selectedBillForPayment.id ? { ...bill, status: 'paid' } : bill
         )
       )
       setIsPaymentDialogOpen(false)
+      setShowAddTransactionDialog(false)
       setSelectedBillForPayment(null)
     } catch (error) {
       console.error('Error paying bill:', error)
@@ -494,6 +511,44 @@ export const Main: FC = () => {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={showAddTransactionDialog} onOpenChange={setShowAddTransactionDialog}>
+        <DialogContent className='max-sm:max-w-106 max-md:max-w-xl lg:max-w-202'>
+          <DialogHeader>
+            <DialogTitle>Adicionar gasto às transações?</DialogTitle>
+          </DialogHeader>
+          <div className='grid gap-4 py-4'>
+            <p className='text-sm text-[#64748B] dark:text-[#94A3BB]'>
+              Deseja adicionar o pagamento desta conta automaticamente à sua lista de transações?
+            </p>
+            {selectedBillForPayment && (
+              <div className='rounded-2xl border border-border/60 bg-[#F8FAFC] px-4 py-4 dark:bg-white/5'>
+                <p className='text-sm font-medium text-[#0F172A] dark:text-white'>{selectedBillForPayment.description}</p>
+                <p className='mt-2 text-lg font-semibold text-rose-500'>{formatCurrency(selectedBillForPayment.amount)}</p>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              type='button'
+              variant='outline'
+              onClick={() => handleConfirmPayment(false)}
+              disabled={isProcessing}
+              className='w-full md:w-auto'
+            >
+              {isProcessing ? 'Processando...' : 'Não, apenas marcar como pago'}
+            </Button>
+            <Button
+              type='button'
+              onClick={() => handleConfirmPayment(true)}
+              disabled={isProcessing}
+              className='w-full md:w-auto'
+            >
+              <span>{isProcessing ? 'Processando...' : 'Sim, adicionar à transações'}</span>
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <section className='surface-card p-6 sm:p-7'>
         <div className='flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between'>
           <div className='space-y-2'>
@@ -640,12 +695,12 @@ export const Main: FC = () => {
                     </div>
                   </div>
 
-                  <div className='flex items-center gap-3'>
+                  <div className='flex gap-3 max-sm:gap-0.5 items-end max-sm:flex-col'>
                     <div className='text-right'>
                       <p className='text-lg font-semibold text-[#0F172A] dark:text-white'>
                         {formatCurrency(bill.amount)}
                       </p>
-                      <span className={`inline-flex rounded-full border px-2 py-1 text-xs font-semibold ${statusColor}`}>
+                      <span className={`inline-flex rounded-full border px-2 max-sm:px-1 py-1 text-xs font-semibold ${statusColor}`}>
                         {statusLabel}
                       </span>
                     </div>
