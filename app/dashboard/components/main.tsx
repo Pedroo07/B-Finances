@@ -19,17 +19,32 @@ import { TransactionsLoadings } from '../loadings/TrasactionsLoadings';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ValuesLoadings } from '../loadings/ValuesLoadings';
 import { formatCurrency } from '@/lib/utils';
+import { getUserCreditCards } from '@/lib/services/userCreditCards';
+import { createCardTransaction } from '@/lib/services/cardTransactions';
+import { BANKS, BankKey, isBankKey } from '@/app/CreditCard/banks';
+import { UserCreditCard } from '@/lib/entities/userCreditCard';
 
 export const Main: FC = () => {
     const [text, setText] = useState('')
     const [category, setCategory] = useState('')
     const [price, setPrice] = useState(0)
     const [date, setDate] = useState('')
+    const [paymentMethod, setPaymentMethod] = useState('pix')
+    const [selectedCreditCard, setSelectedCreditCard] = useState('')
+    const [userCards, setUserCards] = useState<UserCreditCard[]>([])
     const [allItems, setAllItems] = useState<Transaction[]>([])
     const [bills, setBills] = useState<any[]>([])
     const [user, loading] = useAuthState(auth)
     const [selectedMonth, setSelectedMonth] = useState<number>(() => new Date().getMonth() + 1)
     const [activeFilter, setActiveFilter] = useState("month")
+
+    const visibleAddedCardKeys = userCards.reduce<BankKey[]>((keys, c) => {
+        if (isBankKey(c.bankKey)) keys.push(c.bankKey)
+        return keys
+    }, [])
+    const userCreditCards = (Object.keys(BANKS) as BankKey[])
+        .filter((k) => visibleAddedCardKeys.includes(k))
+        .map((k) => [k, BANKS[k]] as const)
 
     const sortItemByDate = (items: Transaction[]): Transaction[] => {
         return [...items].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
@@ -70,6 +85,8 @@ export const Main: FC = () => {
         setPrice(0)
         setCategory('')
         setDate('')
+        setPaymentMethod('pix')
+        setSelectedCreditCard('')
     }
 
     const handleTextChange = (event: ChangeEvent<HTMLInputElement>): void => {
@@ -98,14 +115,16 @@ export const Main: FC = () => {
 
         const fetchTransactions = async () => {
             try {
-                const [transactionsData, billsData] = await Promise.all([
+                const [transactionsData, billsData, cardsData] = await Promise.all([
                     getTransaction(),
                     getBillAccounts(),
+                    getUserCreditCards(),
                 ])
                 const sortedItems = [...(transactionsData || [])].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
                 if (isMounted) {
                     setAllItems(sortedItems)
                     setBills(billsData || [])
+                    setUserCards(cardsData.filter(({ bankKey }) => isBankKey(bankKey)))
                 }
             } catch (error) {
                 console.error("Error fetching transactions:", error);
@@ -143,12 +162,31 @@ export const Main: FC = () => {
     const handleAddNewItem = async (IsIncomeDialog: boolean): Promise<void> => {
         const adjustedPrice = IsIncomeDialog ? Math.abs(price) : -Math.abs(price);
 
+        // Expense via credit card → save as cardTransaction (not shown in dashboard)
+        if (!IsIncomeDialog && paymentMethod === 'credit_card') {
+            if (!selectedCreditCard) return
+            try {
+                await createCardTransaction({
+                    amount: adjustedPrice,
+                    date,
+                    card: selectedCreditCard,
+                    description: text,
+                    category,
+                })
+                resetForm()
+            } catch (error) {
+                console.error('Error adding card transaction:', error)
+            }
+            return
+        }
+
         const newItem: TransactionDto = {
             amount: adjustedPrice,
             date: date,
             description: text,
             category: category,
-            type: IsIncomeDialog ? 'income' : 'expense'
+            type: IsIncomeDialog ? 'income' : 'expense',
+            paymentMethod: IsIncomeDialog ? 'pix' : paymentMethod,
         };
 
         try {
@@ -404,12 +442,49 @@ export const Main: FC = () => {
                                         </SelectGroup>
                                     </SelectContent>
                                 </Select>
+                                <Select value={paymentMethod} onValueChange={setPaymentMethod}>
+                                    <SelectTrigger className="w-full">
+                                        <SelectValue placeholder="Método de pagamento" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectGroup>
+                                            <SelectLabel>Método de pagamento</SelectLabel>
+                                            <SelectItem value="cash">Dinheiro</SelectItem>
+                                            <SelectItem value="pix">Pix</SelectItem>
+                                            <SelectItem value="debit">Cartão de Débito</SelectItem>
+                                            <SelectItem value="credit_card">Cartão de Crédito</SelectItem>
+                                        </SelectGroup>
+                                    </SelectContent>
+                                </Select>
+                                {paymentMethod === 'credit_card' && (
+                                    <Select value={selectedCreditCard} onValueChange={setSelectedCreditCard}>
+                                        <SelectTrigger className="w-full">
+                                            <SelectValue placeholder="Selecione o cartão" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectGroup>
+                                                <SelectLabel>Cartões adicionados</SelectLabel>
+                                                {userCreditCards.length > 0 ? (
+                                                    userCreditCards.map(([bankKey, bank]) => (
+                                                        <SelectItem key={bankKey} value={bank.name}>
+                                                            {bank.name}
+                                                        </SelectItem>
+                                                    ))
+                                                ) : (
+                                                    <SelectItem value="__none__" disabled>
+                                                        Nenhum cartão adicionado
+                                                    </SelectItem>
+                                                )}
+                                            </SelectGroup>
+                                        </SelectContent>
+                                    </Select>
+                                )}
                             </div>
                             <DialogFooter>
                                 <Button
                                     onClick={() => handleAddNewItem(false)}
                                     type='button'
-                                    disabled={!text || !price || !category || !date}
+                                    disabled={!text || !price || !category || !date || !paymentMethod || (paymentMethod === 'credit_card' && !selectedCreditCard)}
                                     className='w-full sm:w-auto'
                                 ><span>Criar lançamento</span></Button>
                             </DialogFooter>

@@ -75,6 +75,7 @@ export async function payCreditCardInvoice(data: PayCreditCardInvoiceDto): Promi
     amount: -normalizedAmount,
     category: 'Credit Card',
     type: 'expense',
+    paymentMethod: 'pix',
   }
 
   const batch = writeBatch(db)

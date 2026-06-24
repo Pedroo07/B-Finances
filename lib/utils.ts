@@ -29,3 +29,15 @@ export function translateCategory(category: string) {
 
   return categoryMap[category] ?? category
 }
+
+export function translatePaymentMethod(method: string) {
+  const methodMap: Record<string, string> = {
+    cash: "Dinheiro",
+    pix: "Pix",
+    debit: "Cartão de Débito",
+    credit_card: "Cartão de Crédito",
+  }
+
+  return methodMap[method] ?? method
+}
+

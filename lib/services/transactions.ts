@@ -9,6 +9,7 @@ export type TransactionDto = {
     amount: number
     category: string
     type: string
+    paymentMethod: string
 }
 const auth = getAuth()
 
@@ -40,10 +41,14 @@ export async function getTransaction(): Promise<Transaction[]> {
   if (!cardsRef) return [];
   const foundCard = await getDocs(cardsRef);
 
-  return foundCard.docs.map((doc) => ({
-    id: doc.id,
-    ...doc.data(),
-  })) as Transaction[];
+  return foundCard.docs.map((doc) => {
+    const data = doc.data();
+    return {
+      id: doc.id,
+      ...data,
+      paymentMethod: data.paymentMethod ?? 'pix',
+    };
+  }) as Transaction[];
 }
 
 export async function updateTransaction(id: string, data: Transaction): Promise<Transaction> {
@@ -65,4 +70,4 @@ export async function updateTransaction(id: string, data: Transaction): Promise<
     ...data,
     id: docRef.id,
   };
-}
+}

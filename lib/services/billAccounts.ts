@@ -85,6 +85,7 @@ export async function payBillAccount(id: string, paymentDate: string): Promise<B
     date: paymentDate,
     category: 'contas',
     type: 'expense',
+    paymentMethod: 'pix',
   }
 
   batch.set(transactionRef, transactionData)

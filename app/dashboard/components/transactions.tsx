@@ -8,6 +8,9 @@ export type Item = {
     date: string
     amount: number
     category: string
+    type?: string
+    paymentMethod?: string
+    card?: string
 }
 
 type TransactionItemProps = {
