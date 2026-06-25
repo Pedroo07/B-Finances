@@ -4,7 +4,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 
 const VERIFY_TOKEN =
   process.env.WHATSAPP_VERIFY_TOKEN || 'meu_token_secreto';
-const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN!;
+const WHATSAPP_ACCESS_TOKEN = process.env.WHATSAPP_ACCESS_TOKEN!;
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
 async function getUserIdByPhone(phoneNumber: string): Promise<string> {
@@ -30,7 +30,7 @@ async function downloadWhatsAppAudio(mediaId: string): Promise<{
     `https://graph.facebook.com/v23.0/${mediaId}`,
     {
       headers: {
-        Authorization: `Bearer ${WHATSAPP_TOKEN}`,
+        Authorization: `Bearer ${WHATSAPP_ACCESS_TOKEN}`,
       },
     }
   );
@@ -49,7 +49,7 @@ async function downloadWhatsAppAudio(mediaId: string): Promise<{
 
   const audioResponse = await fetch(mediaData.url, {
     headers: {
-      Authorization: `Bearer ${WHATSAPP_TOKEN}`,
+      Authorization: `Bearer ${WHATSAPP_ACCESS_TOKEN}`,
     },
   });
 
