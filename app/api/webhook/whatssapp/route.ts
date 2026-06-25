@@ -9,7 +9,7 @@ async function getUserIdByPhone(phoneNumber: string): Promise<string> {
   try {
 
     const docRef = db.collection('phone_mappings').doc(phoneNumber);
-    const docSnap = await docRef.get();
+    const docSnap = await docRef.get() as any;
     
     if (docSnap.exists && docSnap.data()?.userId) {
       return docSnap.data().userId;
