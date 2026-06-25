@@ -35,11 +35,15 @@ async function downloadWhatsAppAudio(mediaId: string): Promise<{
     }
   );
 
-  if (!mediaResponse.ok) {
-    throw new Error(
-      `Erro ao buscar mídia: ${mediaResponse.status} ${mediaResponse.statusText}`
-    );
-  }
+ if (!mediaResponse.ok) {
+  const errorBody = await mediaResponse.text();
+
+  console.error('META ERROR:', errorBody);
+
+  throw new Error(
+    `Erro ao buscar mídia: ${mediaResponse.status} ${errorBody}`
+  );
+}
 
   const mediaData = await mediaResponse.json();
 
