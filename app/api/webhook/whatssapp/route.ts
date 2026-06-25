@@ -1,24 +1,89 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/firebaseAdmin';
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
-const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN || 'meu_token_secreto';
+const VERIFY_TOKEN =
+  process.env.WHATSAPP_VERIFY_TOKEN || 'meu_token_secreto';
+const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN!;
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
 async function getUserIdByPhone(phoneNumber: string): Promise<string> {
   try {
-
     const docRef = db.collection('phone_mappings').doc(phoneNumber);
-    const docSnap = await docRef.get() as any;
-    
+    const docSnap = (await docRef.get()) as any;
+
     if (docSnap.exists && docSnap.data()?.userId) {
       return docSnap.data().userId;
     }
   } catch (err) {
-    console.error("Erro ao buscar mapeamento de telefone:", err);
+    console.error('Erro ao buscar mapeamento de telefone:', err);
   }
 
-  return "SEU_UID_DE_TESTES_AQUI"; 
+  return 'SEU_UID_DE_TESTES_AQUI';
+}
+
+async function downloadWhatsAppAudio(mediaId: string): Promise<{
+  buffer: Buffer;
+  mimeType: string;
+}> {
+  const mediaResponse = await fetch(
+    `https://graph.facebook.com/v23.0/${mediaId}`,
+    {
+      headers: {
+        Authorization: `Bearer ${WHATSAPP_TOKEN}`,
+      },
+    }
+  );
+
+  if (!mediaResponse.ok) {
+    throw new Error(
+      `Erro ao buscar mídia: ${mediaResponse.status} ${mediaResponse.statusText}`
+    );
+  }
+
+  const mediaData = await mediaResponse.json();
+
+  const audioResponse = await fetch(mediaData.url, {
+    headers: {
+      Authorization: `Bearer ${WHATSAPP_TOKEN}`,
+    },
+  });
+
+  if (!audioResponse.ok) {
+    throw new Error(
+      `Erro ao baixar áudio: ${audioResponse.status} ${audioResponse.statusText}`
+    );
+  }
+
+  const arrayBuffer = await audioResponse.arrayBuffer();
+
+  return {
+    buffer: Buffer.from(arrayBuffer),
+    mimeType: mediaData.mime_type || 'audio/ogg',
+  };
+}
+
+async function transcribeAudio(
+  audioBuffer: Buffer,
+  mimeType: string
+): Promise<string> {
+  const model = genAI.getGenerativeModel({
+    model: 'gemini-2.5-flash',
+  });
+
+  const result = await model.generateContent([
+    {
+      inlineData: {
+        mimeType,
+        data: audioBuffer.toString('base64'),
+      },
+    },
+    {
+      text: 'Transcreva apenas o conteúdo deste áudio em português. Retorne somente a transcrição, sem explicações.',
+    },
+  ]);
+
+  return result.response.text().trim();
 }
 
 export async function GET(req: Request) {
@@ -33,27 +98,61 @@ export async function GET(req: Request) {
     return new Response(challenge, { status: 200 });
   }
 
-  console.warn('Falha na verificação do webhook. Token inválido ou mode incorreto.');
+  console.warn(
+    'Falha na verificação do webhook. Token inválido ou mode incorreto.'
+  );
+
   return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 }
+
 export async function POST(req: Request) {
   try {
     const data = await req.json();
-    const messageEntry = data?.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
-    
-    if (!messageEntry) return NextResponse.json({ status: "ignored" });
 
-    const messageText = messageEntry.text?.body;
+    const messageEntry =
+      data?.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
+
+    if (!messageEntry) {
+      return NextResponse.json({ status: 'ignored' });
+    }
+
     const fromPhoneNumber = messageEntry.from;
 
-    if (!messageText) return NextResponse.json({ status: "no_text_message" });
+    let messageText = '';
+
+    if (messageEntry.type === 'text') {
+      messageText = messageEntry.text?.body?.trim() || '';
+    }
+
+    if (messageEntry.type === 'audio') {
+      const mediaId = messageEntry.audio?.id;
+
+      if (!mediaId) {
+        return NextResponse.json({
+          status: 'audio_without_media_id',
+        });
+      }
+
+      console.log('Recebido áudio:', mediaId);
+
+      const { buffer, mimeType } = await downloadWhatsAppAudio(mediaId);
+
+      messageText = await transcribeAudio(buffer, mimeType);
+
+      console.log('Transcrição:', messageText);
+    }
+
+    if (!messageText) {
+      return NextResponse.json({
+        status: 'unsupported_or_empty_message',
+      });
+    }
 
     const todayStr = new Date().toISOString().split('T')[0];
 
-    
-    const model = genAI.getGenerativeModel({ 
-        model: "gemini-2.5-flash",
-        systemInstruction: `Você é o Assistente Financeiro do aplicativo B-Finances. Sua missão é ler mensagens do usuário descrevendo transações financeiras (despesas ou receitas) e extrair os dados estruturados no formato JSON especificado.
+    const model = genAI.getGenerativeModel({
+      model: 'gemini-3.1-flash-lite',
+      systemInstruction: `Você é o Assistente Financeiro do aplicativo B-Finances. Sua missão é ler mensagens do usuário descrevendo transações financeiras (despesas ou receitas) e extrair os dados estruturados no formato JSON especificado.
 Você deve responder EXCLUSIVAMENTE com o objeto JSON estruturado. Não adicione nenhuma saudação, explicação, markdown ou texto adicional fora do JSON.
 
 DATA DE HOJE A SER CONSIDERADA COMO REFERÊNCIA: ${todayStr}
@@ -86,8 +185,6 @@ Sempre use a data de hoje como referência ou infira com base em palavras-chave 
 ### TRATAMENTO DE INFORMAÇÕES INCOMPLETAS:
 Se a mensagem do usuário não contiver informações essenciais (ex: faltar o valor, não ficar claro se é receita/despesa, ou se for cartão de crédito mas ele não especificar qual cartão), você deve responder com o status "incomplete" e formular uma pergunta curta e amigável em português pedindo a informação faltante.
 
----
-
 ### SCHEMA DE RETORNO (JSON):
 
 Se a transação estiver completa (status "complete"), responda neste formato:
@@ -99,10 +196,8 @@ Se a transação estiver completa (status "complete"), responda neste formato:
     "date": "YYYY-MM-DD",
     "amount": number,
     "category": "foods" | "fixes" | "entertainment" | "other" | "salary" | "extra",
-    // Se isCardTransaction for false, inclua estes dois campos:
     "type": "income" | "expense",
     "paymentMethod": "cash" | "pix" | "debit",
-    // Se isCardTransaction for true, inclua este campo em vez de type/paymentMethod:
     "card": "Nubank" | "Inter" | "PicPay" | "BB" | "C6" | "Mercado Pago" | "Bradesco"
   }
 }
@@ -111,36 +206,55 @@ Se faltar alguma informação (status "incomplete"), responda neste formato:
 {
   "status": "incomplete",
   "missingFields": ["amount" | "description" | "paymentMethod" | "card"],
-  "responseMessage": "Pergunta curta para o usuário em português. Ex: 'Qual foi o valor do sorvete?' ou 'Qual cartão de crédito você usou?'"
-}`
+  "responseMessage": "Pergunta curta para o usuário em português."
+}`,
     });
 
     const result = await model.generateContent(messageText);
+
     const responseText = result.response.text();
-       
-    const cleanJson = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
+
+    const cleanJson = responseText
+      .replace(/```json/g, '')
+      .replace(/```/g, '')
+      .trim();
+
     const parsed = JSON.parse(cleanJson);
 
     if (parsed.status === 'complete') {
       const transactionData = parsed.transaction;
-      
+
       const userId = await getUserIdByPhone(fromPhoneNumber);
 
-      const collectionName = parsed.isCardTransaction ? 'cardTransactions' : 'transactions';
+      const collectionName = parsed.isCardTransaction
+        ? 'cardTransactions'
+        : 'transactions';
+
       await db.collection(`users/${userId}/${collectionName}`).add({
         ...transactionData,
         phoneNumber: fromPhoneNumber,
-        createdAt: new Date()
+        originalMessage: messageText,
+        createdAt: new Date(),
       });
 
-      console.log("Transação salva com sucesso:", transactionData);
+      console.log('Transação salva com sucesso:', transactionData);
     } else {
-      console.log("IA precisa de mais info:", parsed.responseMessage);
+      console.log('IA precisa de mais info:', parsed.responseMessage);
     }
 
-    return NextResponse.json({ status: "success" });
+    return NextResponse.json({
+      status: 'success',
+    });
   } catch (error) {
-    console.error("Erro no processamento:", error);
-    return NextResponse.json({ status: "error" }, { status: 500 });
+    console.error('Erro no processamento:', error);
+
+    return NextResponse.json(
+      {
+        status: 'error',
+      },
+      {
+        status: 500,
+      }
+    );
   }
 }
