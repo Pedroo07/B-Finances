@@ -7,6 +7,23 @@ const VERIFY_TOKEN =
 const WHATSAPP_ACCESS_TOKEN = process.env.WHATSAPP_ACCESS_TOKEN!;
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
+
+async function sendWhatsAppMessage(to: string, text: string) {
+  const url = `https://graph.facebook.com/v20.0/${process.env.PHONE_NUMBER_ID}/messages`;
+  await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${process.env.WHATSAPP_ACCESS_TOKEN}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      messaging_product: "whatsapp",
+      to: to,
+      text: { body: text },
+    }),
+  });
+}
+
 async function getUserIdByPhone(phoneNumber: string): Promise<string> {
   try {
     const docRef = db.collection('phone_mappings').doc(phoneNumber);
@@ -72,7 +89,7 @@ async function transcribeAudio(
   mimeType: string
 ): Promise<string> {
   const model = genAI.getGenerativeModel({
-    model: 'gemini-2.5-flash',
+    model: 'gemini-3.1-flash-lite',
   });
 
   const result = await model.generateContent([
@@ -155,7 +172,7 @@ export async function POST(req: Request) {
     const todayStr = new Date().toISOString().split('T')[0];
 
     const model = genAI.getGenerativeModel({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3.1-flash-lite',
       systemInstruction: `Você é o Assistente Financeiro do aplicativo B-Finances. Sua missão é ler mensagens do usuário descrevendo transações financeiras (despesas ou receitas) e extrair os dados estruturados no formato JSON especificado.
 Você deve responder EXCLUSIVAMENTE com o objeto JSON estruturado. Não adicione nenhuma saudação, explicação, markdown ou texto adicional fora do JSON.
 
@@ -240,6 +257,11 @@ Se faltar alguma informação (status "incomplete"), responda neste formato:
         originalMessage: messageText,
         createdAt: new Date(),
       });
+      await sendWhatsAppMessage(fromPhoneNumber, `${
+        collectionName == 'cardTransactions' ? "Gasto adicionado ao cartão" 
+        : "Gasto adicionado a lista de transferencias"
+      }`)
+      await sendWhatsAppMessage(fromPhoneNumber, parsed.responseMessage);
 
       console.log('Transação salva com sucesso:', transactionData);
     } else {
