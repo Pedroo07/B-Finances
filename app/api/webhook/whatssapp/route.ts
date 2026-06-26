@@ -41,7 +41,7 @@ async function getUserIdByPhone(phoneNumber: string): Promise<string> {
     console.error("Erro ao buscar mapeamento de telefone:", err);
   }
 
-  return "SEU_UID_DE_TESTES_AQUI";
+  return "OzWTLTVeN2OV37jTWI6qK3JuHWA3";
 }
 
 async function downloadWhatsAppAudio(mediaId: string): Promise<{
