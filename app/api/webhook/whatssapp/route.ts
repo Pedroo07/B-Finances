@@ -2,9 +2,16 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/firebaseAdmin";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN || "meu_token_secreto";
+const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN;
 const WHATSAPP_ACCESS_TOKEN = process.env.WHATSAPP_ACCESS_TOKEN!;
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+
+const agentModels = [
+  "gemini-3.1-flash-lite",
+  "gemini-2.5-flash-lite",
+  "gemini-3.5-flash",
+  "gemini-3-flash",
+];
 
 async function sendWhatsAppMessage(to: string, text: string) {
   const url = `https://graph.facebook.com/v20.0/${process.env.PHONE_NUMBER_ID}/messages`;
@@ -81,16 +88,39 @@ async function downloadWhatsAppAudio(mediaId: string): Promise<{
     mimeType: mediaData.mime_type || "audio/ogg",
   };
 }
+async function generateContentWithFallback(
+  promptPayload: any,
+  systemInstruction?: string,
+): Promise<string> {
+  let ultimoErro: any = null;
+
+  for (const agent of agentModels) {
+    try {
+      const config: any = { model: agent };
+      if (systemInstruction) {
+        config.systemInstruction = systemInstruction;
+      }
+      const model = genAI.getGenerativeModel(config);
+      const result = await model.generateContent(promptPayload);
+      return result.response.text();
+    } catch (error) {
+      console.warn(
+        `Falha ou limite atingido no modelo ${agent}. Tentando o próximo da lista...`,
+      );
+      ultimoErro = error;
+    }
+  }
+
+  throw new Error(
+    `Todos os modelos falharam. Último erro: ${ultimoErro?.message || ultimoErro}`,
+  );
+}
 
 async function transcribeAudio(
   audioBuffer: Buffer,
   mimeType: string,
 ): Promise<string> {
-  const model = genAI.getGenerativeModel({
-    model: "gemini-3.1-flash-lite",
-  });
-
-  const result = await model.generateContent([
+  const promptPayload = [
     {
       inlineData: {
         mimeType,
@@ -100,10 +130,11 @@ async function transcribeAudio(
     {
       text: "Transcreva apenas o conteúdo deste áudio em português. Retorne somente a transcrição, sem explicações.",
     },
-  ]);
+  ];
 
-  return result.response.text().trim();
+  return await generateContentWithFallback(promptPayload);
 }
+
 async function getChatContext(phoneNumber: string): Promise<string> {
   try {
     const sessionDoc = await db
@@ -208,15 +239,18 @@ export async function POST(req: Request) {
         status: "unsupported_or_empty_message",
       });
     }
-
+    await saveChatContext(fromPhoneNumber, "user", messageText);
+    const conversationHistory = await getChatContext(fromPhoneNumber);
     const todayStr = new Date().toISOString().split("T")[0];
 
-    const model = genAI.getGenerativeModel({
-      model: "gemini-3.1-flash-lite",
-      systemInstruction: `Você é o Assistente Financeiro do aplicativo B-Finances. Sua missão é ler mensagens do usuário descrevendo transações financeiras (despesas ou receitas) e extrair os dados estruturados no formato JSON especificado.
+    const systemInstruction = `Você é o Assistente Financeiro do aplicativo B-Finances. Sua missão é ler mensagens do usuário descrevendo transações financeiras (despesas ou receitas) e extrair os dados estruturados no formato JSON especificado.
 			Você deve responder EXCLUSIVAMENTE com o objeto JSON estruturado. Não adicione nenhuma saudação, explicação, markdown ou texto adicional fora do JSON.
 
 			DATA DE HOJE A SER CONSIDERADA COMO REFERÊNCIA: ${todayStr}
+
+			### HISTÓRICO RECENTE DA CONVERSA:
+			Abaixo está o histórico recente com o usuário. Utilize-o para preencher dados que ele já enviou em mensagens anteriores para a mesma transação em andamento:
+			${conversationHistory}
 
 			### DATA DA TRANSAÇÃO:
 			Sempre use a data de hoje como referência ou infira com base em palavras-chave (ex: "hoje", "ontem", "anteontem", "segunda-feira passada"). Formate sempre como "YYYY-MM-DD".
@@ -265,15 +299,15 @@ export async function POST(req: Request) {
 
 			Se faltar alguma informação (status "incomplete"), responda neste formato:
 			{
-				"status": "incomplete",
+				"status": "complete" | "incomplete",
 				"missingFields": ["amount" | "description" | "paymentMethod" | "card"],
 				"responseMessage": "Pergunta curta para o usuário em português."
-			}`,
-    });
+			}`;
 
-    const result = await model.generateContent(messageText);
-
-    const responseText = result.response.text();
+    const responseText = await generateContentWithFallback(
+      messageText,
+      systemInstruction,
+    );
 
     const cleanJson = responseText
       .replace(/```json/g, "")
