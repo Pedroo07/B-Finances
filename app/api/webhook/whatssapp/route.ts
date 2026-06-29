@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/firebaseAdmin";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { standardizePhoneNumber } from "@/lib/utils";
 
 const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN;
 const WHATSAPP_ACCESS_TOKEN = process.env.WHATSAPP_ACCESS_TOKEN!;
@@ -29,19 +30,22 @@ async function sendWhatsAppMessage(to: string, text: string) {
   });
 }
 
-async function getUserIdByPhone(phoneNumber: string): Promise<string> {
+async function getUserIdByPhone(phoneNumber: string): Promise<string | null> {
   try {
-    const docRef = db.collection("phone_mappings").doc(phoneNumber);
-    const docSnap = (await docRef.get()) as any;
+    const standardized = standardizePhoneNumber(phoneNumber);
+    const snapshot = await db.collection("users")
+      .where("phoneNumber", "==", standardized)
+      .limit(1)
+      .get();
 
-    if (docSnap.exists && docSnap.data()?.userId) {
-      return docSnap.data().userId;
+    if (!snapshot.empty) {
+      return snapshot.docs[0].id;
     }
   } catch (err) {
-    console.error("Erro ao buscar mapeamento de telefone:", err);
+    console.error("Erro ao buscar usuário por telefone:", err);
   }
 
-  return "OzWTLTVeN2OV37jTWI6qK3JuHWA3";
+  return null;
 }
 
 async function downloadWhatsAppAudio(mediaId: string): Promise<{
@@ -209,6 +213,22 @@ export async function POST(req: Request) {
     }
 
     const fromPhoneNumber = messageEntry.from;
+    if (!fromPhoneNumber) {
+      return NextResponse.json({ status: "ignored_no_sender" });
+    }
+
+    const userId = await getUserIdByPhone(fromPhoneNumber);
+    if (!userId) {
+      console.warn(`Mensagem recebida de número não cadastrado: ${fromPhoneNumber}`);
+      await sendWhatsAppMessage(
+        fromPhoneNumber,
+        "⚠️ Olá! Não encontramos nenhuma conta associada a este número de telefone no B-Finances. Por favor, registre o seu número na tela de cadastro do aplicativo para poder utilizar o nosso bot do WhatsApp."
+      );
+      return NextResponse.json({
+        status: "error",
+        error: "Unregistered phone number"
+      });
+    }
 
     let messageText = "";
 
@@ -318,8 +338,6 @@ export async function POST(req: Request) {
 
     if (parsed.status === "complete") {
       const transactionData = parsed.transaction;
-
-      const userId = await getUserIdByPhone(fromPhoneNumber);
 
       const collectionName = parsed.isCardTransaction
         ? "cardTransactions"

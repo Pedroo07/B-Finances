@@ -41,3 +41,10 @@ export function translatePaymentMethod(method: string) {
   return methodMap[method] ?? method
 }
 
+export function standardizePhoneNumber(phone: string): string {
+  let digits = phone.replace(/\D/g, '');
+  if (digits.length <= 11) {
+    digits = '55' + digits;
+  }
+  return '+' + digits;
+}

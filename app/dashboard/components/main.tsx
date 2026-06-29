@@ -3,6 +3,7 @@ import React, { ChangeEvent, FC, useEffect, useState } from 'react';
 import { IoIosArrowRoundUp, IoIosArrowRoundDown } from "react-icons/io";
 import { AiOutlineLoading3Quarters } from "react-icons/ai"
 import { FiMinusCircle, FiPlusCircle } from "react-icons/fi";
+import { FaWhatsapp } from "react-icons/fa";
 import { Dialog, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogContent } from '@/components/ui/dialog';
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue, SelectLabel } from '@/components/ui/select';
@@ -370,8 +371,7 @@ export const Main: FC = () => {
                     </div>
                 </div>)}
                 
-               
-                <div className='surface-card flex items-center gap-4 p-5 sm:p-6 md:col-span-1 xl:col-span-2'>
+                        <div className='surface-card flex items-center gap-4 p-5 sm:p-6 md:col-span-1 xl:col-span-1'>
                     <Dialog>
                         <DialogTrigger asChild>
                             <div className='flex h-14 w-14 cursor-pointer items-center justify-center rounded-2xl bg-[#22C55E]/12 text-[#16A34A] transition-transform hover:scale-[1.03] dark:bg-[#22C55E]/18 dark:text-[#4ADE80]'>
@@ -415,7 +415,7 @@ export const Main: FC = () => {
                         <p className='text-sm text-[#64748B] dark:text-[#94A3BB]'>Cadastre uma entrada manualmente.</p>
                     </div>
                 </div>
-                <div className='surface-card flex items-center gap-4 p-5 sm:p-6 md:col-span-1 xl:col-span-2'>
+                <div className='surface-card flex items-center gap-4 p-5 sm:p-6 md:col-span-1 xl:col-span-1'>
                     <Dialog>
                         <DialogTrigger asChild>
                             <div className='flex h-14 w-14 cursor-pointer items-center justify-center rounded-2xl bg-rose-500/12 text-rose-500 transition-transform hover:scale-[1.03] dark:bg-rose-500/18 dark:text-rose-300'><FiMinusCircle className='text-2xl' /></div>
@@ -495,6 +495,25 @@ export const Main: FC = () => {
                         <p className='text-sm text-[#64748B] dark:text-[#94A3BB]'>Cadastre uma saída manualmente.</p>
                     </div>
                 </div>
+                <a
+                    href={`https://wa.me/${process.env.NEXT_PUBLIC_WHATSAPP_BOT_NUMBER || '5538991245175'}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className='surface-card flex items-center gap-4 p-5 sm:p-6 md:col-span-2 xl:col-span-2 transition-all hover:scale-[1.01] hover:border-[#22C55E]/30 active:scale-[0.99]'
+                >
+                    <div className='flex h-14 w-14 items-center justify-center rounded-2xl bg-[#22C55E]/12 text-[#16A34A] dark:bg-[#22C55E]/18 dark:text-[#4ADE80]'>
+                        <FaWhatsapp className='text-2xl' />
+                    </div>
+                    <div>
+                        <p className='font-semibold text-[#0F172A] dark:text-white flex items-center gap-2'>
+                            Teste o nosso Bot do WhatsApp
+                            <span className='inline-flex rounded-full bg-[#22C55E]/10 px-2 py-0.5 text-xs font-semibold text-[#16A34A] dark:text-[#4ADE80] animate-pulse'>
+                                Novo
+                            </span>
+                        </p>
+                        <p className='text-sm text-[#64748B] dark:text-[#94A3BB]'>Cadastre transações enviando uma mensagem ou áudio.</p>
+                    </div>
+                </a>
             </section>
             <div className='flex flex-col gap-6 xl:flex-row xl:items-stretch'>
                 <section className='surface-card w-full p-6 xl:max-w-105'>

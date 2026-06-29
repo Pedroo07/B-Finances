@@ -5,8 +5,10 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 import { useCreateUserWithEmailAndPassword } from 'react-firebase-hooks/auth'
-import { auth } from '@/lib/firebase'
+import { auth, db } from '@/lib/firebase'
+import { doc, setDoc } from 'firebase/firestore'
 import { toast } from 'sonner'
+import { standardizePhoneNumber } from '@/lib/utils'
 
 const authErrorMessages: Record<string, string> = {
   "auth/email-already-in-use": "Este e-mail já está em uso.",
@@ -17,6 +19,7 @@ const authErrorMessages: Record<string, string> = {
 export const Main = () => {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [phoneNumber, setPhoneNumber] = useState('')
   const [localError, setLocalError] = useState('')
   const [
     createUserWithEmailAndPassword,
@@ -24,6 +27,18 @@ export const Main = () => {
     loading,
     error
   ] = useCreateUserWithEmailAndPassword(auth)
+
+  const formatPhoneInput = (value: string) => {
+    const digits = value.replace(/\D/g, '')
+    if (digits.length <= 2) return digits
+    if (digits.length <= 6) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`
+    if (digits.length <= 10) return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`
+    return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7, 11)}`
+  }
+
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setPhoneNumber(formatPhoneInput(e.target.value))
+  }
 
   const handleSignIn = async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault()
@@ -34,8 +49,8 @@ export const Main = () => {
       return
     }
 
-    if (!email || !password) {
-      setLocalError("E-mail e senha são obrigatórios.")
+    if (!email || !password || !phoneNumber) {
+      setLocalError("E-mail, senha e telefone são obrigatórios.")
       return
     }
 
@@ -48,12 +63,36 @@ export const Main = () => {
       setLocalError("A senha deve ter pelo menos 6 caracteres.")
       return
     }
-    await createUserWithEmailAndPassword(email.trim(), password)
-    if (error) {
-      toast.error(authErrorMessages[error.code] ?? 'Não foi possível concluir o cadastro.')
+
+    const cleanPhone = phoneNumber.replace(/\D/g, '')
+    const isValidLength = (cleanPhone.length === 10 || cleanPhone.length === 11) ||
+                          (cleanPhone.length === 12 || cleanPhone.length === 13)
+    if (!isValidLength) {
+      setLocalError("Por favor, insira um número de telefone válido com DDD (ex: 11 99999-9999).")
       return
     }
-    toast.success('Cadastro realizado com sucesso.')
+
+    setLocalError('')
+
+    try {
+      const userCredential = await createUserWithEmailAndPassword(email.trim(), password)
+      if (userCredential && userCredential.user) {
+        const newUser = userCredential.user
+        const standardized = standardizePhoneNumber(phoneNumber)
+        
+        await setDoc(doc(db, "users", newUser.uid), {
+          email: email.trim(),
+          phoneNumber: standardized,
+          createdAt: new Date(),
+        })
+        
+        toast.success('Cadastro realizado com sucesso.')
+      } else {
+        toast.error('Não foi possível concluir o cadastro.')
+      }
+    } catch (err: any) {
+      toast.error(authErrorMessages[err?.code] ?? 'Não foi possível concluir o cadastro.')
+    }
   }
 
   return (
@@ -103,11 +142,12 @@ export const Main = () => {
             </p>
           </div>
           <div className='mt-8 flex flex-col gap-3'>
-            <Input type='email' placeholder='E-mail' className='h-12' onChange={(e) => setEmail(e.target.value)} />
-            <Input type='password' placeholder='Senha' className='h-12' onChange={(e) => setPassword(e.target.value)} />
+            <Input type='email' placeholder='E-mail' className='h-12' value={email} onChange={(e) => setEmail(e.target.value)} />
+            <Input type='password' placeholder='Senha' className='h-12' value={password} onChange={(e) => setPassword(e.target.value)} />
+            <Input type='tel' placeholder='Telefone (ex: 11 99999-9999)' className='h-12' value={phoneNumber} onChange={handlePhoneChange} />
           </div>
           <div className='mt-6 flex flex-col gap-4 text-left'>
-            <Button onClick={handleSignIn} disabled={!email || !password} className='relative h-12 w-full'>
+            <Button onClick={handleSignIn} disabled={!email || !password || !phoneNumber} className='relative h-12 w-full'>
               {loading && (
                 <div className="absolute left-1/2 top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 transform rounded-full border-2 border-white/60 border-t-transparent animate-spin"></div>
               )}
