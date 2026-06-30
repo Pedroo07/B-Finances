@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/firebaseAdmin";
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { standardizePhoneNumber } from "@/lib/utils";
+import { standardizePhoneNumber, getPhoneVariations } from "@/lib/utils";
 
 const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN;
 const WHATSAPP_ACCESS_TOKEN = process.env.WHATSAPP_ACCESS_TOKEN!;
@@ -32,9 +32,9 @@ async function sendWhatsAppMessage(to: string, text: string) {
 
 async function getUserIdByPhone(phoneNumber: string): Promise<string | null> {
   try {
-    const standardized = standardizePhoneNumber(phoneNumber);
+    const variations = getPhoneVariations(phoneNumber);
     const snapshot = await db.collection("users")
-      .where("phoneNumber", "==", standardized)
+      .where("phoneNumber", "in", variations)
       .limit(1)
       .get();
 

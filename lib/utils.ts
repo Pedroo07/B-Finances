@@ -48,3 +48,36 @@ export function standardizePhoneNumber(phone: string): string {
   }
   return '+' + digits;
 }
+
+export function getPhoneVariations(phone: string): string[] {
+  let digits = phone.replace(/\D/g, '');
+  
+  // Remove country code 55 if present for formatting local DDD+number
+  if (digits.length >= 12 && digits.startsWith('55')) {
+    digits = digits.slice(2);
+  }
+  
+  if (digits.length !== 10 && digits.length !== 11) {
+    return ['+55' + digits];
+  }
+  
+  const ddd = digits.slice(0, 2);
+  const localNumber = digits.slice(2);
+  
+  let version10 = '';
+  let version11 = '';
+  
+  if (digits.length === 11) {
+    version11 = digits;
+    if (localNumber.startsWith('9')) {
+      version10 = ddd + localNumber.slice(1);
+    } else {
+      version10 = digits;
+    }
+  } else {
+    version10 = digits;
+    version11 = ddd + '9' + localNumber;
+  }
+  
+  return ['+55' + version10, '+55' + version11];
+}
