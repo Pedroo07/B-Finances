@@ -1,7 +1,35 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/firebaseAdmin";
-import { GoogleGenerativeAI } from "@google/generative-ai";
-import { standardizePhoneNumber, getPhoneVariations } from "@/lib/utils";
+import {
+  GoogleGenerativeAI,
+  type GenerateContentRequest,
+  type Part,
+} from "@google/generative-ai";
+import { getPhoneVariations } from "@/lib/utils";
+import { sendWhatsAppMessage } from "@/lib/whatsapp";
+
+import { classifyIntent } from "@/lib/whatsapp/intents/intentClassifier";
+import { IntentType } from "@/lib/whatsapp/intents/intentTypes";
+
+import { handleAddTransaction } from "@/lib/whatsapp/handlers/addTransactionHandler";
+import { handleQuery } from "@/lib/whatsapp/handlers/queryHandler";
+import {
+  handleDelete,
+  confirmDelete,
+} from "@/lib/whatsapp/handlers/deleteHandler";
+import { handlePayment } from "@/lib/whatsapp/handlers/paymentHandler";
+import { handleInvestment } from "@/lib/whatsapp/handlers/investmentHandler";
+import { handleNotificationToggle } from "@/lib/whatsapp/handlers/notificationHandler";
+import { formatHelpMessage } from "@/lib/whatsapp/formatters/responseFormatter";
+
+import {
+  getSession,
+  updateSessionHistory,
+  setPendingAction,
+  getPendingAction,
+  clearPendingAction,
+  checkRateLimit,
+} from "@/lib/whatsapp/utils/sessionManager";
 
 const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN;
 const WHATSAPP_ACCESS_TOKEN = process.env.WHATSAPP_ACCESS_TOKEN!;
@@ -14,26 +42,11 @@ const agentModels = [
   "gemini-3-flash",
 ];
 
-async function sendWhatsAppMessage(to: string, text: string) {
-  const url = `https://graph.facebook.com/v20.0/${process.env.PHONE_NUMBER_ID}/messages`;
-  await fetch(url, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${process.env.WHATSAPP_ACCESS_TOKEN}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      messaging_product: "whatsapp",
-      to: to,
-      text: { body: text },
-    }),
-  });
-}
-
 async function getUserIdByPhone(phoneNumber: string): Promise<string | null> {
   try {
     const variations = getPhoneVariations(phoneNumber);
-    const snapshot = await db.collection("users")
+    const snapshot = await db
+      .collection("users")
       .where("phoneNumber", "in", variations)
       .limit(1)
       .get();
@@ -63,9 +76,7 @@ async function downloadWhatsAppAudio(mediaId: string): Promise<{
 
   if (!mediaResponse.ok) {
     const errorBody = await mediaResponse.text();
-
     console.error("META ERROR:", errorBody);
-
     throw new Error(
       `Erro ao buscar mídia: ${mediaResponse.status} ${errorBody}`,
     );
@@ -92,15 +103,20 @@ async function downloadWhatsAppAudio(mediaId: string): Promise<{
     mimeType: mediaData.mime_type || "audio/ogg",
   };
 }
+
+type PromptPayload = string | GenerateContentRequest | Array<string | Part>;
+
 async function generateContentWithFallback(
-  promptPayload: any,
+  promptPayload: PromptPayload,
   systemInstruction?: string,
 ): Promise<string> {
-  let ultimoErro: any = null;
+  let ultimoErro: unknown = null;
 
   for (const agent of agentModels) {
     try {
-      const config: any = { model: agent };
+      const config: { model: string; systemInstruction?: string } = {
+        model: agent,
+      };
       if (systemInstruction) {
         config.systemInstruction = systemInstruction;
       }
@@ -115,9 +131,10 @@ async function generateContentWithFallback(
     }
   }
 
-  throw new Error(
-    `Todos os modelos falharam. Último erro: ${ultimoErro?.message || ultimoErro}`,
-  );
+  const errMsg =
+    ultimoErro instanceof Error ? ultimoErro.message : String(ultimoErro);
+
+  throw new Error(`Todos os modelos falharam. Último erro: ${errMsg}`);
 }
 
 async function transcribeAudio(
@@ -139,48 +156,11 @@ async function transcribeAudio(
   return await generateContentWithFallback(promptPayload);
 }
 
-async function getChatContext(phoneNumber: string): Promise<string> {
-  try {
-    const sessionDoc = await db
-      .collection("whatsapp_sessions")
-      .doc(phoneNumber)
-      .get();
-    if (sessionDoc.exists) {
-      const history = sessionDoc.data()?.history || [];
-      return history.map((h: any) => `${h.role}: ${h.text}`).join("\n");
-    }
-  } catch (err) {
-    console.error("Erro ao buscar contexto:", err);
-  }
-  return "Nenhum histórico anterior.";
-}
-
-async function saveChatContext(
-  phoneNumber: string,
-  role: "user" | "assistant",
-  text: string,
-) {
-  try {
-    const sessionRef = db.collection("whatsapp_sessions").doc(phoneNumber);
-    const sessionDoc = await sessionRef.get();
-    let history = [];
-    if (sessionDoc.exists) {
-      history = sessionDoc.data()?.history || [];
-    }
-    history.push({ role, text, timestamp: new Date() });
-    if (history.length > 10) history.shift();
-    await sessionRef.set({ history });
-  } catch (err) {
-    console.error("Erro ao salvar contexto:", err);
-  }
-}
-
-async function clearChatContext(phoneNumber: string) {
-  try {
-    await db.collection("whatsapp_sessions").doc(phoneNumber).delete();
-  } catch (err) {
-    console.error("Erro ao limpar contexto:", err);
-  }
+function buildHistoryString(
+  history: Array<{ role: string; text: string }> | undefined,
+): string {
+  if (!history || history.length === 0) return "Nenhum histórico anterior.";
+  return history.map((h) => `${h.role}: ${h.text}`).join("\n");
 }
 
 export async function GET(req: Request) {
@@ -219,15 +199,26 @@ export async function POST(req: Request) {
 
     const userId = await getUserIdByPhone(fromPhoneNumber);
     if (!userId) {
-      console.warn(`Mensagem recebida de número não cadastrado: ${fromPhoneNumber}`);
+      console.warn(
+        `Mensagem recebida de número não cadastrado: ${fromPhoneNumber}`,
+      );
       await sendWhatsAppMessage(
         fromPhoneNumber,
-        "⚠️ Olá! Não encontramos nenhuma conta associada a este número de telefone no B-Finances. Por favor, registre o seu número na tela de cadastro do aplicativo para poder utilizar o nosso bot do WhatsApp."
+        "⚠️ Olá! Não encontramos nenhuma conta associada a este número de telefone no B-Finances. Por favor, registre o seu número na tela de cadastro do aplicativo para poder utilizar o nosso bot do WhatsApp.",
       );
       return NextResponse.json({
         status: "error",
-        error: "Unregistered phone number"
+        error: "Unregistered phone number",
       });
+    }
+
+    const allowed = await checkRateLimit(fromPhoneNumber);
+    if (!allowed) {
+      await sendWhatsAppMessage(
+        fromPhoneNumber,
+        "⏳ Você está enviando mensagens muito rapidamente. Por favor, aguarde um momento.",
+      );
+      return NextResponse.json({ status: "rate_limited" });
     }
 
     let messageText = "";
@@ -240,142 +231,147 @@ export async function POST(req: Request) {
       const mediaId = messageEntry.audio?.id;
 
       if (!mediaId) {
-        return NextResponse.json({
-          status: "audio_without_media_id",
-        });
+        return NextResponse.json({ status: "audio_without_media_id" });
       }
 
       console.log("Recebido áudio:", mediaId);
 
       const { buffer, mimeType } = await downloadWhatsAppAudio(mediaId);
-
       messageText = await transcribeAudio(buffer, mimeType);
 
       console.log("Transcrição:", messageText);
     }
 
     if (!messageText) {
-      return NextResponse.json({
-        status: "unsupported_or_empty_message",
-      });
-    }
-    await saveChatContext(fromPhoneNumber, "user", messageText);
-    const conversationHistory = await getChatContext(fromPhoneNumber);
-    const todayStr = new Date().toISOString().split("T")[0];
-
-    const systemInstruction = `Você é o Assistente Financeiro do aplicativo B-Finances. Sua missão é ler mensagens do usuário descrevendo transações financeiras (despesas ou receitas) e extrair os dados estruturados no formato JSON especificado.
-			Você deve responder EXCLUSIVAMENTE com o objeto JSON estruturado. Não adicione nenhuma saudação, explicação, markdown ou texto adicional fora do JSON.
-
-			DATA DE HOJE A SER CONSIDERADA COMO REFERÊNCIA: ${todayStr}
-
-			### HISTÓRICO RECENTE DA CONVERSA:
-			Abaixo está o histórico recente com o usuário. Utilize-o para preencher dados que ele já enviou em mensagens anteriores para a mesma transação em andamento:
-			${conversationHistory}
-
-			### DATA DA TRANSAÇÃO:
-			Sempre use a data de hoje como referência ou infira com base em palavras-chave (ex: "hoje", "ontem", "anteontem", "segunda-feira passada"). Formate sempre como "YYYY-MM-DD".
-			- Se a mensagem disser "ontem", calcule o dia anterior à data de referência (${todayStr}).
-			- Se nenhuma data/referência for mencionada, assuma a data de referência (${todayStr}).
-
-			### REGRAS PARA DESPESAS (Gastos):
-			1. O valor (amount) deve ser sempre NEGATIVO (ex: -15.50).
-			2. Se o método de pagamento (paymentMethod) for "credit_card" (Cartão de Crédito), a transação é considerada uma "Transação de Cartão" (Card Transaction). Nesse caso, você DEVE extrair o campo "card" informando qual é o banco/cartão.
-				- Cartões aceitos (valores exatos): "Nubank", "Inter", "PicPay", "BB", "C6", "Mercado Pago", "Bradesco".
-			3. Se o método de pagamento não for cartão de crédito, use uma das opções: "cash" (Dinheiro), "pix" (Pix), "debit" (Cartão de Débito).
-			4. Categorias de despesas permitidas:
-				- "fixes" (Contas fixas, aluguel, luz, internet, etc.)
-				- "foods" (Alimentação, restaurantes, supermercado, lanches, sorvete)
-				- "entertainment" (Lazer, cinema, festas, viagens, jogos)
-				- "other" (Outros gastos que não se encaixam nos anteriores)
-
-			### REGRAS PARA RECEITAS (Lucros/Entradas):
-			1. O valor (amount) deve ser sempre POSITIVO (ex: 800.00).
-			2. O campo type deve ser "income".
-			3. O campo paymentMethod padrão deve ser "pix", a menos que o usuário cite "dinheiro" ("cash") ou outro método explicitamente.
-			4. Categorias de receitas permitidas:
-				- "salary" (Salário, trabalho principal)
-				- "extra" (Trabalho extra, freela, bônus, prêmios, apostas, rendimentos extras)
-				- "other" (Outras entradas)
-
-			### TRATAMENTO DE INFORMAÇÕES INCOMPLETAS:
-			Se a mensagem do usuário não contiver informações essenciais (ex: faltar o valor, não ficar claro se é receita/despesa, ou se for cartão de crédito mas ele não especificar qual cartão), você deve responder com o status "incomplete" e formular uma pergunta curta e amigável em português pedindo a informação faltante.
-
-			### SCHEMA DE RETORNO (JSON):
-
-			Se a transação estiver completa (status "complete"), responda neste formato:
-			{
-				"status": "complete",
-				"isCardTransaction": true | false,
-				"transaction": {
-					"description": "Descrição curta da transação",
-					"date": "YYYY-MM-DD",
-					"amount": number,
-					"category": "foods" | "fixes" | "entertainment" | "other" | "salary" | "extra",
-					"type": "income" | "expense",
-					"paymentMethod": "cash" | "pix" | "debit",
-					"card": "Nubank" | "Inter" | "PicPay" | "BB" | "C6" | "Mercado Pago" | "Bradesco"
-				}
-			}
-
-			Se faltar alguma informação (status "incomplete"), responda neste formato:
-			{
-				"status": "complete" | "incomplete",
-				"missingFields": ["amount" | "description" | "paymentMethod" | "card"],
-				"responseMessage": "Pergunta curta para o usuário em português."
-			}`;
-
-    const responseText = await generateContentWithFallback(
-      messageText,
-      systemInstruction,
-    );
-
-    const cleanJson = responseText
-      .replace(/```json/g, "")
-      .replace(/```/g, "")
-      .trim();
-
-    const parsed = JSON.parse(cleanJson);
-
-    if (parsed.status === "complete") {
-      const transactionData = parsed.transaction;
-
-      const collectionName = parsed.isCardTransaction
-        ? "cardTransactions"
-        : "transactions";
-
-      await db.collection(`users/${userId}/${collectionName}`).add({
-        ...transactionData,
-        phoneNumber: fromPhoneNumber,
-        originalMessage: messageText,
-        createdAt: new Date(),
-      });
-      const messageReply =
-        collectionName === "cardTransactions"
-          ? "Gasto adicionado ao cartão!✅"
-          : "Gasto adicionado a lista de transferencias!✅";
-
-      await sendWhatsAppMessage(fromPhoneNumber, messageReply);
-
-      console.log("Transação salva com sucesso:", transactionData);
-    } else {
-      await clearChatContext(fromPhoneNumber);
-
-      await sendWhatsAppMessage(fromPhoneNumber, parsed.responseMessage);
-
-      await saveChatContext(
-        fromPhoneNumber,
-        "assistant",
-        parsed.responseMessage,
-      );
-      console.log(
-        "IA precisa de mais info. Pergunta enviada:",
-        parsed.responseMessage,
-      );
+      return NextResponse.json({ status: "unsupported_or_empty_message" });
     }
 
-    return NextResponse.json({
-      status: "success",
-    });
+    await updateSessionHistory(fromPhoneNumber, "user", messageText);
+
+    const pendingAction = await getPendingAction(fromPhoneNumber);
+
+    if (pendingAction) {
+      const lower = messageText.trim().toLowerCase();
+      const isCancel =
+        lower === "cancelar" ||
+        lower === "não" ||
+        lower === "nao" ||
+        lower === "n";
+
+      if (isCancel) {
+        await clearPendingAction(fromPhoneNumber);
+        const reply = "❌ Ação cancelada.";
+        await sendWhatsAppMessage(fromPhoneNumber, reply);
+        await updateSessionHistory(fromPhoneNumber, "assistant", reply);
+        return NextResponse.json({ status: "success" });
+      }
+
+      if (
+        pendingAction.type === "delete_transaction" ||
+        pendingAction.type === "delete_card_transaction" ||
+        pendingAction.type === "delete_transaction_multiple" ||
+        pendingAction.type === "delete_card_transaction_multiple"
+      ) {
+        const reply = await confirmDelete(userId, pendingAction, messageText);
+        await clearPendingAction(fromPhoneNumber);
+        await sendWhatsAppMessage(fromPhoneNumber, reply);
+        await updateSessionHistory(fromPhoneNumber, "assistant", reply);
+        return NextResponse.json({ status: "success" });
+      }
+    }
+
+    const session = await getSession(fromPhoneNumber);
+    const conversationHistory = buildHistoryString(session?.history);
+
+    const intentResult = await classifyIntent(messageText, conversationHistory);
+    console.log("Intent classificada:", intentResult);
+
+    let reply = "";
+
+    switch (intentResult.intent) {
+      case IntentType.ADD_TRANSACTION: {
+        reply = await handleAddTransaction(
+          userId,
+          messageText,
+          conversationHistory,
+        );
+        break;
+      }
+
+      case IntentType.QUERY_EXPENSES:
+      case IntentType.QUERY_INCOME:
+      case IntentType.QUERY_BALANCE:
+      case IntentType.QUERY_CARD_INVOICE:
+      case IntentType.QUERY_BILLS:
+      case IntentType.QUERY_INVESTMENTS: {
+        reply = await handleQuery(
+          userId,
+          intentResult.intent,
+          intentResult.parameters || {},
+        );
+        break;
+      }
+
+      case IntentType.DELETE_TRANSACTION:
+      case IntentType.DELETE_CARD_TRANSACTION: {
+        const result = await handleDelete(
+          userId,
+          intentResult.intent,
+          intentResult.parameters || {},
+          fromPhoneNumber,
+        );
+        reply = result.message;
+        if (result.needsConfirmation && result.pendingAction) {
+          await setPendingAction(fromPhoneNumber, result.pendingAction);
+        }
+        break;
+      }
+
+      case IntentType.PAY_BILL:
+      case IntentType.PAY_CARD_INVOICE: {
+        reply = await handlePayment(
+          userId,
+          intentResult.intent,
+          intentResult.parameters || {},
+        );
+        break;
+      }
+
+      case IntentType.ADD_INVESTMENT:
+      case IntentType.REDEEM_INVESTMENT: {
+        reply = await handleInvestment(
+          userId,
+          intentResult.intent,
+          intentResult.parameters || {},
+        );
+        break;
+      }
+
+      case IntentType.TOGGLE_NOTIFICATIONS: {
+        reply = await handleNotificationToggle(
+          userId,
+          intentResult.parameters || {},
+        );
+        break;
+      }
+
+      case IntentType.HELP: {
+        reply = formatHelpMessage();
+        break;
+      }
+
+      case IntentType.UNKNOWN:
+      default: {
+        reply =
+          "🤔 Não entendi muito bem o que você quis dizer. Você pode digitar *ajuda* para ver o que eu sei fazer.";
+        break;
+      }
+    }
+
+    await sendWhatsAppMessage(fromPhoneNumber, reply);
+    await updateSessionHistory(fromPhoneNumber, "assistant", reply);
+
+    return NextResponse.json({ status: "success" });
   } catch (error) {
     console.error("Erro no processamento:", error);
 
