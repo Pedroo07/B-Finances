@@ -101,3 +101,22 @@ export async function payCardInvoice(
     { merge: true }
   );
 }
+
+export async function getAllCardInvoices(
+  userId: string,
+  year: number,
+  month: number
+): Promise<{ cardName: string; amount: number }[]> {
+  const cards = await getUserCreditCards(userId);
+  const results: { cardName: string; amount: number }[] = [];
+
+  for (const card of cards) {
+    const amount = await getCardInvoiceAmount(userId, card.id, year, month);
+    if (amount > 0.01) {
+      results.push({ cardName: card.id, amount });
+    }
+  }
+
+  return results;
+}
+

@@ -4,6 +4,7 @@ import { BillAccount } from "@/lib/services/admin/billAccountsAdmin";
 import { Investment } from "@/lib/services/admin/investmentsAdmin";
 import { formatDate } from "../utils/dateParser";
 
+
 export function formatCurrency(value: number): string {
   return new Intl.NumberFormat("pt-BR", {
     style: "currency",
@@ -11,30 +12,35 @@ export function formatCurrency(value: number): string {
   }).format(value);
 }
 
-export function formatTransactionsList(
+
+export function formatTransactionList(
   transactions: Transaction[],
-  limit?: number
+  type: "expense" | "income",
+  label: string
 ): string {
   if (transactions.length === 0) {
-    return "Nenhuma transação encontrada.";
+    return type === "expense"
+      ? `💸 Nenhum gasto encontrado para: ${label}`
+      : `💰 Nenhuma receita encontrada para: ${label}`;
   }
 
-  const items = limit ? transactions.slice(0, limit) : transactions;
-  let response = `📋 *Transações* (${transactions.length} encontrada${transactions.length > 1 ? "s" : ""})\n\n`;
+  const emoji = type === "expense" ? "💸" : "💰";
+  let response = `${emoji} *${label}*\n\n`;
 
-  items.forEach((t, index) => {
-    const emoji = t.type === "income" ? "💰" : "💸";
-    response += `${emoji} *${t.description}*\n`;
-    response += `   ${formatCurrency(t.amount)} • ${formatDate(t.date)}\n`;
-    response += `   Categoria: ${translateCategory(t.category)}\n\n`;
+  transactions.forEach((t, i) => {
+    const sign = type === "expense" ? "-" : "+";
+    response += `${i + 1}. *${t.description}*\n`;
+    response += `   ${sign} ${formatCurrency(Math.abs(t.amount))}\n`;
+    response += `   📅 ${formatDate(t.date)}\n`;
+    if (t.category) {
+      response += `   🏷️ ${translateCategory(t.category)}\n`;
+    }
+    response += "\n";
   });
 
-  if (limit && transactions.length > limit) {
-    response += `_... e mais ${transactions.length - limit} transações_`;
-  }
-
-  return response;
+  return response.trimEnd();
 }
+
 
 export function formatExpensesSummary(
   transactions: Transaction[],
@@ -44,7 +50,7 @@ export function formatExpensesSummary(
   const total = expenses.reduce((sum, t) => sum + Math.abs(t.amount), 0);
 
   if (expenses.length === 0) {
-    return `📊 Você não teve gastos no período: ${period}`;
+    return `📊 Você não teve gastos em: *${period}*`;
   }
 
   const byCategory: Record<string, number> = {};
@@ -53,7 +59,7 @@ export function formatExpensesSummary(
     byCategory[cat] = (byCategory[cat] || 0) + Math.abs(t.amount);
   });
 
-  let response = `💸 *Gastos - ${period}*\n\n`;
+  let response = `💸 *Gastos — ${period}*\n\n`;
   response += `💰 *Total: ${formatCurrency(total)}*\n\n`;
   response += `📊 *Por Categoria:*\n`;
 
@@ -67,6 +73,7 @@ export function formatExpensesSummary(
   return response;
 }
 
+
 export function formatIncomeSummary(
   transactions: Transaction[],
   period: string
@@ -75,7 +82,7 @@ export function formatIncomeSummary(
   const total = incomes.reduce((sum, t) => sum + Math.abs(t.amount), 0);
 
   if (incomes.length === 0) {
-    return `📊 Você não teve receitas no período: ${period}`;
+    return `📊 Você não teve receitas em: *${period}*`;
   }
 
   const byCategory: Record<string, number> = {};
@@ -84,7 +91,7 @@ export function formatIncomeSummary(
     byCategory[cat] = (byCategory[cat] || 0) + Math.abs(t.amount);
   });
 
-  let response = `💰 *Receitas - ${period}*\n\n`;
+  let response = `💰 *Receitas — ${period}*\n\n`;
   response += `✅ *Total: ${formatCurrency(total)}*\n\n`;
   response += `📊 *Por Categoria:*\n`;
 
@@ -96,6 +103,113 @@ export function formatIncomeSummary(
 
   return response;
 }
+
+export function formatDetailedBalance(
+  transactions: Transaction[],
+  prevTransactions: Transaction[],
+  pendingBills: BillAccount[],
+  period: string
+): string {
+  const incomes = transactions.filter((t) => t.type === "income");
+  const expenses = transactions.filter((t) => t.type === "expense");
+
+  const totalIncome = incomes.reduce((s, t) => s + Math.abs(t.amount), 0);
+  const totalExpense = expenses.reduce((s, t) => s + Math.abs(t.amount), 0);
+  const balance = totalIncome - totalExpense;
+
+  const prevIncome = prevTransactions
+    .filter((t) => t.type === "income")
+    .reduce((s, t) => s + Math.abs(t.amount), 0);
+  const prevExpense = prevTransactions
+    .filter((t) => t.type === "expense")
+    .reduce((s, t) => s + Math.abs(t.amount), 0);
+
+  const incomeChange =
+    prevIncome > 0 ? ((totalIncome - prevIncome) / prevIncome) * 100 : null;
+  const expenseChange =
+    prevExpense > 0
+      ? ((totalExpense - prevExpense) / prevExpense) * 100
+      : null;
+
+  const balanceEmoji = balance >= 0 ? "✅" : "⚠️";
+  const incomeArrow =
+    incomeChange === null ? "" : incomeChange >= 0 ? "📈" : "📉";
+  const expenseArrow =
+    expenseChange === null ? "" : expenseChange >= 0 ? "📈" : "📉";
+
+  let response = `${balanceEmoji} *Resumo Financeiro — ${period}*\n\n`;
+
+  response += `━━━━━━━━━━━━━━━━\n`;
+  response += `💵 *Saldo do mês: ${formatCurrency(balance)}*\n`;
+  response += `━━━━━━━━━━━━━━━━\n\n`;
+
+  response += `💰 *Receitas: ${formatCurrency(totalIncome)}*`;
+  if (incomeChange !== null) {
+    response += ` ${incomeArrow} ${incomeChange >= 0 ? "+" : ""}${incomeChange.toFixed(1)}% vs mês anterior`;
+  }
+  response += `\n`;
+
+  const incomeByCategory: Record<string, number> = {};
+  incomes.forEach((t) => {
+    const cat = t.category || "other";
+    incomeByCategory[cat] = (incomeByCategory[cat] || 0) + Math.abs(t.amount);
+  });
+  Object.entries(incomeByCategory)
+    .sort(([, a], [, b]) => b - a)
+    .forEach(([cat, amount]) => {
+      const pct = totalIncome > 0 ? ((amount / totalIncome) * 100).toFixed(0) : 0;
+      response += `  • ${translateCategory(cat)}: ${formatCurrency(amount)} (${pct}%)\n`;
+    });
+
+  response += `\n`;
+
+  response += `💸 *Despesas: ${formatCurrency(totalExpense)}*`;
+  if (expenseChange !== null) {
+    response += ` ${expenseArrow} ${expenseChange >= 0 ? "+" : ""}${expenseChange.toFixed(1)}% vs mês anterior`;
+  }
+  response += `\n`;
+
+  const expenseByCategory: Record<string, number> = {};
+  expenses.forEach((t) => {
+    const cat = t.category || "other";
+    expenseByCategory[cat] =
+      (expenseByCategory[cat] || 0) + Math.abs(t.amount);
+  });
+  Object.entries(expenseByCategory)
+    .sort(([, a], [, b]) => b - a)
+    .forEach(([cat, amount]) => {
+      const pct =
+        totalExpense > 0
+          ? ((amount / totalExpense) * 100).toFixed(0)
+          : 0;
+      response += `  • ${translateCategory(cat)}: ${formatCurrency(amount)} (${pct}%)\n`;
+    });
+
+  response += `\n`;
+
+  if (pendingBills.length > 0) {
+    const totalBills = pendingBills.reduce((s, b) => s + b.amount, 0);
+    response += `📋 *Contas a pagar: ${formatCurrency(totalBills)}* (${pendingBills.length} conta${pendingBills.length > 1 ? "s" : ""})\n`;
+    pendingBills
+      .sort((a, b) => a.dueDate.localeCompare(b.dueDate))
+      .slice(0, 5)
+      .forEach((b) => {
+        const daysUntil = Math.ceil(
+          (new Date(b.dueDate).getTime() - Date.now()) / 86400000
+        );
+        const urgency = daysUntil <= 3 ? "🔴" : daysUntil <= 7 ? "🟡" : "🟢";
+        response += `  ${urgency} ${b.description}: ${formatCurrency(b.amount)} (${formatDate(b.dueDate)})\n`;
+      });
+    if (pendingBills.length > 5) {
+      response += `  _... e mais ${pendingBills.length - 5} conta${pendingBills.length - 5 > 1 ? "s" : ""}_\n`;
+    }
+  } else {
+    response += `✅ *Nenhuma conta pendente!*\n`;
+  }
+
+  return response;
+}
+
 
 export function formatBalanceSummary(
   transactions: Transaction[],
@@ -119,6 +233,8 @@ export function formatBalanceSummary(
   return response;
 }
 
+// ─── Card Invoices ────────────────────────────────────────────────────────────
+
 export function formatCardInvoice(
   cardName: string,
   amount: number,
@@ -126,18 +242,8 @@ export function formatCardInvoice(
   year: number
 ): string {
   const monthNames = [
-    "Janeiro",
-    "Fevereiro",
-    "Março",
-    "Abril",
-    "Maio",
-    "Junho",
-    "Julho",
-    "Agosto",
-    "Setembro",
-    "Outubro",
-    "Novembro",
-    "Dezembro",
+    "Janeiro","Fevereiro","Março","Abril","Maio","Junho",
+    "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro",
   ];
 
   const emoji = amount > 0 ? "💳" : "✅";
@@ -145,6 +251,36 @@ export function formatCardInvoice(
 
   return `${emoji} *Fatura ${cardName}*\n\n📅 ${monthNames[month - 1]}/${year}\n💰 Valor ${status}: ${formatCurrency(amount)}`;
 }
+
+export function formatAllCardInvoices(
+  invoices: { cardName: string; amount: number }[],
+  month: number,
+  year: number
+): string {
+  const monthNames = [
+    "Janeiro","Fevereiro","Março","Abril","Maio","Junho",
+    "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro",
+  ];
+
+  if (invoices.length === 0) {
+    return `✅ *Nenhuma fatura em aberto* para ${monthNames[month - 1]}/${year}!`;
+  }
+
+  const total = invoices.reduce((s, i) => s + i.amount, 0);
+  let response = `💳 *Faturas em aberto — ${monthNames[month - 1]}/${year}*\n\n`;
+
+  invoices
+    .sort((a, b) => b.amount - a.amount)
+    .forEach((inv) => {
+      response += `• *${inv.cardName}*: ${formatCurrency(inv.amount)}\n`;
+    });
+
+  response += `\n💰 *Total: ${formatCurrency(total)}*`;
+
+  return response;
+}
+
+// ─── Bills ────────────────────────────────────────────────────────────────────
 
 export function formatBillsList(bills: BillAccount[]): string {
   if (bills.length === 0) {
@@ -182,6 +318,8 @@ export function formatBillsList(bills: BillAccount[]): string {
   return response;
 }
 
+// ─── Investments ──────────────────────────────────────────────────────────────
+
 export function formatInvestmentsSummary(investments: Investment[]): string {
   if (investments.length === 0) {
     return "📊 Você ainda não tem investimentos cadastrados.";
@@ -210,6 +348,8 @@ export function formatInvestmentsSummary(investments: Investment[]): string {
   return response;
 }
 
+// ─── Delete Confirmation ──────────────────────────────────────────────────────
+
 export function formatDeleteConfirmation(
   items: (Transaction | CardTransaction)[],
   type: "transaction" | "card"
@@ -232,6 +372,8 @@ export function formatDeleteConfirmation(
   return response;
 }
 
+// ─── Help ─────────────────────────────────────────────────────────────────────
+
 export function formatHelpMessage(): string {
   return `🤖 *Assistente Financeiro B-Finances*
 
@@ -244,11 +386,15 @@ Eu posso te ajudar com:
 
 📊 *Consultar*
 • "Quanto gastei esse mês?"
-• "Gastos com comida"
+• "Liste meus últimos 5 gastos"
+• "Últimos 3 lucros"
+• "Gastos com alimentação"
+• "Gastos no cartão Inter"
+• "Quais minhas faturas em aberto?"
 • "Fatura do cartão Nubank"
 • "Próximas contas"
 • "Meus investimentos"
-• "Resumo financeiro"
+• "Resumo financeiro do mês"
 
 🗑️ *Deletar*
 • "Deletar gasto com pizza"
@@ -265,9 +411,36 @@ Eu posso te ajudar com:
 _Fale naturalmente comigo! 😊_`;
 }
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+// Keep old export name as alias for backwards compatibility
+export function formatTransactionsList(
+  transactions: Transaction[],
+  limit?: number
+): string {
+  const items = limit ? transactions.slice(0, limit) : transactions;
+  if (items.length === 0) return "Nenhuma transação encontrada.";
+
+  let response = `📋 *Transações* (${transactions.length} encontrada${transactions.length > 1 ? "s" : ""})\n\n`;
+
+  items.forEach((t) => {
+    const emoji = t.type === "income" ? "💰" : "💸";
+    response += `${emoji} *${t.description}*\n`;
+    response += `   ${formatCurrency(t.amount)} • ${formatDate(t.date)}\n`;
+    response += `   Categoria: ${translateCategory(t.category)}\n\n`;
+  });
+
+  if (limit && transactions.length > limit) {
+    response += `_... e mais ${transactions.length - limit} transações_`;
+  }
+
+  return response;
+}
+
 function translateCategory(category: string): string {
   const categoryMap: Record<string, string> = {
     salary: "Salário",
+    credit_card: "Cartões de Crédito",
     extra: "Extra",
     other: "Outros",
     fixes: "Fixas",

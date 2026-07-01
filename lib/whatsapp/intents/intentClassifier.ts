@@ -57,17 +57,21 @@ INTENÇÕES DISPONÍVEIS:
 1. ADD_TRANSACTION - Adicionar despesa ou receita
    Exemplos: "gastei 50 reais", "recebi meu salário", "comprei um lanche"
 
-2. QUERY_EXPENSES - Consultar gastos
-   Exemplos: "quanto gastei esse mês?", "gastos com comida", "despesas de janeiro"
+2. QUERY_EXPENSES - Consultar gastos ou listar últimas despesas
+   Exemplos: "quanto gastei esse mês?", "gastos com comida", "despesas de janeiro", "liste meus últimos 5 gastos", "meus últimos 3 gastos com alimentação", "gastos no cartão Inter"
+   Parâmetros: period, limit (número de itens), category_filter (categoria interna), card_filter (nome do cartão)
 
-3. QUERY_INCOME - Consultar receitas
-   Exemplos: "quanto ganhei esse mês?", "minhas receitas", "entradas de janeiro"
+3. QUERY_INCOME - Consultar receitas ou listar últimas entradas
+   Exemplos: "quanto ganhei esse mês?", "minhas receitas", "liste meus últimos 3 lucros", "últimas 10 entradas"
+   Parâmetros: period, limit (número de itens)
 
-4. QUERY_BALANCE - Consultar saldo/resumo geral
-   Exemplos: "qual meu saldo?", "resumo financeiro", "como estão minhas finanças?"
+4. QUERY_BALANCE - Consultar saldo ou resumo financeiro completo do mês
+   Exemplos: "qual meu saldo?", "resumo financeiro", "como estão minhas finanças?", "resumo do mês", "balanço mensal"
+   Parâmetros: period
 
-5. QUERY_CARD_INVOICE - Consultar fatura de cartão
-   Exemplos: "fatura do nubank", "quanto devo no cartão?", "valor da fatura"
+5. QUERY_CARD_INVOICE - Consultar fatura(s) de cartão
+   Exemplos: "fatura do nubank", "quanto devo no cartão?", "quais minhas faturas em aberto?", "todas as faturas", "faturas dos meus cartões"
+   Parâmetros: card (nome do cartão OU null para todas), all_invoices (true se quer todas as faturas)
 
 6. QUERY_BILLS - Consultar contas a pagar
    Exemplos: "próximas contas", "contas pendentes", "o que vence essa semana?"
@@ -109,12 +113,21 @@ RESPONDA APENAS COM UM JSON no seguinte formato:
     "category": "foods",
     "period": "month",
     "card": "Nubank",
+    "all_invoices": false,
     "description": "pizza",
-    "amount": 50
+    "amount": 50,
+    "limit": 5,
+    "category_filter": "foods",
+    "card_filter": "Inter"
   }
 }
 
-Os parâmetros devem ser extraídos quando relevantes para a intenção.
+REGRAS PARA PARÂMETROS:
+- "limit": extraia quando o usuário pedir número específico (ex: "últimos 5", "3 gastos")
+- "category_filter": extraia a categoria interna quando filtrar por tipo (alimentação→foods, lazer→entertainment, fixas→fixes, salário→salary, extra→extra, outros→other)
+- "card_filter": extraia quando o usuário mencionar cartão em QUERY_EXPENSES (ex: "gastos no Inter")
+- "all_invoices": true quando pedir todas as faturas sem especificar cartão
+- "card": nome do cartão em QUERY_CARD_INVOICE quando especificado
 A confiança (confidence) deve ser um número entre 0 e 1.`;
 
   try {

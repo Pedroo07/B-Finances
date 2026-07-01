@@ -116,3 +116,46 @@ export async function findTransactionByDescription(
       ...doc.data(),
     })) as Transaction[];
 }
+
+export async function getRecentTransactions(
+  userId: string,
+  limit: number,
+  type?: "income" | "expense",
+  categoryFilter?: string,
+  startDate?: string,
+  endDate?: string
+): Promise<Transaction[]> {
+  let query: any = db.collection(`users/${userId}/transactions`);
+
+  if (startDate) query = query.where("date", ">=", startDate);
+  if (endDate) query = query.where("date", "<=", endDate);
+  if (type) query = query.where("type", "==", type);
+  if (categoryFilter) query = query.where("category", "==", categoryFilter);
+
+  const snapshot = await query.get();
+
+  return (snapshot.docs as any[])
+    .map((doc: any) => ({ id: doc.id, ...doc.data() } as Transaction))
+    .sort((a, b) => b.date.localeCompare(a.date))
+    .slice(0, limit);
+}
+
+export async function getTransactionsByPeriodAndCategory(
+  userId: string,
+  startDate: string,
+  endDate: string,
+  category: string
+): Promise<Transaction[]> {
+  const snapshot = await db
+    .collection(`users/${userId}/transactions`)
+    .where("date", ">=", startDate)
+    .where("date", "<=", endDate)
+    .where("category", "==", category)
+    .get();
+
+  return snapshot.docs.map((doc) => ({
+    id: doc.id,
+    ...doc.data(),
+  })) as Transaction[];
+}
+

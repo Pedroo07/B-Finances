@@ -52,7 +52,6 @@ export function standardizePhoneNumber(phone: string): string {
 export function getPhoneVariations(phone: string): string[] {
   let digits = phone.replace(/\D/g, '');
   
-  // Remove country code 55 if present for formatting local DDD+number
   if (digits.length >= 12 && digits.startsWith('55')) {
     digits = digits.slice(2);
   }
