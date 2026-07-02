@@ -233,8 +233,6 @@ export function formatBalanceSummary(
   return response;
 }
 
-// ─── Card Invoices ────────────────────────────────────────────────────────────
-
 export function formatCardInvoice(
   cardName: string,
   amount: number,
@@ -372,7 +370,6 @@ export function formatDeleteConfirmation(
   return response;
 }
 
-// ─── Help ─────────────────────────────────────────────────────────────────────
 
 export function formatHelpMessage(): string {
   return `🤖 *Assistente Financeiro B-Finances*
@@ -411,9 +408,6 @@ Eu posso te ajudar com:
 _Fale naturalmente comigo! 😊_`;
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-// Keep old export name as alias for backwards compatibility
 export function formatTransactionsList(
   transactions: Transaction[],
   limit?: number

@@ -97,3 +97,25 @@ export async function checkRateLimit(phoneNumber: string): Promise<boolean> {
 
   return true;
 }
+
+export type {
+  ConversationState,
+  ConversationStep,
+} from "./conversationState";
+export {
+  ConversationAction,
+  ConversationField,
+  CONVERSATION_FLOWS,
+  CONVERSATION_STATE_TTL_MS,
+  CANCEL_MESSAGE,
+  CANCEL_KEYWORDS,
+} from "./conversationState";
+
+export {
+  getConversationState,
+  createConversationState,
+  advanceConversationState,
+  clearConversationState,
+  updateConversationMetadata,
+  isCancelMessage,
+} from "./conversationStateManager";
