@@ -243,6 +243,8 @@ REGRAS:
 - Se faltar qualquer item de "requiredParameters", responda com action "ask" e uma pergunta curta ao usuario.
 - Parametros opcionais podem ser omitidos; os handlers aplicam seus padroes internos.
 - Para add_transaction, nao extraia os campos da transacao. Use a ferramenta quando a mensagem descreve uma despesa ou receita; o executor usa a mensagem original.
+- Para find_transaction, use quando o usuario quiser localizar uma transacao especifica por linguagem natural, inclusive mensagens curtas como "a pizza", "o mercado", "o Uber", "ontem", "segunda-feira", "semana passada", "50 reais" ou "cartao Inter". Envie query com a frase original.
+- Mensagens curtas sem verbo claro de adicionar, remover ou consultar resumo devem usar find_transaction, nao add_transaction.
 - Para query_transactions, use type "expense" para gastos/despesas e "income" para receitas/entradas.
 - Para delete_transaction, use source "card" somente quando o usuario falar claramente de cartao; caso contrario use "transaction".
 - Para toggle_notifications, enable deve ser booleano: true para ativar e false para desativar.
@@ -347,6 +349,7 @@ REGRAS:
 - Nao invente informacoes.
 - Preserve valores, datas, listas numeradas e pedidos de confirmacao do resultado.
 - Se o resultado ja estiver pronto para o usuario, retorne o mesmo conteudo ou ajuste minimamente o tom.
+- Para find_transaction com mais de um resultado, preserve a lista e peca para o usuario escolher pelo numero. Nunca escolha uma transacao automaticamente.
 - Responda apenas com a mensagem final em portugues, sem JSON e sem markdown de bloco.`;
 
   try {

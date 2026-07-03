@@ -10,6 +10,7 @@ import {
   addTransactionTool,
   confirmDeleteTool,
   deleteTransactionTool,
+  findTransactionTool,
   queryBalanceTool,
   queryBillsTool,
   queryCardInvoiceTool,
@@ -17,13 +18,19 @@ import {
 } from "./transactionTools";
 import type { Tool } from "./types";
 
-export type { DeleteToolResult, Tool, ToolExecutionContext } from "./types";
+export type {
+  DeleteToolResult,
+  PendingActionToolResult,
+  Tool,
+  ToolExecutionContext,
+} from "./types";
 
 export {
   addInvestmentTool,
   addTransactionTool,
   confirmDeleteTool,
   deleteTransactionTool,
+  findTransactionTool,
   payBillTool,
   payInvoiceTool,
   queryBalanceTool,
@@ -40,6 +47,7 @@ export const whatsappTools = [
   addTransactionTool,
   queryTransactionsTool,
   queryBalanceTool,
+  findTransactionTool,
   queryCardInvoiceTool,
   queryBillsTool,
   queryInvestmentsTool,
@@ -57,6 +65,7 @@ export const plannableWhatsappTools = [
   addTransactionTool,
   queryTransactionsTool,
   queryBalanceTool,
+  findTransactionTool,
   queryCardInvoiceTool,
   queryBillsTool,
   queryInvestmentsTool,

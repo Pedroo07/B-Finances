@@ -4,6 +4,10 @@ import {
   confirmDelete,
   handleDelete,
 } from "../handlers/deleteHandler";
+import {
+  handleFindTransaction,
+  type FindTransactionToolResult,
+} from "../handlers/findTransactionHandler";
 import { handleQuery } from "../handlers/queryHandler";
 import type { DeleteToolResult, Tool } from "./types";
 
@@ -139,6 +143,29 @@ export const queryBillsTool: Tool<string> = {
   requiredParameters: [],
   execute: ({ userId, parameters = {} }) =>
     handleQuery(userId, IntentType.QUERY_BILLS, parameters),
+};
+
+export const findTransactionTool: Tool<FindTransactionToolResult> = {
+  name: "find_transaction",
+  description:
+    "Localiza transacoes usando linguagem natural, por descricao, data, valor ou cartao. Se houver mais de um resultado, retorna uma lista e pede para o usuario escolher; nunca seleciona automaticamente.",
+  parameters: [
+    {
+      name: "query",
+      description:
+        'Frase original do usuario com a pista da transacao, como "a pizza", "o mercado", "o Uber", "ontem", "segunda-feira", "semana passada", "50 reais" ou "cartao Inter".',
+      required: false,
+    },
+  ],
+  requiredParameters: [],
+  execute: ({ userId, parameters = {}, messageText = "" }) => {
+    const query =
+      typeof parameters.query === "string" && parameters.query.trim()
+        ? parameters.query
+        : messageText;
+
+    return handleFindTransaction(userId, query);
+  },
 };
 
 export const deleteTransactionTool: Tool<DeleteToolResult> = {

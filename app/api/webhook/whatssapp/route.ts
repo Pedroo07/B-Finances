@@ -11,8 +11,9 @@ import { sendWhatsAppMessage } from "@/lib/whatsapp";
 import {
   confirmDeleteTool,
   getToolByName,
-  type DeleteToolResult,
+  type PendingActionToolResult,
 } from "@/lib/whatsapp/tools";
+import { resolveFindTransactionSelection } from "@/lib/whatsapp/handlers/findTransactionHandler";
 import {
   generateResponseFromToolResult,
   planToolExecution,
@@ -159,12 +160,15 @@ function buildHistoryString(
   return history.map((h) => `${h.role}: ${h.text}`).join("\n");
 }
 
-function isDeleteToolResult(result: unknown): result is DeleteToolResult {
+function isPendingActionToolResult(
+  result: unknown,
+): result is PendingActionToolResult {
   return (
     typeof result === "object" &&
     result !== null &&
     "message" in result &&
-    "needsConfirmation" in result
+    typeof result.message === "string" &&
+    ("needsConfirmation" in result || "needsSelection" in result)
   );
 }
 
@@ -287,6 +291,25 @@ export async function POST(req: Request) {
         await updateSessionHistory(fromPhoneNumber, "assistant", reply);
         return NextResponse.json({ status: "success" });
       }
+
+      if (pendingAction.type === "find_transaction_multiple") {
+        const selection = resolveFindTransactionSelection(
+          pendingAction,
+          messageText,
+        );
+
+        if (selection.shouldClear) {
+          await clearPendingAction(fromPhoneNumber);
+        }
+
+        await sendWhatsAppMessage(fromPhoneNumber, selection.message);
+        await updateSessionHistory(
+          fromPhoneNumber,
+          "assistant",
+          selection.message,
+        );
+        return NextResponse.json({ status: "success" });
+      }
     }
 
     const session = await getSession(fromPhoneNumber);
@@ -314,8 +337,15 @@ export async function POST(req: Request) {
           phoneNumber: fromPhoneNumber,
         });
 
-        if (isDeleteToolResult(result)) {
-          if (result.needsConfirmation && result.pendingAction) {
+        const resultForResponse = isPendingActionToolResult(result)
+          ? result.message
+          : result;
+
+        if (isPendingActionToolResult(result)) {
+          if (
+            (result.needsConfirmation || result.needsSelection) &&
+            result.pendingAction
+          ) {
             await setPendingAction(fromPhoneNumber, result.pendingAction);
           }
         }
@@ -325,7 +355,7 @@ export async function POST(req: Request) {
           conversationHistory,
           tool,
           parameters: toolPlan.parameters,
-          result,
+          result: resultForResponse,
         });
       }
     }

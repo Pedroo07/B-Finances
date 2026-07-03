@@ -28,3 +28,10 @@ export type DeleteToolResult = {
   needsConfirmation: boolean;
   pendingAction?: unknown;
 };
+
+export type PendingActionToolResult = {
+  message: string;
+  pendingAction?: unknown;
+  needsConfirmation?: boolean;
+  needsSelection?: boolean;
+};
