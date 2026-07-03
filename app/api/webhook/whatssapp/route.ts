@@ -27,6 +27,10 @@ import {
   clearPendingAction,
   checkRateLimit,
 } from "@/lib/whatsapp/utils/sessionManager";
+import {
+  getShortTermMemory,
+  rememberShortTermTopic,
+} from "@/lib/whatsapp/utils/shortTermMemory";
 
 const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN;
 const WHATSAPP_ACCESS_TOKEN = process.env.WHATSAPP_ACCESS_TOKEN!;
@@ -256,6 +260,7 @@ export async function POST(req: Request) {
     }
 
     await updateSessionHistory(fromPhoneNumber, "user", messageText);
+    const shortTermMemory = getShortTermMemory(fromPhoneNumber);
 
     const pendingAction = await getPendingAction(fromPhoneNumber);
 
@@ -315,10 +320,18 @@ export async function POST(req: Request) {
     const session = await getSession(fromPhoneNumber);
     const conversationHistory = buildHistoryString(session?.history);
 
-    const toolPlan = await planToolExecution(messageText, conversationHistory);
+    const toolPlan = await planToolExecution(
+      messageText,
+      conversationHistory,
+      shortTermMemory,
+    );
     console.log("Plano de ferramenta:", toolPlan);
 
     let reply = "";
+    let executedToolMemory: {
+      toolName: string;
+      parameters: Record<string, unknown>;
+    } | null = null;
 
     if (toolPlan.action === "ask") {
       reply = toolPlan.question;
@@ -357,10 +370,25 @@ export async function POST(req: Request) {
           parameters: toolPlan.parameters,
           result: resultForResponse,
         });
+
+        executedToolMemory = {
+          toolName: tool.name,
+          parameters: toolPlan.parameters,
+        };
       }
     }
 
     await sendWhatsAppMessage(fromPhoneNumber, reply);
+
+    if (executedToolMemory) {
+      rememberShortTermTopic(fromPhoneNumber, {
+        toolName: executedToolMemory.toolName,
+        parameters: executedToolMemory.parameters,
+        userMessage: messageText,
+        assistantReply: reply,
+      });
+    }
+
     await updateSessionHistory(fromPhoneNumber, "assistant", reply);
 
     return NextResponse.json({ status: "success" });

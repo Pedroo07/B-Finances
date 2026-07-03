@@ -4,6 +4,10 @@ import {
   type Part,
 } from "@google/generative-ai";
 import { plannableWhatsappTools, type Tool } from "../tools";
+import type {
+  ShortTermMemorySnapshot,
+  ShortTermMemoryTurn,
+} from "../utils/shortTermMemory";
 
 type PromptPayload = string | GenerateContentRequest | Array<string | Part>;
 
@@ -217,9 +221,230 @@ function normalizePlan(parsed: unknown): ToolPlan {
   };
 }
 
+function truncateMemoryText(value: string): string {
+  return value.length > 220 ? `${value.slice(0, 217)}...` : value;
+}
+
+function buildShortTermMemoryPrompt(
+  shortTermMemory?: ShortTermMemorySnapshot | null,
+): string {
+  if (!shortTermMemory || shortTermMemory.turns.length === 0) {
+    return "Nenhuma memoria curta ativa.";
+  }
+
+  return shortTermMemory.turns
+    .map((turn, index) => {
+      return [
+        `${index + 1}. Usuario: ${truncateMemoryText(turn.userMessage)}`,
+        `   Ferramenta: ${turn.toolName}`,
+        `   Parametros: ${JSON.stringify(turn.parameters)}`,
+        `   Resposta: ${truncateMemoryText(turn.assistantReply)}`,
+      ].join("\n");
+    })
+    .join("\n\n");
+}
+
+function normalizeFreeText(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+function getLatestContextualTurn(
+  shortTermMemory?: ShortTermMemorySnapshot | null,
+): ShortTermMemoryTurn | undefined {
+  if (!shortTermMemory) return undefined;
+
+  return [...shortTermMemory.turns]
+    .reverse()
+    .find((turn) =>
+      ["query_transactions", "query_balance", "query_card_invoice"].includes(
+        turn.toolName,
+      ),
+    );
+}
+
+function messageLooksLikeContinuation(messageText: string): boolean {
+  const normalized = normalizeFreeText(messageText);
+
+  return (
+    /^(e|ea|eo|agora|tambem|passad[oa]|anterior)\b/.test(normalized) ||
+    /\b(e no|e na|e em|passad[oa]|anterior)\b/.test(normalized)
+  );
+}
+
+function hasExplicitDifferentIntent(messageText: string): boolean {
+  const normalized = normalizeFreeText(messageText);
+
+  return /\b(adicionar|adicione|cadastre|deletar|delete|excluir|exclua|fatura|investimento|pagar|paguei|recebi|ganhei)\b/.test(
+    normalized,
+  );
+}
+
+function inferPeriodFromMessage(messageText: string): string | undefined {
+  const normalized = normalizeFreeText(messageText);
+
+  if (/\bmes\s+passad[oa]\b/.test(normalized)) return "last_month";
+  if (/\bpassad[oa]\b/.test(normalized) && !/\b(semana|ano)\b/.test(normalized)) {
+    return "last_month";
+  }
+  if (/\bhoje\b/.test(normalized)) return "today";
+  if (/\bsemana\b/.test(normalized)) return "week";
+  if (/\bmes\b/.test(normalized)) return "month";
+  if (/\bano\b/.test(normalized)) return "year";
+
+  return undefined;
+}
+
+function inferCardFromMessage(messageText: string): string | undefined {
+  const normalized = normalizeFreeText(messageText);
+  const cards = [
+    "Nubank",
+    "Inter",
+    "PicPay",
+    "BB",
+    "C6",
+    "Mercado Pago",
+    "Bradesco",
+  ];
+
+  return cards.find((card) => {
+    const normalizedCard = normalizeFreeText(card);
+    return new RegExp(`\\b${normalizedCard}\\b`).test(normalized);
+  });
+}
+
+function inferTransactionTypeFromMessage(
+  messageText: string,
+): "expense" | "income" | undefined {
+  const normalized = normalizeFreeText(messageText);
+
+  if (/\b(gasto|gastei|despesa|despesas|compras?)\b/.test(normalized)) {
+    return "expense";
+  }
+
+  if (/\b(receita|receitas|entrada|entradas|lucro|ganhei|recebi)\b/.test(normalized)) {
+    return "income";
+  }
+
+  return undefined;
+}
+
+function buildCarriedParameters(
+  toolName: string,
+  previousParameters: Record<string, unknown>,
+): Record<string, unknown> {
+  const carried: Record<string, unknown> = {};
+  const allowedParametersByTool: Record<string, string[]> = {
+    query_transactions: ["type", "period", "category_filter", "card_filter"],
+    query_balance: ["period"],
+    query_card_invoice: ["card", "all_invoices", "month", "year"],
+  };
+
+  const allowedParameters = allowedParametersByTool[toolName] || [];
+  for (const parameterName of allowedParameters) {
+    if (previousParameters[parameterName] !== undefined) {
+      carried[parameterName] = previousParameters[parameterName];
+    }
+  }
+
+  return carried;
+}
+
+function buildInferredContinuationParameters(
+  toolName: string,
+  messageText: string,
+): Record<string, unknown> {
+  const inferred: Record<string, unknown> = {};
+  const period = inferPeriodFromMessage(messageText);
+  const card = inferCardFromMessage(messageText);
+
+  if (
+    period &&
+    (toolName === "query_transactions" || toolName === "query_balance")
+  ) {
+    inferred.period = period;
+  }
+
+  if (card && toolName === "query_transactions") {
+    inferred.card_filter = card;
+  }
+
+  if (card && toolName === "query_card_invoice") {
+    inferred.card = card;
+    inferred.all_invoices = false;
+  }
+
+  if (toolName === "query_transactions") {
+    const type = inferTransactionTypeFromMessage(messageText);
+    if (type) inferred.type = type;
+  }
+
+  return inferred;
+}
+
+function applyShortTermMemoryToPlan(
+  plan: ToolPlan,
+  messageText: string,
+  shortTermMemory?: ShortTermMemorySnapshot | null,
+): ToolPlan {
+  const latestContextualTurn = getLatestContextualTurn(shortTermMemory);
+  if (!latestContextualTurn || !messageLooksLikeContinuation(messageText)) {
+    return plan;
+  }
+
+  const shouldKeepPreviousTool =
+    !hasExplicitDifferentIntent(messageText) &&
+    ["query_transactions", "query_balance", "query_card_invoice"].includes(
+      latestContextualTurn.toolName,
+    );
+
+  const fallbackToolName = latestContextualTurn.toolName;
+
+  if (plan.action === "ask" && shouldKeepPreviousTool) {
+    return {
+      action: "execute",
+      toolName: fallbackToolName,
+      parameters: {
+        ...buildCarriedParameters(
+          fallbackToolName,
+          latestContextualTurn.parameters,
+        ),
+        ...buildInferredContinuationParameters(fallbackToolName, messageText),
+      },
+      confidence: Math.max(plan.confidence, 0.85),
+    };
+  }
+
+  if (plan.action !== "execute") return plan;
+
+  const toolName =
+    shouldKeepPreviousTool &&
+    plan.toolName !== latestContextualTurn.toolName
+      ? latestContextualTurn.toolName
+      : plan.toolName;
+
+  if (toolName !== latestContextualTurn.toolName) {
+    return plan;
+  }
+
+  return {
+    ...plan,
+    toolName,
+    parameters: {
+      ...buildCarriedParameters(toolName, latestContextualTurn.parameters),
+      ...plan.parameters,
+      ...buildInferredContinuationParameters(toolName, messageText),
+    },
+  };
+}
+
 export async function planToolExecution(
   messageText: string,
   conversationHistory: string,
+  shortTermMemory?: ShortTermMemorySnapshot | null,
 ): Promise<ToolPlan> {
   const todayStr = new Date().toISOString().split("T")[0];
   const tools = buildToolsPromptPayload();
@@ -232,6 +457,9 @@ DATA DE HOJE: ${todayStr}
 HISTORICO DA CONVERSA:
 ${conversationHistory}
 
+MEMORIA CURTA DA SESSAO:
+${buildShortTermMemoryPrompt(shortTermMemory)}
+
 FERRAMENTAS DISPONIVEIS:
 ${JSON.stringify(tools, null, 2)}
 
@@ -239,6 +467,9 @@ REGRAS:
 - Nao execute ferramentas. Nao use Tool Calling da API. Este fluxo e apenas JSON baseado em prompt.
 - Escolha a ferramenta pelo campo "name".
 - Preencha "parameters" apenas com valores explicitamente informados ou claramente inferidos da mensagem/historico.
+- Use a MEMORIA CURTA quando a mensagem atual continuar o assunto anterior, como "e no passado?", "e no Inter?", "e agora?", "tambem?".
+- Em continuacoes, mantenha a ferramenta e os parametros anteriores e troque somente o detalhe novo citado pelo usuario.
+- Se o usuario disser apenas "passado" depois de uma consulta mensal ou sem periodo explicito, interprete como period "last_month".
 - NAO invente parametros obrigatorios.
 - Se faltar qualquer item de "requiredParameters", responda com action "ask" e uma pergunta curta ao usuario.
 - Parametros opcionais podem ser omitidos; os handlers aplicam seus padroes internos.
@@ -276,7 +507,11 @@ Formato para perguntar:
       systemInstruction,
     );
     const parsed = JSON.parse(cleanJsonResponse(responseText));
-    const plan = normalizePlan(parsed);
+    const plan = applyShortTermMemoryToPlan(
+      normalizePlan(parsed),
+      messageText,
+      shortTermMemory,
+    );
 
     if (plan.action === "ask") return plan;
 
