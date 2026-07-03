@@ -50,11 +50,11 @@ export async function handleQuery(
         return await handleInvestmentsQuery(userId);
 
       default:
-        return "❌ Não consegui processar sua consulta.";
+        return "Erro: Não consegui processar sua consulta.";
     }
   } catch (error) {
     console.error("Erro ao processar consulta:", error);
-    return "❌ Ocorreu um erro ao processar sua consulta. Tente novamente.";
+    return "Erro: Ocorreu um erro ao processar sua consulta. Tente novamente.";
   }
 }
 
@@ -101,7 +101,7 @@ async function handleExpensesQuery(
     );
     return formatExpensesSummary(
       transactions,
-      `${getPeriodLabel(period)} — categoria: ${categoryFilter}`
+      `${getPeriodLabel(period)} - categoria: ${categoryFilter}`
     );
   }
 
@@ -128,16 +128,16 @@ async function handleCardExpensesQuery(
     endDate
   );
   if (transactions.length === 0) {
-    return `💳 Nenhum gasto encontrado no cartão *${cardFilter}* em ${getPeriodLabel(period)}.`;
+    return `Cartão: Nenhum gasto encontrado no cartão *${cardFilter}* em ${getPeriodLabel(period)}.`;
   }
   const total = transactions.reduce((s, t) => s + Math.abs(t.amount), 0);
   const { formatCurrency } = await import("../formatters/responseFormatter");
-  let resp = `💳 *Gastos no cartão ${cardFilter} — ${getPeriodLabel(period)}*\n\n`;
-  resp += `💰 *Total: ${formatCurrency(total)}*\n\n`;
+  let resp = `Cartão: *Gastos no cartão ${cardFilter} - ${getPeriodLabel(period)}*\n\n`;
+  resp += `Valor: *Total: ${formatCurrency(total)}*\n\n`;
   transactions
     .sort((a, b) => b.date.localeCompare(a.date))
     .forEach((t) => {
-      resp += `• *${t.description}*\n  ${formatCurrency(Math.abs(t.amount))} • ${t.date}\n\n`;
+      resp += `- *${t.description}*\n  ${formatCurrency(Math.abs(t.amount))} - ${t.date}\n\n`;
     });
   return resp;
 }

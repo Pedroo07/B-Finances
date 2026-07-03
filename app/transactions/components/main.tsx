@@ -165,7 +165,6 @@ export const Main = () => {
   const normalizedEndDate = startDate && endDate && startDate > endDate ? startDate : endDate
   const hasCustomDateRange = Boolean(startDate || endDate)
 
-  // ── Normal transactions filter (non credit_card mode) ──────────────────────
   const periodFilteredItems = items.filter((item) => {
     if (hasCustomDateRange) {
       if (normalizedStartDate && item.date < normalizedStartDate) return false
@@ -203,7 +202,6 @@ export const Main = () => {
     return item.category === currentSelectedCategory
   }))
 
-  // ── Credit card transactions filter ───────────────────────────────────────
   const periodFilteredCardItems = cardItems.filter((item) => {
     if (hasCustomDateRange) {
       if (normalizedStartDate && item.date < normalizedStartDate) return false
@@ -223,7 +221,6 @@ export const Main = () => {
     })
   )
 
-  // ── Period helpers ─────────────────────────────────────────────────────────
   const thisMonthSelected = () => {
     setActiveFilter('month')
     setSelectedMonth(currentDate.getMonth() + 1)
@@ -257,11 +254,11 @@ export const Main = () => {
     setSelectedCardFilter('all')
     setSelectedCategory('all')
     if (value !== 'expense' && value !== 'income') {
-      // keep selectedTransactionType as is
+
     }
   }
 
-  // ── Chart data ─────────────────────────────────────────────────────────────
+ 
   const results = isCreditCardMode
     ? separateCardAmountByCategory(filteredCardItems)
     : separateAmountByCategoryAndType(filterItems, selectedTransactionType)
@@ -335,7 +332,6 @@ export const Main = () => {
                 </SelectContent>
               </Select>
 
-              {/* Card filter — only when credit_card is selected */}
               {isCreditCardMode ? (
                 <Select value={selectedCardFilter} onValueChange={setSelectedCardFilter}>
                   <SelectTrigger className='w-full'>
@@ -351,7 +347,7 @@ export const Main = () => {
                   </SelectContent>
                 </Select>
               ) : (
-                /* Transaction type filter — hidden in credit_card mode */
+               
                 <Select value={selectedTransactionType} onValueChange={(value) => setSelectedTransactionType(value as TransactionTypeFilter)}>
                   <SelectTrigger className='w-full'>
                     <SelectValue placeholder='Tipo da transação' />
@@ -440,7 +436,7 @@ export const Main = () => {
             </h2>
             <p className='mt-1 text-sm text-[#64748B] dark:text-[#94A3BB]'>
               {isCreditCardMode
-                ? `${selectedCardFilter === 'all' ? 'Todos os cartões' : selectedCardFilter} — gastos registrados`
+                ? `${selectedCardFilter === 'all' ? 'Todos os cartões' : selectedCardFilter} - gastos registrados`
                 : 'Consulte suas movimentações mais recentes.'}
             </p>
           </div>

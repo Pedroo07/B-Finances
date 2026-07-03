@@ -30,6 +30,35 @@ type ResolvedCreditCard = {
   card: UserCreditCard;
 };
 
+function getCreditCardInvoiceBillId(creditCardId: string, periodKey: string): string {
+  return `credit-card-invoice_${creditCardId}_${periodKey}`;
+}
+
+async function findCreditCardInvoiceBill(
+  userId: string,
+  creditCardId: string,
+  periodKey: string
+) {
+  const snapshot = await db
+    .collection(`users/${userId}/billAccounts`)
+    .where("creditCardId", "==", creditCardId)
+    .where("creditCardInvoicePeriodKey", "==", periodKey)
+    .get();
+
+  if (snapshot.empty) return null;
+
+  return snapshot.docs
+    .map((doc) => ({
+      id: doc.id,
+      data: doc.data(),
+    }))
+    .sort((a, b) => {
+      if (a.data.source === "credit_card_invoice" && b.data.source !== "credit_card_invoice") return -1;
+      if (a.data.source !== "credit_card_invoice" && b.data.source === "credit_card_invoice") return 1;
+      return String(a.data.createdAt ?? "").localeCompare(String(b.data.createdAt ?? ""));
+    })[0];
+}
+
 export async function getUserCreditCards(
   userId: string
 ): Promise<UserCreditCard[]> {
@@ -190,6 +219,28 @@ export async function payCardInvoice(
           transactionId: transactionRef.id,
         },
       },
+    },
+    { merge: true }
+  );
+
+  const existingInvoiceBill = await findCreditCardInvoiceBill(userId, docId, periodKey);
+  const billRef = db
+    .collection(`users/${userId}/billAccounts`)
+    .doc(existingInvoiceBill?.id ?? getCreditCardInvoiceBillId(docId, periodKey));
+  const existingBillData = existingInvoiceBill?.data;
+
+  await billRef.set(
+    {
+      description: existingBillData?.description ?? `Fatura do cartão ${getCreditCardName(card.bankKey ?? docId)}`,
+      amount: Math.abs(amount),
+      dueDate: existingBillData?.dueDate ?? getInvoiceDueDate(periodKey, card.closingDay, card.dueDay),
+      status: "paid",
+      recurrence: "unique",
+      creditCardId: docId,
+      creditCardInvoicePeriodKey: periodKey,
+      source: "credit_card_invoice",
+      hiddenFromBills: existingBillData?.hiddenFromBills ?? false,
+      createdAt: existingBillData?.createdAt ?? new Date().toISOString().split("T")[0],
     },
     { merge: true }
   );

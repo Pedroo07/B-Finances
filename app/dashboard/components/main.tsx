@@ -1,5 +1,5 @@
 "use client"
-import React, { ChangeEvent, FC, useEffect, useState } from 'react';
+import { ChangeEvent, FC, useEffect, useState } from 'react';
 import { IoIosArrowRoundUp, IoIosArrowRoundDown } from "react-icons/io";
 import { AiOutlineLoading3Quarters } from "react-icons/ai"
 import { FiMinusCircle, FiPlusCircle } from "react-icons/fi";
@@ -13,6 +13,7 @@ import { DonutChart, GraphicListItem, separateAmountByCategory } from './graphic
 import { useAuthState } from 'react-firebase-hooks/auth';
 import Period from './period';
 import { Transaction } from '@/lib/entities/transaction';
+import { BillAccount } from '@/lib/entities/billAccount';
 import { createTransaction, deleteTransaction, getTransaction, TransactionDto } from '@/lib/services/transactions';
 import { getBillAccounts } from '@/lib/services/billAccounts';
 import { auth } from '@/lib/firebase';
@@ -34,7 +35,7 @@ export const Main: FC = () => {
     const [selectedCreditCard, setSelectedCreditCard] = useState('')
     const [userCards, setUserCards] = useState<UserCreditCard[]>([])
     const [allItems, setAllItems] = useState<Transaction[]>([])
-    const [bills, setBills] = useState<any[]>([])
+    const [bills, setBills] = useState<BillAccount[]>([])
     const [user, loading] = useAuthState(auth)
     const [selectedMonth, setSelectedMonth] = useState<number>(() => new Date().getMonth() + 1)
     const [activeFilter, setActiveFilter] = useState("month")
@@ -73,6 +74,7 @@ export const Main: FC = () => {
     const calculatePendingBills = (): number => {
         return bills
             .filter(bill => bill.status === 'pending')
+            .filter(bill => !bill.hiddenFromBills)
             .filter(bill => {
                 const [year, month] = bill.dueDate.split('-').map(Number)
                 const currentYear = new Date().getFullYear()
@@ -162,8 +164,6 @@ export const Main: FC = () => {
 
     const handleAddNewItem = async (IsIncomeDialog: boolean): Promise<void> => {
         const adjustedPrice = IsIncomeDialog ? Math.abs(price) : -Math.abs(price);
-
-        // Expense via credit card → save as cardTransaction (not shown in dashboard)
         if (!IsIncomeDialog && paymentMethod === 'credit_card') {
             if (!selectedCreditCard) return
             try {
@@ -291,6 +291,7 @@ export const Main: FC = () => {
         const currentPending = calculatePendingBills()
         const lastMonthBills = bills
             .filter(bill => bill.status === 'pending')
+            .filter(bill => !bill.hiddenFromBills)
             .filter(bill => {
                 const [year, month] = bill.dueDate.split('-').map(Number)
                 const currentYear = new Date().getFullYear()

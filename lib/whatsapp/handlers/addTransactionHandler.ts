@@ -133,7 +133,7 @@ export async function handleAddTransaction(
 
     const messageReply =
       collectionName === "cardTransactions"
-        ? "Gasto adicionado ao cartão!✅"
+       ? "Gasto adicionado ao cartão!✅"
         : "Gasto adicionado a lista de transferencias!✅";
 
     return messageReply;

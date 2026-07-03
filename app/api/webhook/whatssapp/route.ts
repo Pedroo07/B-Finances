@@ -217,7 +217,7 @@ export async function POST(req: Request) {
       );
       await sendWhatsAppMessage(
         fromPhoneNumber,
-        "⚠️ Olá! Não encontramos nenhuma conta associada a este número de telefone no B-Finances. Por favor, registre o seu número na tela de cadastro do aplicativo para poder utilizar o nosso bot do WhatsApp.",
+        "⚠️: Olá! Não encontramos nenhuma conta associada a este número de telefone no B-Finances. Por favor, registre o seu número na tela de cadastro do aplicativo para poder utilizar o nosso bot do WhatsApp.",
       );
       return NextResponse.json({
         status: "error",
@@ -229,7 +229,7 @@ export async function POST(req: Request) {
     if (!allowed) {
       await sendWhatsAppMessage(
         fromPhoneNumber,
-        "⏳ Você está enviando mensagens muito rapidamente. Por favor, aguarde um momento.",
+        "Aguarde: Você está enviando mensagens muito rapidamente. Por favor, aguarde um momento.",
       );
       return NextResponse.json({ status: "rate_limited" });
     }
@@ -274,7 +274,7 @@ export async function POST(req: Request) {
 
       if (isCancel) {
         await clearPendingAction(fromPhoneNumber);
-        const reply = "❌ Ação cancelada.";
+        const reply = "Erro: Ação cancelada.";
         await sendWhatsAppMessage(fromPhoneNumber, reply);
         await updateSessionHistory(fromPhoneNumber, "assistant", reply);
         return NextResponse.json({ status: "success" });
@@ -340,7 +340,7 @@ export async function POST(req: Request) {
 
       if (!tool) {
         reply =
-          "🤔 Não entendi muito bem o que você quis dizer. Você pode digitar *ajuda* para ver o que eu sei fazer.";
+          "Dúvida: Não entendi muito bem o que você quis dizer. Você pode digitar *ajuda* para ver o que eu sei fazer.";
       } else {
         const result = await tool.execute({
           userId,

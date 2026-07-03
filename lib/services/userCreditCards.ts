@@ -1,10 +1,11 @@
-import { collection, deleteDoc, doc, getDocs, setDoc, writeBatch } from 'firebase/firestore'
+import { collection, deleteDoc, doc, getDoc, getDocs, setDoc, writeBatch } from 'firebase/firestore'
 import { getAuth } from 'firebase/auth'
 import { db } from '../firebase'
 import { CreditCardInvoicePayment, UserCreditCard } from '../entities/userCreditCard'
 import { Transaction } from '../entities/transaction'
-import { isValidBillingDay } from '../creditCards/billing'
+import { getInvoiceDueDate, isValidBillingDay } from '../creditCards/billing'
 import { getCreditCardName } from '../creditCards/catalog'
+import { findCreditCardInvoiceBill, getCreditCardInvoiceBillId } from './billAccounts'
 
 const auth = getAuth()
 
@@ -97,6 +98,11 @@ export async function payCreditCardInvoice(data: PayCreditCardInvoiceDto): Promi
 
   const normalizedAmount = Math.abs(data.amountPaid)
   const cardRef = doc(db, `users/${user.uid}/creditCards`, data.bankKey)
+  const cardDoc = await getDoc(cardRef)
+  const cardData = cardDoc.exists() ? cardDoc.data() as UserCreditCard : null
+  const existingInvoiceBill = await findCreditCardInvoiceBill(data.bankKey, data.periodKey)
+  const invoiceBillId = existingInvoiceBill?.id ?? getCreditCardInvoiceBillId(data.bankKey, data.periodKey)
+  const invoiceBillRef = doc(db, `users/${user.uid}/billAccounts`, invoiceBillId)
   const transactionRef = doc(collection(db, `users/${user.uid}/transactions`))
 
   const invoicePayment: CreditCardInvoicePayment = {
@@ -124,6 +130,27 @@ export async function payCreditCardInvoice(data: PayCreditCardInvoiceDto): Promi
   }, { merge: true })
 
   batch.set(transactionRef, transactionData)
+
+  const invoiceBillDueDate = cardData
+    && isValidBillingDay(cardData.closingDay)
+    && isValidBillingDay(cardData.dueDay)
+    ? getInvoiceDueDate(data.periodKey, cardData.closingDay, cardData.dueDay)
+    : null
+
+  batch.set(invoiceBillRef, {
+    description: existingInvoiceBill?.description ?? transactionData.description,
+    amount: normalizedAmount,
+    ...(invoiceBillDueDate && {
+      dueDate: invoiceBillDueDate,
+    }),
+    status: 'paid',
+    recurrence: 'unique',
+    creditCardId: data.bankKey,
+    creditCardInvoicePeriodKey: data.periodKey,
+    source: 'credit_card_invoice',
+    hiddenFromBills: existingInvoiceBill?.hiddenFromBills ?? false,
+    createdAt: existingInvoiceBill?.createdAt ?? new Date().toISOString().split('T')[0],
+  }, { merge: true })
 
   await batch.commit()
 

@@ -1,4 +1,5 @@
 import { db } from "@/lib/firebaseAdmin";
+import { getInvoicePeriodKeyForDueDate, isValidBillingDay } from "@/lib/creditCards/billing";
 
 export type BillAccount = {
   id: string;
@@ -6,7 +7,7 @@ export type BillAccount = {
   amount: number;
   dueDate: string;
   status: "pending" | "paid";
-  recurrence: {
+  recurrence: "unique" | "monthly" | "installments" | {
     type: "none" | "monthly" | "yearly";
     interval?: number;
   };
@@ -14,6 +15,8 @@ export type BillAccount = {
   currentInstallment?: number;
   creditCardId?: string;
   creditCardInvoicePeriodKey?: string;
+  source?: "manual" | "credit_card_invoice";
+  hiddenFromBills?: boolean;
   createdAt: string;
 };
 
@@ -34,10 +37,12 @@ export async function getPendingBills(userId: string): Promise<BillAccount[]> {
     .where("status", "==", "pending")
     .get();
 
-  return snapshot.docs.map((doc) => ({
-    id: doc.id,
-    ...doc.data(),
-  })) as BillAccount[];
+  return snapshot.docs
+    .map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }) as BillAccount)
+    .filter((bill) => !bill.hiddenFromBills);
 }
 
 export async function getUpcomingBills(
@@ -58,10 +63,12 @@ export async function getUpcomingBills(
     .where("dueDate", "<=", futureDateStr)
     .get();
 
-  return snapshot.docs.map((doc) => ({
-    id: doc.id,
-    ...doc.data(),
-  })) as BillAccount[];
+  return snapshot.docs
+    .map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }) as BillAccount)
+    .filter((bill) => !bill.hiddenFromBills);
 }
 
 export async function payBillAccount(
@@ -77,17 +84,57 @@ export async function payBillAccount(
   }
 
   const billData = billDoc.data() as BillAccount;
+  const batch = db.batch();
+  const transactionRef = db.collection(`users/${userId}/transactions`).doc();
+  let shouldCreateTransaction = true;
 
-  await db.collection(`users/${userId}/transactions`).add({
+  const transactionData = {
     description: billData.description,
     amount: -Math.abs(billData.amount),
     date: paymentDate,
     category: "fixes",
     type: "expense",
     paymentMethod: "pix",
-  });
+  };
 
-  await billRef.update({ status: "paid" });
+  if (billData.creditCardId) {
+    const cardRef = db.collection(`users/${userId}/creditCards`).doc(billData.creditCardId);
+    const cardDoc = await cardRef.get();
+    const cardData = cardDoc.exists ? cardDoc.data() as {
+      bankKey?: string;
+      closingDay?: number;
+      dueDay?: number;
+      invoices?: Record<string, { amountPaid: number; paidAt: string; transactionId: string }>;
+    } : null;
+    const periodKey = billData.creditCardInvoicePeriodKey
+      ?? (cardData && isValidBillingDay(cardData.closingDay) && isValidBillingDay(cardData.dueDay)
+        ? getInvoicePeriodKeyForDueDate(billData.dueDate, cardData.closingDay, cardData.dueDay)
+        : paymentDate.slice(0, 7));
+    const invoicePayment = cardData?.invoices?.[periodKey];
+    const transactionId = invoicePayment?.transactionId ?? transactionRef.id;
+
+    if (invoicePayment && invoicePayment.amountPaid >= Math.abs(billData.amount)) {
+      shouldCreateTransaction = false;
+    }
+
+    batch.set(cardRef, {
+      bankKey: cardData?.bankKey ?? billData.creditCardId,
+      invoices: {
+        [periodKey]: {
+          amountPaid: Math.abs(billData.amount),
+          paidAt: paymentDate,
+          transactionId,
+        },
+      },
+    }, { merge: true });
+  }
+
+  if (shouldCreateTransaction) {
+    batch.set(transactionRef, transactionData);
+  }
+
+  batch.update(billRef, { status: "paid" });
+  await batch.commit();
 }
 
 export async function findBillByDescription(
@@ -104,7 +151,7 @@ export async function findBillByDescription(
   return snapshot.docs
     .filter((doc) => {
       const data = doc.data();
-      return data.description?.toLowerCase().includes(descLower);
+      return !data.hiddenFromBills && data.description?.toLowerCase().includes(descLower);
     })
     .map((doc) => ({
       id: doc.id,

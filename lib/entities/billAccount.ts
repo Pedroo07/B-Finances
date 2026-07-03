@@ -1,4 +1,5 @@
 export type BillAccountRecurrence = 'unique' | 'monthly' | 'installments'
+export type BillAccountSource = 'manual' | 'credit_card_invoice'
 
 export type BillAccount = {
   id: string
@@ -11,5 +12,7 @@ export type BillAccount = {
   currentInstallment?: number
   creditCardId?: string
   creditCardInvoicePeriodKey?: string
+  source?: BillAccountSource
+  hiddenFromBills?: boolean
   createdAt: string
 }

@@ -2,7 +2,7 @@
 import  { FC, useEffect, useState } from 'react'
 import { useAuthState } from 'react-firebase-hooks/auth'
 import { auth } from '@/lib/firebase'
-import { BillAccountDto, createBillAccount, getBillAccounts, payBillAccount, deleteBillAccount, updateBillAccount } from '@/lib/services/billAccounts'
+import { BillAccountDto, createBillAccount, getBillAccounts, payBillAccount, deleteBillAccount, updateBillAccount, syncCreditCardInvoiceBills, hideBillAccountFromList } from '@/lib/services/billAccounts'
 import { BillAccount } from '@/lib/entities/billAccount'
 import { getTransaction } from '@/lib/services/transactions'
 import { getUserCreditCards } from '@/lib/services/userCreditCards'
@@ -23,6 +23,7 @@ import {
   getInvoicePeriodKeyForDate,
   isValidBillingDay,
 } from '@/lib/creditCards/billing'
+import { getCreditCardBankKey, getCreditCardName } from '@/lib/creditCards/catalog'
 
 const getTodayDate = () => {
   const now = new Date()
@@ -73,6 +74,59 @@ const getTodayDate_YYYYMMDD = () => {
   const month = String(now.getMonth() + 1).padStart(2, '0')
   const day = String(now.getDate()).padStart(2, '0')
   return `${year}-${month}-${day}`
+}
+
+type CreditCardInvoiceSummary = {
+  card: UserCreditCard
+  invoiceAmount: number
+  totalAmount: number
+  isPaid: boolean
+  periodKey: string
+  dueDate: string
+}
+
+const isCreditCardInvoiceBill = (bill: BillAccount): boolean => {
+  return bill.source === 'credit_card_invoice'
+    || Boolean(bill.creditCardId && bill.creditCardInvoicePeriodKey)
+}
+
+const getCreditCardInvoiceSummaries = (
+  cards: UserCreditCard[],
+  transactions: CardTransaction[],
+): CreditCardInvoiceSummary[] => {
+  return cards.flatMap((card) => {
+    if (!isValidBillingDay(card.closingDay) || !isValidBillingDay(card.dueDay)) {
+      return []
+    }
+
+    const closingDay = card.closingDay
+    const dueDay = card.dueDay
+    const cardItems = transactions.filter((transaction) => {
+      return getCreditCardBankKey(transaction.card) === card.bankKey
+    })
+
+    const totalsByPeriod = cardItems.reduce<Record<string, number>>((totals, item) => {
+      const itemPeriodKey = getInvoicePeriodKeyForDate(item.date, closingDay, dueDay)
+      totals[itemPeriodKey] = (totals[itemPeriodKey] || 0) + Math.abs(item.amount)
+      return totals
+    }, {})
+
+    return Object.entries(totalsByPeriod)
+      .map(([periodKey, totalAmount]) => {
+        const invoicePaidAmount = card.invoices?.[periodKey]?.amountPaid || 0
+        const invoiceAmount = Math.max(totalAmount - invoicePaidAmount, 0)
+        const isPaid = totalAmount > 0 && invoicePaidAmount >= totalAmount
+
+        return {
+          card,
+          invoiceAmount,
+          totalAmount,
+          isPaid,
+          periodKey,
+          dueDate: getInvoiceDueDate(periodKey, closingDay, dueDay),
+        }
+      })
+  })
 }
 
 export const Main: FC = () => {
@@ -159,7 +213,8 @@ export const Main: FC = () => {
   }
 
   const getFilteredBills = () => {
-    const byPeriod = filterBillsByPeriod(bills, periodFilter, customMonth)
+    const visibleBills = bills.filter((bill) => !bill.hiddenFromBills)
+    const byPeriod = filterBillsByPeriod(visibleBills, periodFilter, customMonth)
     const byStatus = filterBillsByStatus(byPeriod, statusFilter)
     return sortBillsByDate(byStatus)
   }
@@ -177,9 +232,33 @@ export const Main: FC = () => {
           getUserCreditCards(),
           getCardTransaction(),
         ])
+        const invoiceSummaries = getCreditCardInvoiceSummaries(cardsData || [], cardTransactionsData || [])
+        const hasExistingInvoiceBill = (cardId: string, periodKey: string) => {
+          return billsData.some((bill) =>
+            bill.creditCardId === cardId && bill.creditCardInvoicePeriodKey === periodKey
+          )
+        }
+        const syncedInvoiceBills = await syncCreditCardInvoiceBills(
+          invoiceSummaries
+            .filter(({ card, periodKey, totalAmount, isPaid }) =>
+              totalAmount > 0 && (!isPaid || hasExistingInvoiceBill(card.id, periodKey))
+            )
+            .map(({ card, periodKey, dueDate, invoiceAmount, totalAmount, isPaid }) => ({
+              creditCardId: card.id,
+              creditCardInvoicePeriodKey: periodKey,
+              description: `Fatura do cartão ${getCreditCardName(card.bankKey)}`,
+              amount: isPaid ? totalAmount : invoiceAmount,
+              dueDate,
+              status: isPaid ? 'paid' : 'pending',
+            })),
+        )
+        const billsById = new Map<string, BillAccount>()
+
+        billsData.forEach((bill) => billsById.set(bill.id, bill))
+        syncedInvoiceBills.forEach((bill) => billsById.set(bill.id, bill))
 
         if (isMounted) {
-          setBills(sortBillsByDate(billsData))
+          setBills(sortBillsByDate(Array.from(billsById.values())))
           setTransactions(transactionsData || [])
           setUserCards(cardsData || [])
           setCardTransactions(cardTransactionsData || [])
@@ -231,49 +310,17 @@ export const Main: FC = () => {
   const getCardsWithOpenInvoices = () => {
     const today = getTodayDate_YYYYMMDD()
 
-    return userCards
-      .map((card) => {
-        if (!isValidBillingDay(card.closingDay) || !isValidBillingDay(card.dueDay)) {
-          return null
-        }
-
-        const closingDay = card.closingDay
-        const dueDay = card.dueDay
-        const cardName = BANKS[card.bankKey as BankKey]?.name
-        if (!cardName) return null
-
-        const cardItems = cardTransactions.filter((t) => t.card === cardName)
-        const totalsByPeriod = cardItems.reduce<Record<string, number>>((totals, item) => {
-          const itemPeriodKey = getInvoicePeriodKeyForDate(item.date, closingDay, dueDay)
-          totals[itemPeriodKey] = (totals[itemPeriodKey] || 0) + Math.abs(item.amount)
-          return totals
-        }, {})
-
-        const openInvoices = Object.entries(totalsByPeriod)
-          .map(([periodKey, totalAmount]) => {
-            const invoicePaidAmount = card.invoices?.[periodKey]?.amountPaid || 0
-            const invoiceAmount = totalAmount - invoicePaidAmount
-
-            return {
-              card,
-              invoiceAmount,
-              isPaid: totalAmount > 0 && invoicePaidAmount >= totalAmount,
-              periodKey,
-              dueDate: getInvoiceDueDate(periodKey, closingDay, dueDay),
-            }
-          })
-          .filter(({ invoiceAmount, isPaid }) => invoiceAmount > 0 && !isPaid)
-          .sort((a, b) => a.dueDate.localeCompare(b.dueDate))
-
-        return openInvoices.find(({ dueDate }) => dueDate >= today) ?? openInvoices.at(-1) ?? null
+    return getCreditCardInvoiceSummaries(userCards, cardTransactions)
+      .filter(({ invoiceAmount, isPaid }) => invoiceAmount > 0 && !isPaid)
+      .sort((a, b) => {
+        const dueDateComparison = a.dueDate.localeCompare(b.dueDate)
+        if (dueDateComparison !== 0) return dueDateComparison
+        return a.periodKey.localeCompare(b.periodKey)
       })
-      .filter((invoice): invoice is {
-        card: UserCreditCard
-        invoiceAmount: number
-        isPaid: boolean
-        periodKey: string
-        dueDate: string
-      } => invoice !== null)
+      .filter((_, index, invoices) => {
+        const firstFutureInvoiceIndex = invoices.findIndex((invoice) => invoice.dueDate >= today)
+        return firstFutureInvoiceIndex === -1 || index >= firstFutureInvoiceIndex
+      })
   }
 
   const handleSelectCardSuggestion = (card: UserCreditCard, invoiceAmount: number, periodKey: string, invoiceDueDate: string) => {
@@ -334,8 +381,20 @@ export const Main: FC = () => {
           ...(creditCardId && { creditCardId }),
           ...(creditCardInvoicePeriodKey && { creditCardInvoicePeriodKey }),
         }
-        const newBill = await createBillAccount(billData)
-        setBills((prev) => sortBillsByDate([...prev, newBill]))
+        const newBill = creditCardId && creditCardInvoicePeriodKey
+          ? (await syncCreditCardInvoiceBills([{
+            creditCardId,
+            creditCardInvoicePeriodKey,
+            description,
+            amount,
+            dueDate,
+            status: 'pending',
+          }]))[0]
+          : await createBillAccount(billData)
+        setBills((prev) => sortBillsByDate([
+          ...prev.filter((bill) => bill.id !== newBill.id),
+          newBill,
+        ]))
       }
 
       resetForm()
@@ -349,6 +408,12 @@ export const Main: FC = () => {
 
   const handlePayBill = async () => {
     if (!selectedBillForPayment) return
+
+    if (isCreditCardInvoiceBill(selectedBillForPayment)) {
+      await handleConfirmPayment(true)
+      return
+    }
+
     setShowAddTransactionDialog(true)
   }
 
@@ -358,7 +423,7 @@ export const Main: FC = () => {
     setIsProcessing(true)
 
     try {
-      if (addTransaction) {
+      if (addTransaction || isCreditCardInvoiceBill(selectedBillForPayment)) {
         await payBillAccount(selectedBillForPayment.id, paymentDate)
       } else {
         await updateBillAccount(selectedBillForPayment.id, { status: 'paid' })
@@ -379,12 +444,25 @@ export const Main: FC = () => {
     }
   }
 
-  const handleDeleteBill = async (billId: string) => {
-    if (!confirm('Tem certeza que deseja deletar esta conta?')) return
+  const handleDeleteBill = async (bill: BillAccount) => {
+    const confirmationMessage = isCreditCardInvoiceBill(bill)
+      ? 'Remover esta fatura apenas da lista de contas a pagar?'
+      : 'Tem certeza que deseja deletar esta conta?'
+    if (!confirm(confirmationMessage)) return
 
     try {
-      await deleteBillAccount(billId)
-      setBills((prev) => prev.filter((bill) => bill.id !== billId))
+      if (isCreditCardInvoiceBill(bill)) {
+        await hideBillAccountFromList(bill.id)
+        setBills((prev) =>
+          prev.map((currentBill) =>
+            currentBill.id === bill.id ? { ...currentBill, hiddenFromBills: true } : currentBill
+          )
+        )
+        return
+      }
+
+      await deleteBillAccount(bill.id)
+      setBills((prev) => prev.filter((currentBill) => currentBill.id !== bill.id))
     } catch (error) {
       console.error('Error deleting bill:', error)
     }
@@ -439,7 +517,7 @@ export const Main: FC = () => {
                 <div className='absolute top-full left-0 right-0 z-10 mt-1 rounded-lg border border-border/60 bg-white shadow-lg dark:bg-slate-900'>
                   {getCardsWithOpenInvoices().map(({ card, invoiceAmount, periodKey, dueDate }) => (
                     <button
-                      key={card.id}
+                      key={`${card.id}-${periodKey}`}
                       onClick={() => handleSelectCardSuggestion(card, invoiceAmount, periodKey, dueDate)}
                       className='w-full px-3 py-1 text-left hover:bg-[#F8FAFC] dark:hover:bg-white/10 border-b border-border/30 last:border-b-0 transition-colors'>
                       <p className='text-sm text-[#0F172A] dark:text-white'>
@@ -752,7 +830,7 @@ export const Main: FC = () => {
                           <Button
                             size='sm'
                             variant='outline'
-                            onClick={() => handleDeleteBill(bill.id)}
+                            onClick={() => handleDeleteBill(bill)}
                             className='h-8'
                           >
                             Remover
