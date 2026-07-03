@@ -8,15 +8,15 @@ import {
 import { getPhoneVariations } from "@/lib/utils";
 import { sendWhatsAppMessage } from "@/lib/whatsapp";
 
-import { classifyIntent } from "@/lib/whatsapp/intents/intentClassifier";
-import { IntentType } from "@/lib/whatsapp/intents/intentTypes";
-
 import {
   confirmDeleteTool,
-  getToolForIntent,
+  getToolByName,
   type DeleteToolResult,
 } from "@/lib/whatsapp/tools";
-import { formatHelpMessage } from "@/lib/whatsapp/formatters/responseFormatter";
+import {
+  generateResponseFromToolResult,
+  planToolExecution,
+} from "@/lib/whatsapp/planning/toolPlanner";
 
 import {
   getSession,
@@ -292,15 +292,15 @@ export async function POST(req: Request) {
     const session = await getSession(fromPhoneNumber);
     const conversationHistory = buildHistoryString(session?.history);
 
-    const intentResult = await classifyIntent(messageText, conversationHistory);
-    console.log("Intent classificada:", intentResult);
+    const toolPlan = await planToolExecution(messageText, conversationHistory);
+    console.log("Plano de ferramenta:", toolPlan);
 
     let reply = "";
 
-    if (intentResult.intent === IntentType.HELP) {
-      reply = formatHelpMessage();
+    if (toolPlan.action === "ask") {
+      reply = toolPlan.question;
     } else {
-      const tool = getToolForIntent(intentResult.intent);
+      const tool = getToolByName(toolPlan.toolName);
 
       if (!tool) {
         reply =
@@ -308,22 +308,25 @@ export async function POST(req: Request) {
       } else {
         const result = await tool.execute({
           userId,
-          intent: intentResult.intent,
-          parameters: intentResult.parameters || {},
+          parameters: toolPlan.parameters,
           messageText,
           conversationHistory,
           phoneNumber: fromPhoneNumber,
         });
 
         if (isDeleteToolResult(result)) {
-          reply = result.message;
-
           if (result.needsConfirmation && result.pendingAction) {
             await setPendingAction(fromPhoneNumber, result.pendingAction);
           }
-        } else {
-          reply = String(result);
         }
+
+        reply = await generateResponseFromToolResult({
+          messageText,
+          conversationHistory,
+          tool,
+          parameters: toolPlan.parameters,
+          result,
+        });
       }
     }
 

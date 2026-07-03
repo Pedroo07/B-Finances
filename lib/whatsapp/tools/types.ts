@@ -1,8 +1,5 @@
-import { IntentType } from "../intents/intentTypes";
-
 export type ToolExecutionContext = {
   userId: string;
-  intent?: IntentType;
   parameters?: Record<string, unknown>;
   messageText?: string;
   conversationHistory?: string;
@@ -11,9 +8,17 @@ export type ToolExecutionContext = {
   confirmation?: string;
 };
 
+export type ToolParameter = {
+  name: string;
+  description: string;
+  required: boolean;
+  enum?: Array<string | number | boolean>;
+};
+
 export type Tool<TResult = unknown> = {
   name: string;
   description: string;
+  parameters: ToolParameter[];
   requiredParameters: string[];
   execute(context: ToolExecutionContext): Promise<TResult>;
 };

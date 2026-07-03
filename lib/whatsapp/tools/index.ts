@@ -1,4 +1,4 @@
-import { IntentType } from "../intents/intentTypes";
+import { showHelpTool } from "./helpTool";
 import {
   addInvestmentTool,
   queryInvestmentsTool,
@@ -32,6 +32,7 @@ export {
   queryInvestmentsTool,
   queryTransactionsTool,
   redeemInvestmentTool,
+  showHelpTool,
   toggleNotificationsTool,
 };
 
@@ -49,6 +50,23 @@ export const whatsappTools = [
   addInvestmentTool,
   redeemInvestmentTool,
   toggleNotificationsTool,
+  showHelpTool,
+] as const;
+
+export const plannableWhatsappTools = [
+  addTransactionTool,
+  queryTransactionsTool,
+  queryBalanceTool,
+  queryCardInvoiceTool,
+  queryBillsTool,
+  queryInvestmentsTool,
+  deleteTransactionTool,
+  payBillTool,
+  payInvoiceTool,
+  addInvestmentTool,
+  redeemInvestmentTool,
+  toggleNotificationsTool,
+  showHelpTool,
 ] as const;
 
 export const whatsappToolsByName = whatsappTools.reduce<Record<string, Tool>>(
@@ -59,23 +77,6 @@ export const whatsappToolsByName = whatsappTools.reduce<Record<string, Tool>>(
   {},
 );
 
-const intentTools: Partial<Record<IntentType, Tool>> = {
-  [IntentType.ADD_TRANSACTION]: addTransactionTool,
-  [IntentType.QUERY_EXPENSES]: queryTransactionsTool,
-  [IntentType.QUERY_INCOME]: queryTransactionsTool,
-  [IntentType.QUERY_BALANCE]: queryBalanceTool,
-  [IntentType.QUERY_CARD_INVOICE]: queryCardInvoiceTool,
-  [IntentType.QUERY_BILLS]: queryBillsTool,
-  [IntentType.QUERY_INVESTMENTS]: queryInvestmentsTool,
-  [IntentType.DELETE_TRANSACTION]: deleteTransactionTool,
-  [IntentType.DELETE_CARD_TRANSACTION]: deleteTransactionTool,
-  [IntentType.PAY_BILL]: payBillTool,
-  [IntentType.PAY_CARD_INVOICE]: payInvoiceTool,
-  [IntentType.ADD_INVESTMENT]: addInvestmentTool,
-  [IntentType.REDEEM_INVESTMENT]: redeemInvestmentTool,
-  [IntentType.TOGGLE_NOTIFICATIONS]: toggleNotificationsTool,
-};
-
-export function getToolForIntent(intent: IntentType): Tool | undefined {
-  return intentTools[intent];
+export function getToolByName(toolName: string): Tool | undefined {
+  return whatsappToolsByName[toolName];
 }
