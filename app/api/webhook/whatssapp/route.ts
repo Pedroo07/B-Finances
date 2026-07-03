@@ -11,6 +11,7 @@ import { sendWhatsAppMessage } from "@/lib/whatsapp";
 import {
   confirmDeleteTool,
   getToolByName,
+  plannableWhatsappTools,
   type PendingActionToolResult,
 } from "@/lib/whatsapp/tools";
 import { resolveFindTransactionSelection } from "@/lib/whatsapp/handlers/findTransactionHandler";
@@ -18,6 +19,7 @@ import {
   generateResponseFromToolResult,
   planToolExecution,
 } from "@/lib/whatsapp/planning/toolPlanner";
+import { tryHandleFinancialMessage } from "@/lib/whatsapp/financial/engine";
 
 import {
   getSession,
@@ -319,6 +321,36 @@ export async function POST(req: Request) {
 
     const session = await getSession(fromPhoneNumber);
     const conversationHistory = buildHistoryString(session?.history);
+    const latestMemoryTurn =
+      shortTermMemory?.turns[shortTermMemory.turns.length - 1] || null;
+
+    const financialEngineResult = await tryHandleFinancialMessage({
+      userId,
+      messageText,
+      conversationHistory,
+      sessionState: session,
+      shortTermMemory,
+      lastActionExecuted: latestMemoryTurn?.toolName || null,
+      lastResultReturned: latestMemoryTurn?.assistantReply || null,
+      currentDate: new Date(),
+      availableTools: plannableWhatsappTools.map((tool) => tool.name),
+    });
+
+    if (financialEngineResult.handled) {
+      await sendWhatsAppMessage(fromPhoneNumber, financialEngineResult.reply);
+      rememberShortTermTopic(fromPhoneNumber, {
+        toolName: "financial_engine",
+        parameters: financialEngineResult.memoryParameters,
+        userMessage: messageText,
+        assistantReply: financialEngineResult.reply,
+      });
+      await updateSessionHistory(
+        fromPhoneNumber,
+        "assistant",
+        financialEngineResult.reply,
+      );
+      return NextResponse.json({ status: "success" });
+    }
 
     const toolPlan = await planToolExecution(
       messageText,
