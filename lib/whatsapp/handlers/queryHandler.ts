@@ -6,6 +6,7 @@ import {
 import {
   getCardInvoiceAmount,
   getAllCardInvoices,
+  getCurrentCardInvoiceTransactions,
 } from "@/lib/services/admin/userCreditCardsAdmin";
 import {
   getPendingBills,
@@ -27,24 +28,30 @@ import { getPeriodDates } from "../utils/dateParser";
 export async function handleQuery(
   userId: string,
   intent: IntentType,
-  parameters: Record<string, any>
+  parameters: Record<string, any>,
+  messageText: string = ""
 ): Promise<string> {
+  const enrichedParameters = {
+    ...parameters,
+    __messageText: messageText,
+  };
+
   try {
     switch (intent) {
       case IntentType.QUERY_EXPENSES:
-        return await handleExpensesQuery(userId, parameters);
+        return await handleExpensesQuery(userId, enrichedParameters);
 
       case IntentType.QUERY_INCOME:
-        return await handleIncomeQuery(userId, parameters);
+        return await handleIncomeQuery(userId, enrichedParameters);
 
       case IntentType.QUERY_BALANCE:
-        return await handleBalanceQuery(userId, parameters);
+        return await handleBalanceQuery(userId, enrichedParameters);
 
       case IntentType.QUERY_CARD_INVOICE:
-        return await handleCardInvoiceQuery(userId, parameters);
+        return await handleCardInvoiceQuery(userId, enrichedParameters);
 
       case IntentType.QUERY_BILLS:
-        return await handleBillsQuery(userId, parameters);
+        return await handleBillsQuery(userId, enrichedParameters);
 
       case IntentType.QUERY_INVESTMENTS:
         return await handleInvestmentsQuery(userId);
@@ -118,8 +125,34 @@ async function handleCardExpensesQuery(
   const { getCardTransactionsByCard } = await import(
     "@/lib/services/admin/cardTransactionsAdmin"
   );
-  const today = new Date();
   const period = parameters.period || "month";
+  const messageText = typeof parameters.__messageText === "string"
+    ? parameters.__messageText
+    : "";
+
+  if (shouldUseInvoicePeriod(period, messageText)) {
+    const invoice = await getCurrentCardInvoiceTransactions(userId, cardFilter);
+    const total = invoice.transactions.reduce((s, t) => s + Math.abs(t.amount), 0);
+    const { formatCurrency } = await import("../formatters/responseFormatter");
+
+    if (invoice.transactions.length === 0) {
+      return `Cartao: Nenhum gasto encontrado na fatura atual do *${invoice.cardName}* (${formatDisplayDate(invoice.startDate)} a ${formatDisplayDate(invoice.endDate)}).`;
+    }
+
+    let resp = `Cartao: *Gastos da fatura atual do ${invoice.cardName}*\n\n`;
+    resp += `Periodo: ${formatDisplayDate(invoice.startDate)} a ${formatDisplayDate(invoice.endDate)}\n`;
+    resp += `Vencimento: ${formatDisplayDate(invoice.dueDate)}\n`;
+    resp += `Total de compras: *${formatCurrency(total)}*\n`;
+    resp += `Valor em aberto: *${formatCurrency(invoice.amount)}*\n\n`;
+    invoice.transactions
+      .sort((a, b) => b.date.localeCompare(a.date))
+      .forEach((t) => {
+        resp += `- *${t.description}*\n  ${formatCurrency(Math.abs(t.amount))} - ${formatDisplayDate(t.date)}\n\n`;
+      });
+
+    return resp.trimEnd();
+  }
+
   const { startDate, endDate } = getPeriodDates(period);
   const transactions = await getCardTransactionsByCard(
     userId,
@@ -140,6 +173,26 @@ async function handleCardExpensesQuery(
       resp += `- *${t.description}*\n  ${formatCurrency(Math.abs(t.amount))} - ${t.date}\n\n`;
     });
   return resp;
+}
+
+function normalizeText(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
+function shouldUseInvoicePeriod(period: string, messageText: string): boolean {
+  const normalizedPeriod = normalizeText(String(period));
+  const normalizedMessage = normalizeText(messageText);
+
+  return ["current_invoice", "invoice", "fatura"].includes(normalizedPeriod)
+    || /\bfatura\b/.test(normalizedMessage);
+}
+
+function formatDisplayDate(date: string): string {
+  const [year, month, day] = date.split("-");
+  return `${day}/${month}/${year}`;
 }
 
 

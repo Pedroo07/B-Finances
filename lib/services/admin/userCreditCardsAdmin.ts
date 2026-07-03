@@ -1,5 +1,8 @@
 import { db } from "@/lib/firebaseAdmin";
-import { getCardTransactionsByCard } from "./cardTransactionsAdmin";
+import {
+  getCardTransactions,
+  type CardTransaction,
+} from "./cardTransactionsAdmin";
 import {
   getInvoiceDateRange,
   getInvoiceDueDate,
@@ -28,6 +31,16 @@ type ResolvedCreditCard = {
   docId: string;
   transactionCardName: string;
   card: UserCreditCard;
+};
+
+export type CardInvoiceTransactionsResult = {
+  cardName: string;
+  periodKey: string;
+  startDate: string;
+  endDate: string;
+  dueDate: string;
+  amount: number;
+  transactions: CardTransaction[];
 };
 
 function getCreditCardInvoiceBillId(creditCardId: string, periodKey: string): string {
@@ -104,6 +117,27 @@ function assertCardBillingConfigured(card: UserCreditCard): asserts card is User
   }
 }
 
+async function getTransactionsForResolvedCard(
+  userId: string,
+  transactionCardName: string,
+  startDate?: string,
+  endDate?: string
+): Promise<CardTransaction[]> {
+  const targetBankKey = getCreditCardBankKey(transactionCardName);
+  const transactions = await getCardTransactions(userId);
+
+  return transactions.filter((transaction) => {
+    const transactionBankKey = getCreditCardBankKey(transaction.card);
+    const cardMatches = targetBankKey
+      ? transactionBankKey === targetBankKey
+      : transaction.card === transactionCardName;
+    const afterStart = !startDate || transaction.date >= startDate;
+    const beforeEnd = !endDate || transaction.date <= endDate;
+
+    return cardMatches && afterStart && beforeEnd;
+  });
+}
+
 async function resolvePaymentPeriodKey(
   userId: string,
   transactionCardName: string,
@@ -116,7 +150,7 @@ async function resolvePaymentPeriodKey(
     return getInvoicePeriodKey(year, month);
   }
 
-  const transactions = await getCardTransactionsByCard(userId, transactionCardName);
+  const transactions = await getTransactionsForResolvedCard(userId, transactionCardName);
   const totalsByPeriod = transactions.reduce<Record<string, number>>((totals, transaction) => {
     const periodKey = getInvoicePeriodKeyForDate(transaction.date, card.closingDay, card.dueDay);
     totals[periodKey] = (totals[periodKey] || 0) + Math.abs(transaction.amount);
@@ -157,7 +191,7 @@ export async function getCardInvoiceAmount(
   const periodKey = getInvoicePeriodKey(year, month);
   const { startDate, endDate } = getInvoiceDateRange(periodKey, card.closingDay, card.dueDay);
 
-  const transactions = await getCardTransactionsByCard(
+  const transactions = await getTransactionsForResolvedCard(
     userId,
     transactionCardName,
     startDate,
@@ -175,6 +209,48 @@ export async function getCardInvoiceAmount(
   }
 
   return total;
+}
+
+export async function getCurrentCardInvoiceTransactions(
+  userId: string,
+  cardName: string,
+  todayDate: string = new Date().toISOString().split("T")[0]
+): Promise<CardInvoiceTransactionsResult> {
+  const { card, transactionCardName } = await resolveCreditCard(userId, cardName);
+  assertCardBillingConfigured(card);
+
+  const periodKey = await resolvePaymentPeriodKey(
+    userId,
+    transactionCardName,
+    card,
+    todayDate
+  );
+  const { startDate, endDate } = getInvoiceDateRange(
+    periodKey,
+    card.closingDay,
+    card.dueDay
+  );
+  const transactions = await getTransactionsForResolvedCard(
+    userId,
+    transactionCardName,
+    startDate,
+    endDate
+  );
+  const total = transactions.reduce(
+    (sum, transaction) => sum + Math.abs(transaction.amount),
+    0
+  );
+  const paidAmount = card.invoices?.[periodKey]?.amountPaid || 0;
+
+  return {
+    cardName: getCreditCardName(card.bankKey ?? card.id),
+    periodKey,
+    startDate,
+    endDate,
+    dueDate: getInvoiceDueDate(periodKey, card.closingDay, card.dueDay),
+    amount: Math.max(total - paidAmount, 0),
+    transactions,
+  };
 }
 
 export async function payCardInvoice(

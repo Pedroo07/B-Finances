@@ -393,6 +393,13 @@ Eu posso te ajudar com:
 • "Meus investimentos"
 • "Resumo financeiro do mês"
 
+🧭 *Consultoria*
+• "Estou gastando muito?"
+• "Onde posso economizar?"
+• "Por que meu saldo caiu?"
+• "Consigo comprar um notebook de 5000 reais?"
+• "Quais meus gastos incomuns?"
+
 🗑️ *Deletar*
 • "Deletar gasto com pizza"
 • "Remover compra do cartão"

@@ -363,13 +363,17 @@ export async function POST(req: Request) {
           }
         }
 
-        reply = await generateResponseFromToolResult({
-          messageText,
-          conversationHistory,
-          tool,
-          parameters: toolPlan.parameters,
-          result: resultForResponse,
-        });
+        if (tool.name === "financial_advisor" && typeof resultForResponse === "string") {
+          reply = resultForResponse;
+        } else {
+          reply = await generateResponseFromToolResult({
+            messageText,
+            conversationHistory,
+            tool,
+            parameters: toolPlan.parameters,
+            result: resultForResponse,
+          });
+        }
 
         executedToolMemory = {
           toolName: tool.name,

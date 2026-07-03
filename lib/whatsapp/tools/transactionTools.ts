@@ -8,6 +8,7 @@ import {
   handleFindTransaction,
   type FindTransactionToolResult,
 } from "../handlers/findTransactionHandler";
+import { handleFinancialAdvice } from "../handlers/financialAdvisorHandler";
 import { handleQuery } from "../handlers/queryHandler";
 import type { DeleteToolResult, Tool } from "./types";
 
@@ -43,9 +44,9 @@ export const queryTransactionsTool: Tool<string> = {
     {
       name: "period",
       description:
-        "Periodo da consulta. Use today, week, month, year ou last_month.",
+        "Periodo da consulta. Use today, week, month, year, last_month ou current_invoice quando o usuario pedir gastos/compras/itens da fatura atual do cartao.",
       required: false,
-      enum: ["today", "week", "month", "year", "last_month"],
+      enum: ["today", "week", "month", "year", "last_month", "current_invoice"],
     },
     {
       name: "limit",
@@ -68,13 +69,13 @@ export const queryTransactionsTool: Tool<string> = {
     },
   ],
   requiredParameters: ["type"],
-  execute: ({ userId, parameters = {} }) => {
+  execute: ({ userId, parameters = {}, messageText = "" }) => {
     const intent =
       parameters.type === "income"
         ? IntentType.QUERY_INCOME
         : IntentType.QUERY_EXPENSES;
 
-    return handleQuery(userId, intent, parameters);
+    return handleQuery(userId, intent, parameters, messageText);
   },
 };
 
@@ -93,6 +94,29 @@ export const queryBalanceTool: Tool<string> = {
   requiredParameters: [],
   execute: ({ userId, parameters = {} }) =>
     handleQuery(userId, IntentType.QUERY_BALANCE, parameters),
+};
+
+export const financialAdvisorTool: Tool<string> = {
+  name: "financial_advisor",
+  description:
+    "Analisa os dados financeiros do usuario no Firestore como consultor: compara meses, identifica maiores categorias, gastos incomuns, assinaturas recorrentes, alerta de orcamento, projecao financeira, economia potencial, previsao de saldo e capacidade de compra. Use para perguntas abertas como 'estou gastando muito?', 'onde posso economizar?', 'por que meu saldo caiu?' ou 'consigo comprar algo de 5000 reais?'.",
+  parameters: [
+    {
+      name: "question",
+      description:
+        "Pergunta original do usuario para orientar a analise consultiva.",
+      required: false,
+    },
+    {
+      name: "target_amount",
+      description:
+        "Valor numerico do objetivo de compra quando o usuario perguntar se consegue comprar algo.",
+      required: false,
+    },
+  ],
+  requiredParameters: [],
+  execute: ({ userId, parameters = {}, messageText = "" }) =>
+    handleFinancialAdvice(userId, parameters, messageText),
 };
 
 export const queryCardInvoiceTool: Tool<string> = {

@@ -94,7 +94,14 @@ function normalizeParameterValue(
   parameterName: string,
   value: unknown,
 ): unknown {
-  const numericParameters = new Set(["amount", "days", "limit", "month", "year"]);
+  const numericParameters = new Set([
+    "amount",
+    "days",
+    "limit",
+    "month",
+    "target_amount",
+    "year",
+  ]);
   const booleanParameters = new Set(["all_invoices", "enable"]);
 
   if (numericParameters.has(parameterName) && typeof value === "string") {
@@ -260,9 +267,12 @@ function getLatestContextualTurn(
   return [...shortTermMemory.turns]
     .reverse()
     .find((turn) =>
-      ["query_transactions", "query_balance", "query_card_invoice"].includes(
-        turn.toolName,
-      ),
+      [
+        "query_transactions",
+        "query_balance",
+        "query_card_invoice",
+        "financial_advisor",
+      ].includes(turn.toolName),
     );
 }
 
@@ -286,6 +296,7 @@ function hasExplicitDifferentIntent(messageText: string): boolean {
 function inferPeriodFromMessage(messageText: string): string | undefined {
   const normalized = normalizeFreeText(messageText);
 
+  if (/\bfatura\b/.test(normalized)) return "current_invoice";
   if (/\bmes\s+passad[oa]\b/.test(normalized)) return "last_month";
   if (/\bpassad[oa]\b/.test(normalized) && !/\b(semana|ano)\b/.test(normalized)) {
     return "last_month";
@@ -341,6 +352,7 @@ function buildCarriedParameters(
     query_transactions: ["type", "period", "category_filter", "card_filter"],
     query_balance: ["period"],
     query_card_invoice: ["card", "all_invoices", "month", "year"],
+    financial_advisor: ["question", "target_amount"],
   };
 
   const allowedParameters = allowedParametersByTool[toolName] || [];
@@ -382,6 +394,10 @@ function buildInferredContinuationParameters(
     if (type) inferred.type = type;
   }
 
+  if (toolName === "financial_advisor") {
+    inferred.question = messageText;
+  }
+
   return inferred;
 }
 
@@ -397,9 +413,12 @@ function applyShortTermMemoryToPlan(
 
   const shouldKeepPreviousTool =
     !hasExplicitDifferentIntent(messageText) &&
-    ["query_transactions", "query_balance", "query_card_invoice"].includes(
-      latestContextualTurn.toolName,
-    );
+    [
+      "query_transactions",
+      "query_balance",
+      "query_card_invoice",
+      "financial_advisor",
+    ].includes(latestContextualTurn.toolName);
 
   const fallbackToolName = latestContextualTurn.toolName;
 
@@ -476,7 +495,11 @@ REGRAS:
 - Para add_transaction, nao extraia os campos da transacao. Use a ferramenta quando a mensagem descreve uma despesa ou receita; o executor usa a mensagem original.
 - Para find_transaction, use quando o usuario quiser localizar uma transacao especifica por linguagem natural, inclusive mensagens curtas como "a pizza", "o mercado", "o Uber", "ontem", "segunda-feira", "semana passada", "50 reais" ou "cartao Inter". Envie query com a frase original.
 - Mensagens curtas sem verbo claro de adicionar, remover ou consultar resumo devem usar find_transaction, nao add_transaction.
+- Para financial_advisor, use quando o usuario pedir analise, julgamento, causa, recomendacao, economia, projecao, previsao, orcamento, gasto incomum, comparacao entre meses, assinaturas recorrentes ou capacidade de compra.
+- Exemplos que DEVEM usar financial_advisor: "estou gastando muito?", "onde posso economizar?", "por que meu saldo caiu?", "consigo comprar um notebook de 5000 reais?", "quais meus gastos incomuns?", "quais minhas maiores categorias?", "qual minha previsao de saldo?".
+- Para financial_advisor, envie question com a pergunta original. Se houver valor de compra, envie target_amount numerico. Nunca responda essas perguntas abertas sem ferramenta.
 - Para query_transactions, use type "expense" para gastos/despesas e "income" para receitas/entradas.
+- Se o usuario pedir para listar gastos, compras ou itens da fatura atual de um cartao, use query_transactions com type "expense", card_filter do cartao e period "current_invoice". Nao use query_card_invoice para listagem de itens.
 - Para delete_transaction, use source "card" somente quando o usuario falar claramente de cartao; caso contrario use "transaction".
 - Para toggle_notifications, enable deve ser booleano: true para ativar e false para desativar.
 
@@ -584,6 +607,7 @@ REGRAS:
 - Nao invente informacoes.
 - Preserve valores, datas, listas numeradas e pedidos de confirmacao do resultado.
 - Se o resultado ja estiver pronto para o usuario, retorne o mesmo conteudo ou ajuste minimamente o tom.
+- Para financial_advisor, use somente os numeros do RESULTADO DA FERRAMENTA, preserve os valores exatamente e nao crie novas contas, estimativas ou percentuais.
 - Para find_transaction com mais de um resultado, preserve a lista e peca para o usuario escolher pelo numero. Nunca escolha uma transacao automaticamente.
 - Responda apenas com a mensagem final em portugues, sem JSON e sem markdown de bloco.`;
 
