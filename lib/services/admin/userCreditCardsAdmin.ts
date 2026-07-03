@@ -1,5 +1,14 @@
 import { db } from "@/lib/firebaseAdmin";
 import { getCardTransactionsByCard } from "./cardTransactionsAdmin";
+import {
+  getInvoiceDateRange,
+  getInvoiceDueDate,
+  getInvoicePeriodKey,
+  getInvoicePeriodKeyForDate,
+  getInvoicePeriodKeyForDueDate,
+  isValidBillingDay,
+} from "@/lib/creditCards/billing";
+import { getCreditCardBankKey, getCreditCardName } from "@/lib/creditCards/catalog";
 
 export type CreditCardInvoicePayment = {
   amountPaid: number;
@@ -10,7 +19,15 @@ export type CreditCardInvoicePayment = {
 export type UserCreditCard = {
   id: string;
   bankKey: string;
+  closingDay?: number;
+  dueDay?: number;
   invoices: Record<string, CreditCardInvoicePayment>;
+};
+
+type ResolvedCreditCard = {
+  docId: string;
+  transactionCardName: string;
+  card: UserCreditCard;
 };
 
 export async function getUserCreditCards(
@@ -26,19 +43,94 @@ export async function getUserCreditCards(
   })) as UserCreditCard[];
 }
 
+async function resolveCreditCard(userId: string, cardName: string): Promise<ResolvedCreditCard> {
+  const bankKey = getCreditCardBankKey(cardName);
+  const docId = bankKey ?? cardName;
+  const transactionCardName = getCreditCardName(cardName);
+  const cardDoc = await db
+    .collection(`users/${userId}/creditCards`)
+    .doc(docId)
+    .get();
+
+  if (!cardDoc.exists) {
+    throw new Error(`Credit card not found: ${cardName}`);
+  }
+
+  return {
+    docId: cardDoc.id,
+    transactionCardName,
+    card: {
+      id: cardDoc.id,
+      ...cardDoc.data(),
+    } as UserCreditCard,
+  };
+}
+
+function assertCardBillingConfigured(card: UserCreditCard): asserts card is UserCreditCard & {
+  closingDay: number;
+  dueDay: number;
+} {
+  if (!isValidBillingDay(card.closingDay) || !isValidBillingDay(card.dueDay)) {
+    throw new Error(`Credit card billing is not configured: ${card.id}`);
+  }
+}
+
+async function resolvePaymentPeriodKey(
+  userId: string,
+  transactionCardName: string,
+  card: UserCreditCard & { closingDay: number; dueDay: number },
+  paymentDate: string,
+  year?: number,
+  month?: number
+): Promise<string> {
+  if (year && month) {
+    return getInvoicePeriodKey(year, month);
+  }
+
+  const transactions = await getCardTransactionsByCard(userId, transactionCardName);
+  const totalsByPeriod = transactions.reduce<Record<string, number>>((totals, transaction) => {
+    const periodKey = getInvoicePeriodKeyForDate(transaction.date, card.closingDay, card.dueDay);
+    totals[periodKey] = (totals[periodKey] || 0) + Math.abs(transaction.amount);
+    return totals;
+  }, {});
+
+  const openPeriods = Object.entries(totalsByPeriod)
+    .map(([periodKey, total]) => ({
+      periodKey,
+      dueDate: getInvoiceDueDate(periodKey, card.closingDay, card.dueDay),
+      amount: total - (card.invoices?.[periodKey]?.amountPaid || 0),
+    }))
+    .filter(({ amount }) => amount > 0.01)
+    .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+
+  const nextDuePeriod = openPeriods.find(({ dueDate }) => dueDate >= paymentDate);
+  if (nextDuePeriod) {
+    return nextDuePeriod.periodKey;
+  }
+
+  const latestOpenPeriod = openPeriods.at(-1);
+  if (latestOpenPeriod) {
+    return latestOpenPeriod.periodKey;
+  }
+
+  return getInvoicePeriodKeyForDueDate(paymentDate, card.closingDay, card.dueDay);
+}
+
 export async function getCardInvoiceAmount(
   userId: string,
   cardName: string,
   year: number,
   month: number
 ): Promise<number> {
-  const startDate = `${year}-${String(month).padStart(2, "0")}-01`;
-  const endDay = new Date(year, month, 0).getDate();
-  const endDate = `${year}-${String(month).padStart(2, "0")}-${endDay}`;
+  const { card, transactionCardName } = await resolveCreditCard(userId, cardName);
+  assertCardBillingConfigured(card);
+
+  const periodKey = getInvoicePeriodKey(year, month);
+  const { startDate, endDate } = getInvoiceDateRange(periodKey, card.closingDay, card.dueDay);
 
   const transactions = await getCardTransactionsByCard(
     userId,
-    cardName,
+    transactionCardName,
     startDate,
     endDate
   );
@@ -48,18 +140,9 @@ export async function getCardInvoiceAmount(
     0
   );
 
-  const periodKey = `${year}-${String(month).padStart(2, "0")}`;
-  const cardDoc = await db
-    .collection(`users/${userId}/creditCards`)
-    .doc(cardName)
-    .get();
-
-  if (cardDoc.exists) {
-    const cardData = cardDoc.data() as UserCreditCard;
-    const payment = cardData.invoices?.[periodKey];
-    if (payment) {
-      return total - payment.amountPaid;
-    }
+  const payment = card.invoices?.[periodKey];
+  if (payment) {
+    return total - payment.amountPaid;
   }
 
   return total;
@@ -69,10 +152,20 @@ export async function payCardInvoice(
   userId: string,
   cardName: string,
   amount: number,
-  paymentDate: string
+  paymentDate: string,
+  options: { year?: number; month?: number } = {}
 ): Promise<void> {
-  const [year, month] = paymentDate.split("-").map(Number);
-  const periodKey = `${year}-${String(month).padStart(2, "0")}`;
+  const { docId, transactionCardName, card } = await resolveCreditCard(userId, cardName);
+  assertCardBillingConfigured(card);
+
+  const periodKey = await resolvePaymentPeriodKey(
+    userId,
+    transactionCardName,
+    card,
+    paymentDate,
+    options.year,
+    options.month
+  );
 
   const transactionRef = await db
     .collection(`users/${userId}/transactions`)
@@ -85,11 +178,11 @@ export async function payCardInvoice(
       paymentMethod: "pix",
     });
 
-  const cardRef = db.collection(`users/${userId}/creditCards`).doc(cardName);
+  const cardRef = db.collection(`users/${userId}/creditCards`).doc(docId);
   
   await cardRef.set(
     {
-      bankKey: cardName,
+      bankKey: card.bankKey ?? docId,
       invoices: {
         [periodKey]: {
           amountPaid: Math.abs(amount),
@@ -111,9 +204,13 @@ export async function getAllCardInvoices(
   const results: { cardName: string; amount: number }[] = [];
 
   for (const card of cards) {
-    const amount = await getCardInvoiceAmount(userId, card.id, year, month);
+    if (!isValidBillingDay(card.closingDay) || !isValidBillingDay(card.dueDay)) {
+      continue;
+    }
+
+    const amount = await getCardInvoiceAmount(userId, card.bankKey ?? card.id, year, month);
     if (amount > 0.01) {
-      results.push({ cardName: card.id, amount });
+      results.push({ cardName: getCreditCardName(card.bankKey ?? card.id), amount });
     }
   }
 

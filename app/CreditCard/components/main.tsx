@@ -13,7 +13,7 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectGroup, SelectL
 import { Input } from '@/components/ui/input'
 import { FiMinusCircle, FiPlusCircle } from 'react-icons/fi'
 import { CardTransactionDto, createCardTransaction, deleteCardTransaction, getCardTransaction } from '@/lib/services/cardTransactions'
-import { createUserCreditCard, deleteUserCreditCard, getUserCreditCards, payCreditCardInvoice } from '@/lib/services/userCreditCards'
+import { createUserCreditCard, deleteUserCreditCard, getUserCreditCards, payCreditCardInvoice, updateUserCreditCardBilling } from '@/lib/services/userCreditCards'
 import Image from 'next/image'
 import { auth } from '@/lib/firebase'
 import { useAuthState } from 'react-firebase-hooks/auth'
@@ -21,6 +21,13 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { formatCurrency } from '@/lib/utils'
 import { BANKS, BankKey, isBankKey } from '@/app/CreditCard/banks'
 import { UserCreditCard } from '@/lib/entities/userCreditCard'
+import {
+    getInvoiceDateRange,
+    getInvoiceDueDate,
+    getInvoicePeriodKey,
+    getInvoicePeriodKeyForDate,
+    isValidBillingDay,
+} from '@/lib/creditCards/billing'
 
 const getTodayDate = () => {
     const now = new Date()
@@ -29,7 +36,9 @@ const getTodayDate = () => {
     return timezoneAdjustedDate.toISOString().split('T')[0]
 }
 
-const getInvoicePeriodKey = (year: number, month: number) => `${year}-${String(month).padStart(2, '0')}`
+const formatDisplayDate = (date: string) => {
+    return new Date(`${date}T00:00:00`).toLocaleDateString('pt-BR')
+}
 
 export const Main = () => {
     const [selectedCardKey, setSelectedCardKey] = useState<BankKey | null>(null)
@@ -39,8 +48,14 @@ export const Main = () => {
     const [price, setPrice] = useState(0)
     const [date, setDate] = useState('')
     const [cardToAdd, setCardToAdd] = useState<BankKey | ''>('')
+    const [closingDayToAdd, setClosingDayToAdd] = useState(0)
+    const [dueDayToAdd, setDueDayToAdd] = useState(0)
     const [isAddCardDialogOpen, setIsAddCardDialogOpen] = useState(false)
     const [isSavingCard, setIsSavingCard] = useState(false)
+    const [isBillingDialogOpen, setIsBillingDialogOpen] = useState(false)
+    const [isSavingBilling, setIsSavingBilling] = useState(false)
+    const [billingClosingDay, setBillingClosingDay] = useState(0)
+    const [billingDueDay, setBillingDueDay] = useState(0)
     const [isRemoveCardDialogOpen, setIsRemoveCardDialogOpen] = useState(false)
     const [isRemovingCard, setIsRemovingCard] = useState(false)
     const [isPayInvoiceDialogOpen, setIsPayInvoiceDialogOpen] = useState(false)
@@ -87,11 +102,20 @@ export const Main = () => {
     const currentUserCard = effectiveSelectedCardKey
         ? visibleUserCards.find(({ bankKey }) => bankKey === effectiveSelectedCardKey) ?? null
         : null
+    const hasCurrentCardBilling = Boolean(
+        currentUserCard
+        && isValidBillingDay(currentUserCard.closingDay)
+        && isValidBillingDay(currentUserCard.dueDay)
+    )
+    const currentCardClosingDay = hasCurrentCardBilling ? currentUserCard!.closingDay! : null
+    const currentCardDueDay = hasCurrentCardBilling ? currentUserCard!.dueDay! : null
     const selectedTransactionCard = cards.some(([, currentBank]) => currentBank.name === card)
         ? card
         : currentCard?.name ?? ''
     const hasCards = cards.length > 0
     const isPageLoading = loading || (Boolean(user) && isDataLoading)
+    const canSaveNewCard = Boolean(cardToAdd) && isValidBillingDay(closingDayToAdd) && isValidBillingDay(dueDayToAdd)
+    const canSaveBilling = Boolean(effectiveSelectedCardKey) && isValidBillingDay(billingClosingDay) && isValidBillingDay(billingDueDay)
 
     const resetForm = () => {
         setText('')
@@ -117,6 +141,22 @@ export const Main = () => {
         if (isBankKey(value)) {
             setCardToAdd(value)
         }
+    }
+
+    const handleClosingDayToAddChange = (event: ChangeEvent<HTMLInputElement>): void => {
+        setClosingDayToAdd(Number(event.target.value))
+    }
+
+    const handleDueDayToAddChange = (event: ChangeEvent<HTMLInputElement>): void => {
+        setDueDayToAdd(Number(event.target.value))
+    }
+
+    const handleBillingClosingDayChange = (event: ChangeEvent<HTMLInputElement>): void => {
+        setBillingClosingDay(Number(event.target.value))
+    }
+
+    const handleBillingDueDayChange = (event: ChangeEvent<HTMLInputElement>): void => {
+        setBillingDueDay(Number(event.target.value))
     }
 
     const handleDateChange = (event: ChangeEvent<HTMLInputElement>): void => {
@@ -179,34 +219,48 @@ export const Main = () => {
     const currentCardItems = currentCard
         ? visibleItems.filter((transaction) => transaction.card === currentCard.name)
         : []
+    const currentInvoicePeriodKey = activeFilter === 'month' && selectedMonth > 0
+        ? getInvoicePeriodKey(currentYear, selectedMonth)
+        : null
+    const currentInvoiceRange = currentInvoicePeriodKey && currentCardClosingDay
+        && currentCardDueDay
+        ? getInvoiceDateRange(currentInvoicePeriodKey, currentCardClosingDay, currentCardDueDay)
+        : null
+    const currentInvoiceDueDate = currentInvoicePeriodKey && currentCardClosingDay && currentCardDueDay
+        ? getInvoiceDueDate(currentInvoicePeriodKey, currentCardClosingDay, currentCardDueDay)
+        : null
 
     const filterItems = sortItemByDate(currentCardItems.filter(item => {
-        const [year, month] = item.date.split("-").map(Number)
+        if (!currentCardClosingDay) return false
+        if (!currentCardDueDay) return false
+        const periodKey = getInvoicePeriodKeyForDate(item.date, currentCardClosingDay, currentCardDueDay)
 
         if (activeFilter === "year") {
+            const [year] = periodKey.split("-").map(Number)
             return year === currentYear
         }
 
-        return year === currentYear && month === selectedMonth
+        return periodKey === currentInvoicePeriodKey
     }))
 
     const expense = filterItems.reduce((acc, item) => acc + item.amount, 0)
     const currentInvoiceAmount = Math.abs(expense)
-    const currentInvoicePeriodKey = activeFilter === 'month' && selectedMonth > 0
-        ? getInvoicePeriodKey(currentYear, selectedMonth)
-        : null
     const currentInvoicePayment = currentInvoicePeriodKey
         ? currentUserCard?.invoices?.[currentInvoicePeriodKey]
         : undefined
     const invoicePaidAmount = currentInvoicePayment?.amountPaid ?? 0
-    const isInvoicePaid = Boolean(currentInvoicePeriodKey) && currentInvoiceAmount > 0 && invoicePaidAmount >= currentInvoiceAmount
-    const canPayInvoice = Boolean(currentCard) && Boolean(currentInvoicePeriodKey) && currentInvoiceAmount > 0 && !isInvoicePaid
-    const invoiceStatusLabel = !currentInvoicePeriodKey
+    const isInvoicePaid = Boolean(currentInvoicePeriodKey) && hasCurrentCardBilling && currentInvoiceAmount > 0 && invoicePaidAmount >= currentInvoiceAmount
+    const canPayInvoice = Boolean(currentCard) && hasCurrentCardBilling && Boolean(currentInvoicePeriodKey) && currentInvoiceAmount > 0 && !isInvoicePaid
+    const invoiceStatusLabel = !hasCurrentCardBilling
+        ? 'Configure a fatura'
+        : !currentInvoicePeriodKey
         ? 'Selecione um mes'
         : isInvoicePaid
             ? 'Fatura paga'
             : 'Fatura em aberto'
-    const invoiceStatusClass = !currentInvoicePeriodKey
+    const invoiceStatusClass = !hasCurrentCardBilling
+        ? 'border-rose-500/20 bg-rose-500/10 text-rose-700 dark:text-rose-300'
+        : !currentInvoicePeriodKey
         ? 'border-border/60 bg-[#F8FAFC] text-[#334155] dark:bg-white/5 dark:text-[#CBD5E1]'
         : isInvoicePaid
             ? 'border-[#22C55E]/20 bg-[#22C55E]/10 text-[#15803D] dark:text-[#4ADE80]'
@@ -241,11 +295,14 @@ export const Main = () => {
     }
 
     const handleAddNewCard = async () => {
-        if (!cardToAdd || isSavingCard) return
+        if (!cardToAdd || !canSaveNewCard || isSavingCard) return
 
         try {
             setIsSavingCard(true)
-            const newCard = await createUserCreditCard(cardToAdd)
+            const newCard = await createUserCreditCard(cardToAdd, {
+                closingDay: closingDayToAdd,
+                dueDay: dueDayToAdd,
+            })
             setUserCards((currentCards) => currentCards.some((currentCard) => currentCard.bankKey === cardToAdd)
                 ? currentCards
                 : [...currentCards, newCard]
@@ -253,11 +310,48 @@ export const Main = () => {
             setSelectedCardKey(cardToAdd)
             setCard(BANKS[cardToAdd].name)
             setCardToAdd('')
+            setClosingDayToAdd(0)
+            setDueDayToAdd(0)
             setIsAddCardDialogOpen(false)
         } catch (error) {
             console.error("Error adding credit card:", error)
         } finally {
             setIsSavingCard(false)
+        }
+    }
+
+    const handleOpenBillingDialog = () => {
+        setBillingClosingDay(currentCardClosingDay ?? 0)
+        setBillingDueDay(currentCardDueDay ?? 0)
+        setIsBillingDialogOpen(true)
+    }
+
+    const handleSaveCurrentCardBilling = async () => {
+        if (!effectiveSelectedCardKey || !canSaveBilling || isSavingBilling) return
+
+        try {
+            setIsSavingBilling(true)
+            const updatedCard = await updateUserCreditCardBilling(effectiveSelectedCardKey, {
+                closingDay: billingClosingDay,
+                dueDay: billingDueDay,
+            })
+
+            setUserCards((currentCards) => currentCards.map((currentCard) => {
+                if (currentCard.bankKey !== updatedCard.bankKey) {
+                    return currentCard
+                }
+
+                return {
+                    ...currentCard,
+                    closingDay: updatedCard.closingDay,
+                    dueDay: updatedCard.dueDay,
+                }
+            }))
+            setIsBillingDialogOpen(false)
+        } catch (error) {
+            console.error("Error updating credit card billing:", error)
+        } finally {
+            setIsSavingBilling(false)
         }
     }
 
@@ -288,7 +382,7 @@ export const Main = () => {
     }
 
     const handlePayCurrentInvoice = async () => {
-        if (!effectiveSelectedCardKey || !currentInvoicePeriodKey || !invoicePaymentDate || currentInvoiceAmount <= 0 || isPayingInvoice) {
+        if (!effectiveSelectedCardKey || !hasCurrentCardBilling || !currentInvoicePeriodKey || !invoicePaymentDate || currentInvoiceAmount <= 0 || isPayingInvoice) {
             return
         }
 
@@ -347,18 +441,25 @@ export const Main = () => {
     }
 
     const differenceInPorcentage = () => {
-        const filteredItems = currentCardItems.filter(item => {
-            const [year, month] = item.date.split("-").map(Number)
-            return year === currentYear && month === selectedMonth
-        })
+        if (!currentCardClosingDay || !currentCardDueDay || !currentInvoicePeriodKey) {
+            return 0
+        }
 
-        const lastItems = currentCardItems.filter(item => {
-            const [year, month] = item.date.split("-").map(Number)
-            return year === currentYear && month === new Date().getMonth()
-        })
+        const [selectedYear, selectedInvoiceMonth] = currentInvoicePeriodKey.split("-").map(Number)
+        const previousInvoiceYear = selectedInvoiceMonth === 1 ? selectedYear - 1 : selectedYear
+        const previousInvoiceMonth = selectedInvoiceMonth === 1 ? 12 : selectedInvoiceMonth - 1
+        const previousInvoicePeriodKey = getInvoicePeriodKey(previousInvoiceYear, previousInvoiceMonth)
 
-        const totalExpense = filteredItems.reduce((acc, item) => acc + item.amount, 0)
-        const lastExpense = lastItems.reduce((acc, item) => acc + item.amount, 0)
+        const filteredItems = currentCardItems.filter(item =>
+            getInvoicePeriodKeyForDate(item.date, currentCardClosingDay, currentCardDueDay) === currentInvoicePeriodKey
+        )
+
+        const lastItems = currentCardItems.filter(item =>
+            getInvoicePeriodKeyForDate(item.date, currentCardClosingDay, currentCardDueDay) === previousInvoicePeriodKey
+        )
+
+        const totalExpense = Math.abs(filteredItems.reduce((acc, item) => acc + item.amount, 0))
+        const lastExpense = Math.abs(lastItems.reduce((acc, item) => acc + item.amount, 0))
 
         if (lastExpense === 0) {
             return 0
@@ -397,6 +498,7 @@ export const Main = () => {
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
                         {availableCardKeys.length > 0 ? (
+                            <>
                             <Select value={cardToAdd} onValueChange={handleAddCardChange}>
                                 <SelectTrigger className="w-full">
                                     <SelectValue placeholder="Selecione um cartao" />
@@ -412,6 +514,25 @@ export const Main = () => {
                                     </SelectGroup>
                                 </SelectContent>
                             </Select>
+                            <div className="grid gap-3 sm:grid-cols-2">
+                                <Input
+                                    type="number"
+                                    min={1}
+                                    max={31}
+                                    placeholder="Dia de fechamento"
+                                    value={closingDayToAdd || ''}
+                                    onChange={handleClosingDayToAddChange}
+                                />
+                                <Input
+                                    type="number"
+                                    min={1}
+                                    max={31}
+                                    placeholder="Dia de vencimento"
+                                    value={dueDayToAdd || ''}
+                                    onChange={handleDueDayToAddChange}
+                                />
+                            </div>
+                            </>
                         ) : (
                             <p className="text-sm text-[#64748B] dark:text-[#94A3BB]">
                                 Todos os cartões ja foram adicionados.
@@ -422,7 +543,7 @@ export const Main = () => {
                         <Button
                             onClick={handleAddNewCard}
                             type="button"
-                            disabled={!cardToAdd || isSavingCard || availableCardKeys.length === 0}
+                            disabled={!canSaveNewCard || isSavingCard || availableCardKeys.length === 0}
                             className='w-full sm:w-auto'
                         >
                             <span>{isSavingCard ? 'Adicionando...' : 'Adicionar cartao'}</span>
@@ -462,6 +583,53 @@ export const Main = () => {
                 </DialogContent>
             </Dialog>
 
+            <Dialog open={isBillingDialogOpen} onOpenChange={setIsBillingDialogOpen}>
+                <DialogContent className="sm:max-w-106">
+                    <DialogHeader>
+                        <DialogTitle>Configurar fatura</DialogTitle>
+                        <DialogDescription>
+                            Informe os dias usados pelo banco para calcular as proximas faturas deste cartao.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-3 py-4 sm:grid-cols-2">
+                        <Input
+                            type="number"
+                            min={1}
+                            max={31}
+                            placeholder="Dia de fechamento"
+                            value={billingClosingDay || ''}
+                            onChange={handleBillingClosingDayChange}
+                        />
+                        <Input
+                            type="number"
+                            min={1}
+                            max={31}
+                            placeholder="Dia de vencimento"
+                            value={billingDueDay || ''}
+                            onChange={handleBillingDueDayChange}
+                        />
+                    </div>
+                    <DialogFooter>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setIsBillingDialogOpen(false)}
+                            className='w-full sm:w-auto'
+                        >
+                            Cancelar
+                        </Button>
+                        <Button
+                            type="button"
+                            onClick={handleSaveCurrentCardBilling}
+                            disabled={!canSaveBilling || isSavingBilling}
+                            className='w-full sm:w-auto'
+                        >
+                            <span>{isSavingBilling ? 'Salvando...' : 'Salvar configuracao'}</span>
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
             <Dialog open={isPayInvoiceDialogOpen} onOpenChange={setIsPayInvoiceDialogOpen}>
                 <DialogContent className="sm:max-w-106">
                     <DialogHeader>
@@ -476,6 +644,11 @@ export const Main = () => {
                             <p className="mt-2 text-2xl font-semibold text-[#0F172A] dark:text-white">
                                 {formatCurrency(-currentInvoiceAmount)}
                             </p>
+                            {currentInvoiceRange && currentInvoiceDueDate ? (
+                                <p className="mt-2 text-sm text-[#64748B] dark:text-[#94A3BB]">
+                                    {formatDisplayDate(currentInvoiceRange.startDate)} a {formatDisplayDate(currentInvoiceRange.endDate)}. Vence em {formatDisplayDate(currentInvoiceDueDate)}.
+                                </p>
+                            ) : null}
                         </div>
                         <Input
                             type="date"
@@ -584,6 +757,23 @@ export const Main = () => {
                                     <p className='text-sm text-[#64748B] dark:text-[#94A3BB]'>
                                         Remova este cartão da lista se nao quiser mais exibi-lo nesta tela.
                                     </p>
+                                    {hasCurrentCardBilling ? (
+                                        <p className='text-sm font-medium text-[#334155] dark:text-[#E2E8F0]'>
+                                            Fecha dia {currentCardClosingDay} e vence dia {currentCardDueDay}.
+                                        </p>
+                                    ) : (
+                                        <div className='rounded-xl border border-rose-500/20 bg-rose-500/10 p-3 text-sm text-rose-700 dark:text-rose-300'>
+                                            <p>Configure fechamento e vencimento para calcular a fatura deste cartao.</p>
+                                            <Button
+                                                type="button"
+                                                size="sm"
+                                                onClick={handleOpenBillingDialog}
+                                                className='mt-3 w-fit'
+                                            >
+                                                <span>Configurar fatura</span>
+                                            </Button>
+                                        </div>
+                                    )}
                                     <Button
                                         type="button"
                                         variant="outline"
@@ -623,6 +813,11 @@ export const Main = () => {
                                     <h2 className="mt-3 text-4xl font-semibold text-rose-500 dark:text-rose-300">
                                         {formatCurrency(currentInvoiceAmount)}
                                     </h2>
+                                    {currentInvoiceRange && currentInvoiceDueDate ? (
+                                        <p className="mt-2 text-sm text-[#64748B] dark:text-[#94A3BB]">
+                                            Compras de {formatDisplayDate(currentInvoiceRange.startDate)} a {formatDisplayDate(currentInvoiceRange.endDate)}. Vence em {formatDisplayDate(currentInvoiceDueDate)}.
+                                        </p>
+                                    ) : null}
                                 </div>
                                 <div className="flex flex-wrap items-center gap-3">
                                     <span className={`inline-flex rounded-full border px-3 py-2 text-sm font-semibold ${invoiceStatusClass}`}>
@@ -648,13 +843,15 @@ export const Main = () => {
                                     <span>Pagar fatura</span>
                                 </Button>
                                 <p className="text-sm text-[#64748B] dark:text-[#94A3BB]">
-                                    {activeFilter === 'year'
-                                        ? 'Selecione um mes para pagar a fatura deste cartao.'
-                                        : currentInvoiceAmount === 0
-                                            ? 'Nao ha lancamentos neste periodo para gerar uma fatura.'
-                                            : currentInvoicePayment
-                                                ? `Ultimo pagamento registrado em ${currentInvoicePayment.paidAt}.`
-                                                : 'Escolha a data do pagamento para registrar a fatura e gerar a despesa automaticamente.'}
+                                    {!hasCurrentCardBilling
+                                        ? 'Configure fechamento e vencimento para calcular e pagar esta fatura.'
+                                        : activeFilter === 'year'
+                                            ? 'Selecione um mes para pagar a fatura deste cartao.'
+                                            : currentInvoiceAmount === 0
+                                                ? 'Nao ha lancamentos neste periodo para gerar uma fatura.'
+                                                : currentInvoicePayment
+                                                    ? `Ultimo pagamento registrado em ${currentInvoicePayment.paidAt}.`
+                                                    : 'Escolha a data do pagamento para registrar a fatura e gerar a despesa automaticamente.'}
                                 </p>
                             </div>
                         </div>

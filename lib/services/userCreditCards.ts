@@ -3,6 +3,8 @@ import { getAuth } from 'firebase/auth'
 import { db } from '../firebase'
 import { CreditCardInvoicePayment, UserCreditCard } from '../entities/userCreditCard'
 import { Transaction } from '../entities/transaction'
+import { isValidBillingDay } from '../creditCards/billing'
+import { getCreditCardName } from '../creditCards/catalog'
 
 const auth = getAuth()
 
@@ -12,12 +14,25 @@ function getUserCreditCardCollection() {
   return collection(db, `users/${user.uid}/creditCards`)
 }
 
-export async function createUserCreditCard(bankKey: string): Promise<UserCreditCard> {
+export type UserCreditCardBillingDto = {
+  closingDay: number
+  dueDay: number
+}
+
+function assertValidBilling(data: UserCreditCardBillingDto): void {
+  if (!isValidBillingDay(data.closingDay) || !isValidBillingDay(data.dueDay)) {
+    throw new Error('Credit card billing days must be between 1 and 31')
+  }
+}
+
+export async function createUserCreditCard(bankKey: string, billing: UserCreditCardBillingDto): Promise<UserCreditCard> {
   const user = auth.currentUser
   if (!user) throw new Error("User not authenticated")
 
+  assertValidBilling(billing)
+
   const cardRef = doc(db, `users/${user.uid}/creditCards`, bankKey)
-  const data = { bankKey, invoices: {} }
+  const data = { bankKey, closingDay: billing.closingDay, dueDay: billing.dueDay, invoices: {} }
 
   await setDoc(cardRef, data)
 
@@ -35,6 +50,27 @@ export async function getUserCreditCards(): Promise<UserCreditCard[]> {
     id: cardDoc.id,
     ...cardDoc.data(),
   })) as UserCreditCard[]
+}
+
+export async function updateUserCreditCardBilling(bankKey: string, billing: UserCreditCardBillingDto): Promise<UserCreditCard> {
+  const user = auth.currentUser
+  if (!user) throw new Error("User not authenticated")
+
+  assertValidBilling(billing)
+
+  const cardRef = doc(db, `users/${user.uid}/creditCards`, bankKey)
+  const data = {
+    bankKey,
+    closingDay: billing.closingDay,
+    dueDay: billing.dueDay,
+  }
+
+  await setDoc(cardRef, data, { merge: true })
+
+  return {
+    id: cardRef.id,
+    ...data,
+  }
 }
 
 export async function deleteUserCreditCard(bankKey: string): Promise<void> {
@@ -70,7 +106,7 @@ export async function payCreditCardInvoice(data: PayCreditCardInvoiceDto): Promi
   }
 
   const transactionData: Omit<Transaction, 'id'> = {
-    description: `Fatura do cartao ${data.bankKey}`,
+    description: `Fatura do cartao ${getCreditCardName(data.bankKey)}`,
     date: data.paidAt,
     amount: -normalizedAmount,
     category: 'Credit Card',

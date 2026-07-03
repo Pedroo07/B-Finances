@@ -13,6 +13,7 @@ export type BillAccount = {
   installments?: number;
   currentInstallment?: number;
   creditCardId?: string;
+  creditCardInvoicePeriodKey?: string;
   createdAt: string;
 };
 

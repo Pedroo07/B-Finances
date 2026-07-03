@@ -1,8 +1,10 @@
-import { collection, doc, addDoc, deleteDoc, getDocs, updateDoc, writeBatch, setDoc } from 'firebase/firestore'
+import { collection, doc, addDoc, deleteDoc, getDocs, updateDoc, writeBatch, getDoc } from 'firebase/firestore'
 import { db } from '../firebase'
 import { BillAccount, BillAccountRecurrence } from '../entities/billAccount'
 import { getAuth } from 'firebase/auth'
-import { createTransaction, TransactionDto } from './transactions'
+import { TransactionDto } from './transactions'
+import { getInvoicePeriodKeyForDueDate, isValidBillingDay } from '../creditCards/billing'
+import { UserCreditCard } from '../entities/userCreditCard'
 
 const auth = getAuth()
 
@@ -15,9 +17,8 @@ export type BillAccountDto = {
   installments?: number
   currentInstallment?: number
   creditCardId?: string
+  creditCardInvoicePeriodKey?: string
 }
-
-const getInvoicePeriodKey = (year: number, month: number) => `${year}-${String(month).padStart(2, '0')}`
 
 function getUserBillAccountsCollection() {
   const user = auth.currentUser
@@ -92,9 +93,13 @@ export async function payBillAccount(id: string, paymentDate: string): Promise<B
   batch.update(billRef, { status: 'paid' })
 
   if (bill.creditCardId) {
-    const [year, month, day] = paymentDate.split('-').map(Number)
-    const periodKey = getInvoicePeriodKey(year, month)
     const cardRef = doc(db, `users/${user.uid}/creditCards`, bill.creditCardId)
+    const cardDoc = await getDoc(cardRef)
+    const cardData = cardDoc.exists() ? cardDoc.data() as UserCreditCard : null
+    const periodKey = bill.creditCardInvoicePeriodKey
+      ?? (cardData && isValidBillingDay(cardData.closingDay) && isValidBillingDay(cardData.dueDay)
+        ? getInvoicePeriodKeyForDueDate(bill.dueDate, cardData.closingDay, cardData.dueDay)
+        : paymentDate.slice(0, 7))
 
     batch.set(cardRef, {
       bankKey: bill.creditCardId,

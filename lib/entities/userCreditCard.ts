@@ -7,5 +7,7 @@ export type CreditCardInvoicePayment = {
 export type UserCreditCard = {
     id: string
     bankKey: string
+    closingDay?: number
+    dueDay?: number
     invoices?: Record<string, CreditCardInvoicePayment>
 }

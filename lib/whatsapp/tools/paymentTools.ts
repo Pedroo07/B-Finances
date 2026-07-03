@@ -33,6 +33,16 @@ export const payInvoiceTool: Tool<string> = {
       description: "Valor numerico pago na fatura.",
       required: true,
     },
+    {
+      name: "month",
+      description: "Mes numerico da competencia da fatura, de 1 a 12.",
+      required: false,
+    },
+    {
+      name: "year",
+      description: "Ano numerico da competencia da fatura.",
+      required: false,
+    },
   ],
   requiredParameters: ["card", "amount"],
   execute: ({ userId, parameters = {} }) =>

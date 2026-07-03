@@ -5,10 +5,28 @@ import {
 } from "@/lib/services/admin/billAccountsAdmin";
 import { payCardInvoice } from "@/lib/services/admin/userCreditCardsAdmin";
 
+type PaymentParameters = Record<string, unknown>;
+
+function getStringParameter(parameters: PaymentParameters, key: string): string | undefined {
+  const value = parameters[key];
+  return typeof value === "string" && value.trim() ? value : undefined;
+}
+
+function getNumberParameter(parameters: PaymentParameters, key: string): number | undefined {
+  const value = parameters[key];
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string") {
+    const parsed = Number(value.replace(",", "."));
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+
+  return undefined;
+}
+
 export async function handlePayment(
   userId: string,
   intent: IntentType,
-  parameters: Record<string, any>
+  parameters: PaymentParameters
 ): Promise<string> {
   try {
     if (intent === IntentType.PAY_BILL) {
@@ -28,9 +46,9 @@ export async function handlePayment(
 
 async function handleBillPayment(
   userId: string,
-  parameters: Record<string, any>
+  parameters: PaymentParameters
 ): Promise<string> {
-  const description = parameters.description;
+  const description = getStringParameter(parameters, "description");
 
   if (!description) {
     return "❌ Por favor, especifique qual conta você quer pagar (ex: 'pagar conta de luz').";
@@ -61,10 +79,10 @@ async function handleBillPayment(
 
 async function handleCardInvoicePayment(
   userId: string,
-  parameters: Record<string, any>
+  parameters: PaymentParameters
 ): Promise<string> {
-  const cardName = parameters.card;
-  const amount = parameters.amount;
+  const cardName = getStringParameter(parameters, "card");
+  const amount = getNumberParameter(parameters, "amount");
 
   if (!cardName) {
     return "❌ Por favor, especifique qual cartão você pagou (ex: 'paguei fatura do Nubank').";
@@ -76,7 +94,10 @@ async function handleCardInvoicePayment(
 
   const today = new Date().toISOString().split("T")[0];
 
-  await payCardInvoice(userId, cardName, amount, today);
+  await payCardInvoice(userId, cardName, amount, today, {
+    month: getNumberParameter(parameters, "month"),
+    year: getNumberParameter(parameters, "year"),
+  });
 
   return `✅ Pagamento da fatura do ${cardName} registrado!\n💰 Valor: R$ ${amount.toFixed(2)}`;
 }

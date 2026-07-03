@@ -18,13 +18,16 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { formatCurrency } from '@/lib/utils'
 import { UserCreditCard } from '@/lib/entities/userCreditCard'
 import { Transaction } from '@/lib/entities/transaction'
+import {
+  getInvoiceDueDate,
+  getInvoicePeriodKeyForDate,
+  isValidBillingDay,
+} from '@/lib/creditCards/billing'
 
 const getTodayDate = () => {
   const now = new Date()
   return now.toISOString().split('T')[0]
 }
-
-const getInvoicePeriodKey = (year: number, month: number) => `${year}-${String(month).padStart(2, '0')}`
 
 const getBillStatus = (bill: BillAccount): 'paid' | 'overdue' | 'due-soon' | 'pending' => {
   if (bill.status === 'paid') return 'paid'
@@ -97,6 +100,7 @@ export const Main: FC = () => {
   const [periodFilter, setPeriodFilter] = useState<'current' | 'next' | 'all' | 'custom'>('current')
   const [customMonth, setCustomMonth] = useState<string>('')
   const [showAddTransactionDialog, setShowAddTransactionDialog] = useState(false)
+  const [creditCardInvoicePeriodKey, setCreditCardInvoicePeriodKey] = useState('')
 
   const sortBillsByDate = (bills: BillAccount[]): BillAccount[] => {
     return [...bills].sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
@@ -221,40 +225,65 @@ export const Main: FC = () => {
     setInstallments(1)
     setDateError('')
     setCreditCardId('')
+    setCreditCardInvoicePeriodKey('')
   }
 
   const getCardsWithOpenInvoices = () => {
-    const currentYear = new Date().getFullYear()
-    const currentMonth = new Date().getMonth() + 1
-    const periodKey = getInvoicePeriodKey(currentYear, currentMonth)
+    const today = getTodayDate_YYYYMMDD()
 
     return userCards
       .map((card) => {
+        if (!isValidBillingDay(card.closingDay) || !isValidBillingDay(card.dueDay)) {
+          return null
+        }
+
+        const closingDay = card.closingDay
+        const dueDay = card.dueDay
         const cardName = BANKS[card.bankKey as BankKey]?.name
+        if (!cardName) return null
+
         const cardItems = cardTransactions.filter((t) => t.card === cardName)
-        const currentMonthItems = cardItems.filter((item) => {
-          const [year, month] = item.date.split('-').map(Number)
-          return year === currentYear && month === currentMonth
-        })
+        const totalsByPeriod = cardItems.reduce<Record<string, number>>((totals, item) => {
+          const itemPeriodKey = getInvoicePeriodKeyForDate(item.date, closingDay, dueDay)
+          totals[itemPeriodKey] = (totals[itemPeriodKey] || 0) + Math.abs(item.amount)
+          return totals
+        }, {})
 
-        const totalAmount = Math.abs(
-          currentMonthItems.reduce((acc, item) => acc + item.amount, 0)
-        )
+        const openInvoices = Object.entries(totalsByPeriod)
+          .map(([periodKey, totalAmount]) => {
+            const invoicePaidAmount = card.invoices?.[periodKey]?.amountPaid || 0
+            const invoiceAmount = totalAmount - invoicePaidAmount
 
-        const invoicePaidAmount = card.invoices?.[periodKey]?.amountPaid || 0
-        const isPaid = totalAmount > 0 && invoicePaidAmount >= totalAmount
-        const invoiceAmount = totalAmount - invoicePaidAmount
+            return {
+              card,
+              invoiceAmount,
+              isPaid: totalAmount > 0 && invoicePaidAmount >= totalAmount,
+              periodKey,
+              dueDate: getInvoiceDueDate(periodKey, closingDay, dueDay),
+            }
+          })
+          .filter(({ invoiceAmount, isPaid }) => invoiceAmount > 0 && !isPaid)
+          .sort((a, b) => a.dueDate.localeCompare(b.dueDate))
 
-        return { card, invoiceAmount, isPaid }
+        return openInvoices.find(({ dueDate }) => dueDate >= today) ?? openInvoices.at(-1) ?? null
       })
-      .filter(({ invoiceAmount, isPaid }) => invoiceAmount > 0 && !isPaid)
+      .filter((invoice): invoice is {
+        card: UserCreditCard
+        invoiceAmount: number
+        isPaid: boolean
+        periodKey: string
+        dueDate: string
+      } => invoice !== null)
   }
 
-  const handleSelectCardSuggestion = (card: UserCreditCard, invoiceAmount: number) => {
+  const handleSelectCardSuggestion = (card: UserCreditCard, invoiceAmount: number, periodKey: string, invoiceDueDate: string) => {
     const cardName = BANKS[card.bankKey as BankKey]?.name || card.bankKey
     setDescription(`Fatura do cartão ${cardName}`)
     setAmount(invoiceAmount)
     setCreditCardId(card.id)
+    setCreditCardInvoicePeriodKey(periodKey)
+    setDueDate(invoiceDueDate)
+    setDateError('')
     setIsDescriptionFocused(false)
   }
 
@@ -290,6 +319,7 @@ export const Main: FC = () => {
             currentInstallment: i,
             installments,
             ...(creditCardId && { creditCardId }),
+            ...(creditCardInvoicePeriodKey && { creditCardInvoicePeriodKey }),
           }
           const newBill = await createBillAccount(billData)
           setBills((prev) => sortBillsByDate([...prev, newBill]))
@@ -302,6 +332,7 @@ export const Main: FC = () => {
           status: 'pending',
           recurrence,
           ...(creditCardId && { creditCardId }),
+          ...(creditCardInvoicePeriodKey && { creditCardInvoicePeriodKey }),
         }
         const newBill = await createBillAccount(billData)
         setBills((prev) => sortBillsByDate([...prev, newBill]))
@@ -381,8 +412,11 @@ export const Main: FC = () => {
     setIsPaymentDialogOpen(true)
   }
 
-  const pendingBills = bills.filter((b) => b.status === 'pending')
-  const filterButtonClass = 'surface-chip inline-flex items-center px-4 py-2'
+  const handleRecurrenceChange = (value: string) => {
+    if (value === 'unique' || value === 'monthly' || value === 'installments') {
+      setRecurrence(value)
+    }
+  }
 
   return (
     <div className='mx-auto flex max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6'>
@@ -403,10 +437,10 @@ export const Main: FC = () => {
               />
               {isDescriptionFocused && getCardsWithOpenInvoices().length > 0 && (
                 <div className='absolute top-full left-0 right-0 z-10 mt-1 rounded-lg border border-border/60 bg-white shadow-lg dark:bg-slate-900'>
-                  {getCardsWithOpenInvoices().map(({ card, invoiceAmount }) => (
+                  {getCardsWithOpenInvoices().map(({ card, invoiceAmount, periodKey, dueDate }) => (
                     <button
                       key={card.id}
-                      onClick={() => handleSelectCardSuggestion(card, invoiceAmount)}
+                      onClick={() => handleSelectCardSuggestion(card, invoiceAmount, periodKey, dueDate)}
                       className='w-full px-3 py-1 text-left hover:bg-[#F8FAFC] dark:hover:bg-white/10 border-b border-border/30 last:border-b-0 transition-colors'>
                       <p className='text-sm text-[#0F172A] dark:text-white'>
                         Fatura do cartão {BANKS[card.bankKey as BankKey]?.name || card.bankKey}
@@ -432,7 +466,7 @@ export const Main: FC = () => {
               {dateError && <p className='mt-1 text-xs text-rose-500'>{dateError}</p>}
             </div>
 
-            <Select value={recurrence} onValueChange={(val) => setRecurrence(val as any)}>
+            <Select value={recurrence} onValueChange={handleRecurrenceChange}>
               <SelectTrigger className='w-full'>
                 <SelectValue placeholder='Tipo de recorrência' />
               </SelectTrigger>
