@@ -64,7 +64,7 @@ export async function clearPendingAction(phoneNumber: string): Promise<void> {
 }
 
 const LIMIT_WINDOW_MS = 60 * 1000;
-const MAX_MESSAGES_PER_WINDOW = 20;
+const MAX_MESSAGES_PER_WINDOW = 100;
 
 export async function checkRateLimit(phoneNumber: string): Promise<boolean> {
   const session = await getSession(phoneNumber);

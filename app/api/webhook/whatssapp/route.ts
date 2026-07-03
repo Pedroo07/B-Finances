@@ -11,15 +11,11 @@ import { sendWhatsAppMessage } from "@/lib/whatsapp";
 import { classifyIntent } from "@/lib/whatsapp/intents/intentClassifier";
 import { IntentType } from "@/lib/whatsapp/intents/intentTypes";
 
-import { handleAddTransaction } from "@/lib/whatsapp/handlers/addTransactionHandler";
-import { handleQuery } from "@/lib/whatsapp/handlers/queryHandler";
 import {
-  handleDelete,
-  confirmDelete,
-} from "@/lib/whatsapp/handlers/deleteHandler";
-import { handlePayment } from "@/lib/whatsapp/handlers/paymentHandler";
-import { handleInvestment } from "@/lib/whatsapp/handlers/investmentHandler";
-import { handleNotificationToggle } from "@/lib/whatsapp/handlers/notificationHandler";
+  confirmDeleteTool,
+  getToolForIntent,
+  type DeleteToolResult,
+} from "@/lib/whatsapp/tools";
 import { formatHelpMessage } from "@/lib/whatsapp/formatters/responseFormatter";
 
 import {
@@ -163,6 +159,15 @@ function buildHistoryString(
   return history.map((h) => `${h.role}: ${h.text}`).join("\n");
 }
 
+function isDeleteToolResult(result: unknown): result is DeleteToolResult {
+  return (
+    typeof result === "object" &&
+    result !== null &&
+    "message" in result &&
+    "needsConfirmation" in result
+  );
+}
+
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
 
@@ -272,7 +277,11 @@ export async function POST(req: Request) {
         pendingAction.type === "delete_transaction_multiple" ||
         pendingAction.type === "delete_card_transaction_multiple"
       ) {
-        const reply = await confirmDelete(userId, pendingAction, messageText);
+        const reply = await confirmDeleteTool.execute({
+          userId,
+          pendingAction,
+          confirmation: messageText,
+        });
         await clearPendingAction(fromPhoneNumber);
         await sendWhatsAppMessage(fromPhoneNumber, reply);
         await updateSessionHistory(fromPhoneNumber, "assistant", reply);
@@ -288,83 +297,33 @@ export async function POST(req: Request) {
 
     let reply = "";
 
-    switch (intentResult.intent) {
-      case IntentType.ADD_TRANSACTION: {
-        reply = await handleAddTransaction(
-          userId,
-          messageText,
-          conversationHistory,
-        );
-        break;
-      }
+    if (intentResult.intent === IntentType.HELP) {
+      reply = formatHelpMessage();
+    } else {
+      const tool = getToolForIntent(intentResult.intent);
 
-      case IntentType.QUERY_EXPENSES:
-      case IntentType.QUERY_INCOME:
-      case IntentType.QUERY_BALANCE:
-      case IntentType.QUERY_CARD_INVOICE:
-      case IntentType.QUERY_BILLS:
-      case IntentType.QUERY_INVESTMENTS: {
-        reply = await handleQuery(
-          userId,
-          intentResult.intent,
-          intentResult.parameters || {},
-        );
-        break;
-      }
-
-      case IntentType.DELETE_TRANSACTION:
-      case IntentType.DELETE_CARD_TRANSACTION: {
-        const result = await handleDelete(
-          userId,
-          intentResult.intent,
-          intentResult.parameters || {},
-          fromPhoneNumber,
-        );
-        reply = result.message;
-        if (result.needsConfirmation && result.pendingAction) {
-          await setPendingAction(fromPhoneNumber, result.pendingAction);
-        }
-        break;
-      }
-
-      case IntentType.PAY_BILL:
-      case IntentType.PAY_CARD_INVOICE: {
-        reply = await handlePayment(
-          userId,
-          intentResult.intent,
-          intentResult.parameters || {},
-        );
-        break;
-      }
-
-      case IntentType.ADD_INVESTMENT:
-      case IntentType.REDEEM_INVESTMENT: {
-        reply = await handleInvestment(
-          userId,
-          intentResult.intent,
-          intentResult.parameters || {},
-        );
-        break;
-      }
-
-      case IntentType.TOGGLE_NOTIFICATIONS: {
-        reply = await handleNotificationToggle(
-          userId,
-          intentResult.parameters || {},
-        );
-        break;
-      }
-
-      case IntentType.HELP: {
-        reply = formatHelpMessage();
-        break;
-      }
-
-      case IntentType.UNKNOWN:
-      default: {
+      if (!tool) {
         reply =
           "🤔 Não entendi muito bem o que você quis dizer. Você pode digitar *ajuda* para ver o que eu sei fazer.";
-        break;
+      } else {
+        const result = await tool.execute({
+          userId,
+          intent: intentResult.intent,
+          parameters: intentResult.parameters || {},
+          messageText,
+          conversationHistory,
+          phoneNumber: fromPhoneNumber,
+        });
+
+        if (isDeleteToolResult(result)) {
+          reply = result.message;
+
+          if (result.needsConfirmation && result.pendingAction) {
+            await setPendingAction(fromPhoneNumber, result.pendingAction);
+          }
+        } else {
+          reply = String(result);
+        }
       }
     }
 
