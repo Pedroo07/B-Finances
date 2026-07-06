@@ -87,6 +87,10 @@ function formatTransactionLine(
   index: number,
 ): string {
   const amount = item.type === "income" ? Math.abs(item.amount) : -Math.abs(item.amount);
+  if (item.source === "card_transaction") {
+    return `${index + 1}. ${formatDate(item.date)} - ${item.description} - ${formatCurrency(amount)} - ${translateCategory(item.category)}`;
+  }
+
   return `${index + 1}. ${formatDate(item.date)} - ${item.description} - ${formatCurrency(amount)} - ${translateCategory(item.category)} - ${getOrigin(item)}`;
 }
 

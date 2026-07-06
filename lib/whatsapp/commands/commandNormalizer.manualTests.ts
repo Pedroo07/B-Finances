@@ -549,6 +549,93 @@ export const manualCommandNormalizerCases: ManualCase[] = [
       note: "Historico completo do cartao deve manter periodo all explicito.",
     },
   },
+  {
+    id: 28,
+    message: "Liste os gastos da fatura do cartão nubank",
+    inputCommand: {
+      action: "query",
+      resource: "invoice",
+      operation: "detail",
+      transactionType: "expense",
+      confidence: 0.9,
+    },
+    expected: {
+      resource: "card_transaction",
+      operation: "list",
+      transactionType: "expense",
+      period: {
+        type: "current_invoice",
+      },
+      scope: {
+        includeNormalTransactions: false,
+        includeCardTransactions: true,
+        cardName: "Nubank",
+      },
+      filters: {
+        description: undefined,
+      },
+      note: "Pedido de gastos da fatura deve listar compras, nao valor total da fatura.",
+    },
+  },
+  {
+    id: 29,
+    message: "quais sao meus gastos do cartão nubank",
+    inputCommand: baseQueryCommand(),
+    expected: {
+      resource: "card_transaction",
+      transactionType: "expense",
+      scope: {
+        includeNormalTransactions: false,
+        includeCardTransactions: true,
+        cardName: "Nubank",
+      },
+      filters: {
+        description: undefined,
+      },
+      note: "Gastos do cartao sem periodo deve chegar sem descricao falsa; executor usa fatura atual.",
+    },
+  },
+  {
+    id: 30,
+    message: "Quais gastos com o cartão inter na semana passada?",
+    inputCommand: baseQueryCommand(),
+    expected: {
+      resource: "card_transaction",
+      transactionType: "expense",
+      period: {
+        type: "last_week",
+        startDate: "2026-06-21",
+        endDate: "2026-06-27",
+      },
+      scope: {
+        includeNormalTransactions: false,
+        includeCardTransactions: true,
+        cardName: "Inter",
+      },
+      filters: {
+        description: undefined,
+      },
+      note: "Cartao Inter na semana passada nao deve filtrar descricao por 'inter'.",
+    },
+  },
+  {
+    id: 31,
+    message: "Quais meus ultimos gastos com o cartao inter?",
+    inputCommand: baseQueryCommand(),
+    expected: {
+      resource: "card_transaction",
+      transactionType: "expense",
+      scope: {
+        includeNormalTransactions: false,
+        includeCardTransactions: true,
+        cardName: "Inter",
+      },
+      filters: {
+        description: undefined,
+      },
+      note: "Ultimos gastos com cartao Inter deve listar compras do cartao sem descricao falsa.",
+    },
+  },
 ];
 
 export function normalizeForManualTest(

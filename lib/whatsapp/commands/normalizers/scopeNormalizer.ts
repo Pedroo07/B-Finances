@@ -112,6 +112,14 @@ function isSummaryRequest(normalized: string, command: BFinanceCommand): boolean
   );
 }
 
+function isCardExpenseListRequest(normalized: string): boolean {
+  return hasAny(normalized, [
+    /\b(list[ae]?|listar|mostre|mostrar)\b/,
+    /\bquais\b/,
+    /\b(gastos?|despesas?|compras?|itens?|lancamentos?|transacoes?)\b/,
+  ]);
+}
+
 function messageLooksLikeContinuation(normalized: string): boolean {
   return (
     /^(agora|so|somente|apenas|tambem|e|ordene|ordenar|filtra|filtre)\b/.test(
@@ -177,6 +185,7 @@ export function normalizeCommandScope(
   );
   const isContinuation = messageLooksLikeContinuation(normalized);
   const summaryRequest = isSummaryRequest(normalized, command);
+  const cardExpenseListRequest = isCardExpenseListRequest(normalized);
 
   let scope: BFinanceScope =
     isContinuation && context.previousCommand?.scope
@@ -272,19 +281,39 @@ export function normalizeCommandScope(
     };
   }
 
+  let resource = command.resource;
+  if (
+    command.action === "query" &&
+    command.resource === "invoice" &&
+    cardExpenseListRequest
+  ) {
+    resource = "card_transaction";
+  } else if (
+    scope.includeCardTransactions &&
+    !scope.includeNormalTransactions &&
+    command.resource === "transaction" &&
+    positiveCardMention
+  ) {
+    resource = "card_transaction";
+  } else if (
+    command.resource === "card_transaction" &&
+    !positiveCardMention &&
+    !paymentMethod
+  ) {
+    resource = "transaction";
+  }
+
   return {
     ...command,
-    resource:
-      scope.includeCardTransactions &&
-      !scope.includeNormalTransactions &&
-      command.resource === "transaction" &&
-      positiveCardMention
-        ? "card_transaction"
-        : command.resource === "card_transaction" &&
-            !positiveCardMention &&
-            !paymentMethod
-          ? "transaction"
-          : command.resource,
+    resource,
+    operation:
+      resource === "card_transaction" && cardExpenseListRequest
+        ? "list"
+        : command.operation,
+    transactionType:
+      resource === "card_transaction" && cardExpenseListRequest
+        ? "expense"
+        : command.transactionType,
     scope,
     data: command.data
       ? {

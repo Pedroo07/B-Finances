@@ -412,7 +412,8 @@ REGRAS:
 - Para "resumo financeiro", "como foi meu mes", "balanco", "minhas financas": action query, resource summary, operation summary.
 - Para "estou gastando muito?", "analise minhas financas", "consultoria financeira" ou "onde posso economizar?": action query, resource summary, operation summary ou detail. Nao responda como consultor.
 - Para "com qual categoria gastei mais?", "qual categoria cresceu mais?", "maiores categorias": action query, resource transaction, operation ranking.
-- Para "fatura do Nubank": action query, resource invoice, operation detail, scope de cartao.
+- Para "fatura do Nubank" ou "quanto esta a fatura": action query, resource invoice, operation detail, scope de cartao.
+- Para "liste os gastos da fatura", "quais gastos do cartao" ou "compras do cartao": action query, resource card_transaction, operation list, transactionType expense.
 - Para "gastos do cartao" sem periodo, use period all/isExplicit false; a normalizacao/executor aplicara fatura atual.
 - Para "todo historico do cartao", use period all/isExplicit true.
 - Para "proxima semana", "ultima semana", "ultimos 10 dias" ou "de 01/06 ate 15/06", preencha o periodo quando souber; a normalizacao deterministica corrigira datas finais.
@@ -435,6 +436,7 @@ EXEMPLOS:
 "ultimos 5 gastos" => query transaction list expense, limit 5
 "gastos no inter" => query transaction list expense, cardName Inter
 "compras do nubank" => query transaction list expense, cardName Nubank
+"liste os gastos da fatura do nubank" => query card_transaction list expense, cardName Nubank, current_invoice
 "despesas sem cartao" => query transaction list expense, exclude card
 "so pix" => query transaction list all, paymentMethod pix
 "gastos com comida" => query transaction list expense, category foods

@@ -38,6 +38,17 @@ const CATEGORY_ALIASES: Array<{ category: string; terms: string[] }> = [
   },
 ];
 
+const CARD_DESCRIPTION_TERMS = [
+  "nubank",
+  "inter",
+  "picpay",
+  "pic pay",
+  "bb",
+  "c6",
+  "mercado pago",
+  "bradesco",
+];
+
 function normalizeText(value: string): string {
   return value
     .normalize("NFD")
@@ -166,13 +177,26 @@ function extractDescription(normalized: string): string | null {
 
   if (!match) return null;
 
-  const description = match[1]
+  const rawDescription = match[1].trim();
+
+  if (/\b(cartao|credito|fatura)\b/.test(rawDescription)) {
+    return null;
+  }
+
+  const description = rawDescription
     .replace(
-      /\b(mes|passado|passada|este|esse|atual|hoje|ontem|ultimos?|dias?|ano|semana|cartao|credito|pix|debito|dinheiro)\b/g,
+      /\b(o|a|os|as|mes|passado|passada|este|esse|atual|hoje|ontem|ultimos?|dias?|ano|semana|cartao|credito|fatura|pix|debito|dinheiro)\b/g,
       " ",
     )
     .replace(/\s+/g, " ")
     .trim();
+
+  if (
+    CARD_DESCRIPTION_TERMS.some((term) => description === term) ||
+    /\b(cartao|credito|fatura)\b/.test(description)
+  ) {
+    return null;
+  }
 
   return description.length > 1 ? description : null;
 }
