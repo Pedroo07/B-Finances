@@ -183,6 +183,14 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+function formatResetTime(date: Date): string {
+  return date.toLocaleTimeString("pt-BR", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "America/Sao_Paulo",
+  });
+}
+
 function getPreviousBFinanceCommand(
   shortTermMemory?: ShortTermMemorySnapshot | null,
 ): BFinanceCommand | null {
@@ -200,6 +208,132 @@ function getPreviousBFinanceCommand(
   return null;
 }
 
+function getCardSelectionOptions(
+  pendingAction: { type?: string; [key: string]: unknown },
+): Array<{ index: number; cardName: string }> {
+  if (pendingAction.type !== "select_card_for_query") return [];
+  if (!Array.isArray(pendingAction.cards)) return [];
+
+  return pendingAction.cards.flatMap((card) => {
+    if (!isRecord(card)) return [];
+    const index = typeof card.index === "number" ? card.index : null;
+    const cardName = typeof card.cardName === "string" ? card.cardName : null;
+    return index && cardName ? [{ index, cardName }] : [];
+  });
+}
+
+function resolveCardSelection(
+  messageText: string,
+  options: Array<{ index: number; cardName: string }>,
+): string | null {
+  const normalized = normalizeFreeText(messageText)
+    .replace(/^#/, "")
+    .replace(/[^a-z0-9]/g, "");
+  const selectedIndex = Number(normalized);
+
+  if (Number.isInteger(selectedIndex)) {
+    return (
+      options.find((option) => option.index === selectedIndex)?.cardName ?? null
+    );
+  }
+
+  return (
+    options.find(
+      (option) =>
+        normalizeFreeText(option.cardName).replace(/[^a-z0-9]/g, "") ===
+        normalized,
+    )?.cardName ?? null
+  );
+}
+
+function commandWithSelectedCard(
+  command: BFinanceCommand,
+  cardName: string,
+): BFinanceCommand {
+  return {
+    ...command,
+    resource: "card_transaction",
+    scope: {
+      ...(command.scope ?? {
+        includeNormalTransactions: false,
+        includeCardTransactions: true,
+      }),
+      includeNormalTransactions: false,
+      includeCardTransactions: true,
+      cardName,
+      excludeCardTransactions: false,
+      paymentMethod: "credit_card",
+      excludePaymentMethod: null,
+    },
+    data: command.data
+      ? {
+          ...command.data,
+          cardName: command.data.cardName ?? cardName,
+          paymentMethod: command.data.paymentMethod ?? "credit_card",
+        }
+      : command.data,
+  };
+}
+
+async function handleCardSelectionPendingAction(
+  pendingAction: { type?: string; [key: string]: unknown },
+  userId: string,
+  fromPhoneNumber: string,
+  messageText: string,
+): Promise<boolean> {
+  const options = getCardSelectionOptions(pendingAction);
+  const command = isRecord(pendingAction.command)
+    ? (pendingAction.command as BFinanceCommand)
+    : null;
+
+  if (!command || options.length === 0) {
+    await clearPendingAction(fromPhoneNumber);
+    return false;
+  }
+
+  const selectedCard = resolveCardSelection(messageText, options);
+
+  if (!selectedCard) {
+    const reply = [
+      "Nao encontrei esse cartao na lista. Responda com o numero ou o nome do cartao:",
+      "",
+      ...options.map((option) => `${option.index}. ${option.cardName}`),
+    ].join("\n");
+    await sendWhatsAppMessage(fromPhoneNumber, reply);
+    await updateSessionHistory(fromPhoneNumber, "assistant", reply);
+    return true;
+  }
+
+  const selectedCommand = commandWithSelectedCard(command, selectedCard);
+  const commandResult = await executeBFinanceCommand({
+    userId,
+    command: selectedCommand,
+    messageText,
+    phoneNumber: fromPhoneNumber,
+  });
+
+  if (
+    commandResult.success &&
+    commandResult.kind === "ready_message" &&
+    commandResult.pendingAction
+  ) {
+    await setPendingAction(fromPhoneNumber, commandResult.pendingAction);
+  } else {
+    await clearPendingAction(fromPhoneNumber);
+  }
+
+  const reply = formatBFinanceResponse(commandResult);
+  await sendWhatsAppMessage(fromPhoneNumber, reply);
+  rememberShortTermTopic(fromPhoneNumber, {
+    toolName: "bfinance_command",
+    parameters: { command: selectedCommand },
+    userMessage: messageText,
+    assistantReply: reply,
+  });
+  await updateSessionHistory(fromPhoneNumber, "assistant", reply);
+  return true;
+}
+
 async function handlePendingActionIfApplicable(
   pendingAction: { type?: string; [key: string]: unknown },
   userId: string,
@@ -212,6 +346,15 @@ async function handlePendingActionIfApplicable(
     await sendWhatsAppMessage(fromPhoneNumber, reply);
     await updateSessionHistory(fromPhoneNumber, "assistant", reply);
     return true;
+  }
+
+  if (pendingAction.type === "select_card_for_query") {
+    return await handleCardSelectionPendingAction(
+      pendingAction,
+      userId,
+      fromPhoneNumber,
+      messageText,
+    );
   }
 
   if (!isPendingActionResponse(messageText)) {
@@ -299,11 +442,11 @@ export async function POST(req: Request) {
       });
     }
 
-    const allowed = await checkRateLimit(fromPhoneNumber);
-    if (!allowed) {
+    const rateLimit = await checkRateLimit(fromPhoneNumber);
+    if (!rateLimit.allowed) {
       await sendWhatsAppMessage(
         fromPhoneNumber,
-        "Aguarde: voce esta enviando mensagens muito rapidamente.",
+        `Voce atingiu o limite de ${rateLimit.limit} mensagens por hora. Tente novamente apos ${formatResetTime(rateLimit.resetAt)}.`,
       );
       return NextResponse.json({ status: "rate_limited" });
     }
@@ -414,4 +557,3 @@ export async function POST(req: Request) {
     return NextResponse.json({ status: "error" }, { status: 500 });
   }
 }
-

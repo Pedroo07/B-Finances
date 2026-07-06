@@ -32,13 +32,16 @@ export type BFinancePeriodType =
   | "yesterday"
   | "current_week"
   | "last_week"
+  | "next_week"
   | "current_month"
   | "last_month"
   | "current_year"
   | "last_year"
   | "specific_month"
   | "specific_year"
-  | "last_n_days";
+  | "last_n_days"
+  | "date_range"
+  | "current_invoice";
 
 export type BFinancePaymentMethod = "cash" | "pix" | "debit" | "credit_card";
 

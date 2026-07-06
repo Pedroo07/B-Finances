@@ -50,9 +50,7 @@ function endOfMonth(year: number, month: number): Date {
 }
 
 function startOfWeek(date: Date): Date {
-  const day = date.getDay();
-  const diffToMonday = day === 0 ? -6 : 1 - day;
-  return addDays(date, diffToMonday);
+  return addDays(date, -date.getDay());
 }
 
 function fullMonthPeriod(
@@ -105,19 +103,43 @@ function allPeriod(raw: string | null = null, isExplicit = false): BFinancePerio
   };
 }
 
+function currentInvoicePeriod(
+  raw: string | null = "fatura atual",
+  isExplicit = true,
+): BFinancePeriod {
+  return {
+    raw,
+    type: "current_invoice",
+    startDate: null,
+    endDate: null,
+    month: null,
+    year: null,
+    days: null,
+    isExplicit,
+  };
+}
+
 function hasExplicitPeriod(normalized: string): boolean {
   return (
     /\b(hoje|ontem|anteontem)\b/.test(normalized) ||
-    /\b(essa|esta|atual|passad[oa]|ultim[oa]s?)\s+(semana|mes|ano|dias?)\b/.test(
+    /\b(essa|esta|atual|passad[oa]|proxim[oa]|ultim[oa]s?)\s+(semana|mes|ano|dias?)\b/.test(
       normalized,
     ) ||
     /\b(mes|ano)\s+(passad[oa]|atual)\b/.test(normalized) ||
     /\b(ano todo|este ano|esse ano)\b/.test(normalized) ||
+    /\b(fatura atual|fatura aberta|compras da fatura|gastos da fatura)\b/.test(normalized) ||
+    /\b(todo o historico|historico completo|todo o periodo|periodo todo|desde o inicio|desde o comeco)\b/.test(normalized) ||
     /\bem\s+\d{4}\b/.test(normalized) ||
     /\b\d{1,2}[/-]\d{1,2}(?:[/-]\d{2,4})?\b/.test(normalized) ||
     MONTHS.some(({ names }) =>
       names.some((name) => new RegExp(`\\b${name}\\b`).test(normalized)),
     )
+  );
+}
+
+function hasAllHistoryRequest(normalized: string): boolean {
+  return /\b(todo o historico|historico completo|todo o periodo|periodo todo|desde o inicio|desde o comeco)\b/.test(
+    normalized,
   );
 }
 
@@ -167,17 +189,16 @@ function extractMonth(normalized: string): number | undefined {
   )?.month;
 }
 
-function explicitDatePeriod(
-  normalized: string,
+function parseExplicitDate(
+  dayText: string,
+  monthText: string,
+  yearText: string | undefined,
   currentDate: Date,
-): BFinancePeriod | null {
-  const match = normalized.match(/\b(\d{1,2})[/-](\d{1,2})(?:[/-](\d{2,4}))?\b/);
-  if (!match) return null;
-
-  const day = Number(match[1]);
-  const month = Number(match[2]);
-  const year = match[3]
-    ? Number(match[3].length === 2 ? `20${match[3]}` : match[3])
+): Date | null {
+  const day = Number(dayText);
+  const month = Number(monthText);
+  const year = yearText
+    ? Number(yearText.length === 2 ? `20${yearText}` : yearText)
     : currentDate.getFullYear();
   const date = new Date(year, month - 1, day);
 
@@ -189,14 +210,68 @@ function explicitDatePeriod(
     return null;
   }
 
+  return date;
+}
+
+function explicitDateRangePeriod(
+  normalized: string,
+  currentDate: Date,
+): BFinancePeriod | null {
+  const match =
+    normalized.match(
+      /\b(?:de|da data|do dia)?\s*(\d{1,2})[/-](\d{1,2})(?:[/-](\d{2,4}))?\s+(?:ate|a|ao)\s+(?:a\s+data\s+)?(\d{1,2})[/-](\d{1,2})(?:[/-](\d{2,4}))?\b/,
+    ) ||
+    normalized.match(
+      /\b(\d{1,2})[/-](\d{1,2})(?:[/-](\d{2,4}))?\s+(?:ate|a|ao)\s+(\d{1,2})[/-](\d{1,2})(?:[/-](\d{2,4}))?\b/,
+    );
+
+  if (!match) return null;
+
+  const start = parseExplicitDate(match[1], match[2], match[3], currentDate);
+  const end = parseExplicitDate(
+    match[4],
+    match[5],
+    match[6] ?? match[3],
+    currentDate,
+  );
+
+  if (!start || !end) return null;
+
+  const startText = formatDate(start);
+  const endText = formatDate(end);
+  const orderedStart = startText <= endText ? startText : endText;
+  const orderedEnd = startText <= endText ? endText : startText;
+
+  return {
+    raw: match[0],
+    type: "date_range",
+    startDate: orderedStart,
+    endDate: orderedEnd,
+    month: null,
+    year: null,
+    days: null,
+    isExplicit: true,
+  };
+}
+
+function explicitDatePeriod(
+  normalized: string,
+  currentDate: Date,
+): BFinancePeriod | null {
+  const match = normalized.match(/\b(\d{1,2})[/-](\d{1,2})(?:[/-](\d{2,4}))?\b/);
+  if (!match) return null;
+
+  const date = parseExplicitDate(match[1], match[2], match[3], currentDate);
+  if (!date) return null;
+
   const dateText = formatDate(date);
   return {
     raw: match[0],
     type: "today",
     startDate: dateText,
     endDate: dateText,
-    month,
-    year,
+    month: date.getMonth() + 1,
+    year: date.getFullYear(),
     days: null,
     isExplicit: true,
   };
@@ -207,6 +282,17 @@ function inferPeriodFromMessage(
   currentDate: Date,
 ): BFinancePeriod | null {
   const normalized = normalizeText(messageText);
+  if (hasAllHistoryRequest(normalized)) {
+    return allPeriod("todo o historico", true);
+  }
+
+  if (/\b(fatura atual|fatura aberta|compras da fatura|gastos da fatura)\b/.test(normalized)) {
+    return currentInvoicePeriod();
+  }
+
+  const dateRangePeriod = explicitDateRangePeriod(normalized, currentDate);
+  if (dateRangePeriod) return dateRangePeriod;
+
   const datePeriod = explicitDatePeriod(normalized, currentDate);
   if (datePeriod) return datePeriod;
 
@@ -290,7 +376,7 @@ function inferPeriodFromMessage(
     );
   }
 
-  if (/\bsemana\s+passad[oa]\b/.test(normalized)) {
+  if (/\b(semana\s+passad[oa]|ultima\s+semana)\b/.test(normalized)) {
     const thisWeekStart = startOfWeek(currentDate);
     const lastWeekStart = addDays(thisWeekStart, -7);
     return {
@@ -305,7 +391,22 @@ function inferPeriodFromMessage(
     };
   }
 
-  if (/\b(essa semana|esta semana|semana atual)\b/.test(normalized)) {
+  if (/\b(proxima\s+semana|semana\s+que\s+vem)\b/.test(normalized)) {
+    const thisWeekStart = startOfWeek(currentDate);
+    const nextWeekStart = addDays(thisWeekStart, 7);
+    return {
+      raw: "proxima semana",
+      type: "next_week",
+      startDate: formatDate(nextWeekStart),
+      endDate: formatDate(addDays(nextWeekStart, 6)),
+      month: null,
+      year: null,
+      days: null,
+      isExplicit: true,
+    };
+  }
+
+  if (/\b(essa semana|esta semana|semana atual|dessa semana|da semana)\b/.test(normalized)) {
     const thisWeekStart = startOfWeek(currentDate);
     return {
       raw: "esta semana",
@@ -469,6 +570,32 @@ function normalizeExistingPeriod(
         isExplicit: period.isExplicit,
       };
     }
+    case "next_week": {
+      const thisWeekStart = startOfWeek(currentDate);
+      const nextWeekStart = addDays(thisWeekStart, 7);
+      return {
+        raw: period.raw ?? "proxima semana",
+        type: "next_week",
+        startDate: formatDate(nextWeekStart),
+        endDate: formatDate(addDays(nextWeekStart, 6)),
+        month: null,
+        year: null,
+        days: null,
+        isExplicit: period.isExplicit,
+      };
+    }
+    case "date_range":
+      return {
+        ...period,
+        startDate: period.startDate ?? null,
+        endDate: period.endDate ?? null,
+        month: null,
+        year: null,
+        days: null,
+        isExplicit: Boolean(period.isExplicit),
+      };
+    case "current_invoice":
+      return currentInvoicePeriod(period.raw ?? "fatura atual", period.isExplicit);
     case "all":
       return {
         ...period,

@@ -73,6 +73,7 @@ const PERIOD_TYPES = new Set<BFinancePeriodType>([
   "yesterday",
   "current_week",
   "last_week",
+  "next_week",
   "current_month",
   "last_month",
   "current_year",
@@ -80,6 +81,8 @@ const PERIOD_TYPES = new Set<BFinancePeriodType>([
   "specific_month",
   "specific_year",
   "last_n_days",
+  "date_range",
+  "current_invoice",
 ]);
 
 const PAYMENT_METHODS = new Set<BFinancePaymentMethod>([
@@ -360,7 +363,7 @@ CONTRATO DE SAIDA:
   "transactionType": "expense" | "income" | "all",
   "period": {
     "raw": string | null,
-    "type": "all" | "today" | "yesterday" | "current_week" | "last_week" | "current_month" | "last_month" | "current_year" | "last_year" | "specific_month" | "specific_year" | "last_n_days",
+    "type": "all" | "today" | "yesterday" | "current_week" | "last_week" | "next_week" | "current_month" | "last_month" | "current_year" | "last_year" | "specific_month" | "specific_year" | "last_n_days" | "date_range" | "current_invoice",
     "startDate": string | null,
     "endDate": string | null,
     "month": number | null,
@@ -410,6 +413,9 @@ REGRAS:
 - Para "estou gastando muito?", "analise minhas financas", "consultoria financeira" ou "onde posso economizar?": action query, resource summary, operation summary ou detail. Nao responda como consultor.
 - Para "com qual categoria gastei mais?", "qual categoria cresceu mais?", "maiores categorias": action query, resource transaction, operation ranking.
 - Para "fatura do Nubank": action query, resource invoice, operation detail, scope de cartao.
+- Para "gastos do cartao" sem periodo, use period all/isExplicit false; a normalizacao/executor aplicara fatura atual.
+- Para "todo historico do cartao", use period all/isExplicit true.
+- Para "proxima semana", "ultima semana", "ultimos 10 dias" ou "de 01/06 ate 15/06", preencha o periodo quando souber; a normalizacao deterministica corrigira datas finais.
 - Para "contas a pagar": action query, resource bill, operation list.
 - Para "investimentos": action query, resource investment, operation summary.
 - Para "gastei 50 conto no lanche": action create, resource transaction, transactionType expense, data preenchido.

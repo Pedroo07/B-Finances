@@ -47,6 +47,7 @@ function formatDate(date: string): string {
 
 function formatPeriod(period: BFinancePeriod): string {
   if (period.type === "all") return "todo o periodo";
+  if (period.type === "current_invoice" && !period.startDate) return "fatura atual";
   if (period.type === "today") return "hoje";
   if (period.type === "yesterday") return "ontem";
 

@@ -426,6 +426,129 @@ export const manualCommandNormalizerCases: ManualCase[] = [
       note: "Despesa filtrada por descricao/categoria mercado no mes passado.",
     },
   },
+  {
+    id: 21,
+    message: "Quero meus gastos com cartao da ultima semana",
+    inputCommand: baseQueryCommand(),
+    expected: {
+      resource: "card_transaction",
+      period: {
+        type: "last_week",
+        startDate: "2026-06-21",
+        endDate: "2026-06-27",
+      },
+      scope: {
+        includeNormalTransactions: false,
+        includeCardTransactions: true,
+      },
+      note: "Semana deve ir de domingo a sabado e escopo deve ser apenas cartao.",
+    },
+  },
+  {
+    id: 22,
+    message: "Quero meus gastos com o cartao inter dos ultimos 10 dias",
+    inputCommand: baseQueryCommand(),
+    expected: {
+      resource: "card_transaction",
+      period: {
+        type: "last_n_days",
+        startDate: "2026-06-24",
+        endDate: "2026-07-03",
+        days: 10,
+      },
+      scope: {
+        includeNormalTransactions: false,
+        includeCardTransactions: true,
+        cardName: "Inter",
+      },
+      note: "Ultimos N dias com filtro de cartao especifico.",
+    },
+  },
+  {
+    id: 23,
+    message: "Quero todos meus gastos da ultima semana",
+    inputCommand: baseQueryCommand(),
+    expected: {
+      period: {
+        type: "last_week",
+        startDate: "2026-06-21",
+        endDate: "2026-06-27",
+      },
+      scope: {
+        includeNormalTransactions: true,
+        includeCardTransactions: true,
+      },
+      note: "Todos os gastos da semana inclui transacoes normais e cartao.",
+    },
+  },
+  {
+    id: 24,
+    message: "Quero minhas contas da proxima semana",
+    inputCommand: {
+      action: "query",
+      resource: "bill",
+      operation: "list",
+      confidence: 0.9,
+    },
+    expected: {
+      resource: "bill",
+      period: {
+        type: "next_week",
+        startDate: "2026-07-05",
+        endDate: "2026-07-11",
+      },
+      note: "Contas da proxima semana filtram dueDate no executor.",
+    },
+  },
+  {
+    id: 25,
+    message: "Me de os gastos da data 01/06 ate a data 15/06",
+    inputCommand: baseQueryCommand(),
+    expected: {
+      period: {
+        type: "date_range",
+        startDate: "2026-06-01",
+        endDate: "2026-06-15",
+      },
+      note: "Intervalo explicito deve preencher startDate e endDate.",
+    },
+  },
+  {
+    id: 26,
+    message: "Liste os gastos do meu cartao",
+    inputCommand: baseQueryCommand(),
+    expected: {
+      resource: "card_transaction",
+      period: {
+        type: "all",
+        isExplicit: false,
+      },
+      scope: {
+        includeNormalTransactions: false,
+        includeCardTransactions: true,
+        cardName: null,
+      },
+      note: "Executor deve trocar para fatura atual ou perguntar cartao conforme os cartoes do usuario.",
+    },
+  },
+  {
+    id: 27,
+    message: "Me de todo o historico do cartao Inter",
+    inputCommand: baseQueryCommand(),
+    expected: {
+      resource: "card_transaction",
+      period: {
+        type: "all",
+        isExplicit: true,
+      },
+      scope: {
+        includeNormalTransactions: false,
+        includeCardTransactions: true,
+        cardName: "Inter",
+      },
+      note: "Historico completo do cartao deve manter periodo all explicito.",
+    },
+  },
 ];
 
 export function normalizeForManualTest(
@@ -512,4 +635,3 @@ export function runManualCommandNormalizerChecks(): string[] {
     return failures.map((failure) => `Caso ${testCase.id}: ${failure}`);
   });
 }
-

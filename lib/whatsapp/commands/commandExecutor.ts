@@ -17,6 +17,10 @@ import {
 import {
   getAllCardInvoices,
   getCardInvoiceAmount,
+  getCurrentCardInvoiceTransactions,
+  getUserCreditCards,
+  type CardInvoiceTransactionsResult,
+  type UserCreditCard,
 } from "@/lib/services/admin/userCreditCardsAdmin";
 import {
   getInvestments,
@@ -52,6 +56,13 @@ type TransactionQueryResult = {
   totals: CommandTotals;
 };
 
+type PreparedTransactionQuery = {
+  command: BFinanceCommand;
+  period: BFinancePeriod;
+  result: TransactionQueryResult;
+  title?: string;
+};
+
 function normalizeText(value: string): string {
   return value
     .normalize("NFD")
@@ -65,6 +76,12 @@ function formatDate(date: Date): string {
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
+}
+
+function formatDisplayDate(date: string): string {
+  const [year, month, day] = date.split("-");
+  if (!year || !month || !day) return date;
+  return `${day}/${month}/${year}`;
 }
 
 function defaultPeriod(): BFinancePeriod {
@@ -91,12 +108,139 @@ function defaultScope(): BFinanceScope {
   };
 }
 
+function currentInvoicePeriod(): BFinancePeriod {
+  return {
+    raw: "fatura atual",
+    type: "current_invoice",
+    startDate: null,
+    endDate: null,
+    month: null,
+    year: null,
+    days: null,
+    isExplicit: false,
+  };
+}
+
 function getCommandPeriod(command: BFinanceCommand): BFinancePeriod {
   return command.period ?? defaultPeriod();
 }
 
 function getCommandScope(command: BFinanceCommand): BFinanceScope {
   return command.scope ?? defaultScope();
+}
+
+function isCardOnlyQuery(command: BFinanceCommand): boolean {
+  const scope = getCommandScope(command);
+  return (
+    command.action === "query" &&
+    (command.resource === "transaction" ||
+      command.resource === "card_transaction") &&
+    scope.includeCardTransactions &&
+    !scope.includeNormalTransactions &&
+    !scope.excludeCardTransactions
+  );
+}
+
+function cardDisplayName(card: UserCreditCard): string {
+  return getCreditCardName(card.bankKey ?? card.id);
+}
+
+function withSelectedCard(
+  command: BFinanceCommand,
+  cardName: string,
+): BFinanceCommand {
+  const scope = getCommandScope(command);
+
+  return {
+    ...command,
+    resource: "card_transaction",
+    scope: {
+      ...scope,
+      includeNormalTransactions: false,
+      includeCardTransactions: true,
+      cardName,
+      excludeCardTransactions: false,
+      paymentMethod: "credit_card",
+      excludePaymentMethod: null,
+    },
+    data: command.data
+      ? {
+          ...command.data,
+          cardName: command.data.cardName ?? cardName,
+          paymentMethod: command.data.paymentMethod ?? "credit_card",
+        }
+      : command.data,
+  };
+}
+
+function withDefaultCurrentInvoice(command: BFinanceCommand): BFinanceCommand {
+  const period = getCommandPeriod(command);
+
+  if (!isCardOnlyQuery(command) || period.type !== "all" || period.isExplicit) {
+    return command;
+  }
+
+  return {
+    ...command,
+    period: currentInvoicePeriod(),
+  };
+}
+
+function buildCardSelectionMessage(cardNames: string[]): string {
+  return [
+    "Qual cartao voce quer consultar?",
+    "",
+    ...cardNames.map((cardName, index) => `${index + 1}. ${cardName}`),
+  ].join("\n");
+}
+
+async function prepareCardQueryCommand(
+  userId: string,
+  command: BFinanceCommand,
+): Promise<{ command: BFinanceCommand } | { result: BFinanceCommandResult }> {
+  const scope = getCommandScope(command);
+
+  if (!isCardOnlyQuery(command) || scope.cardName) {
+    return { command: withDefaultCurrentInvoice(command) };
+  }
+
+  const cards = await getUserCreditCards(userId);
+  const cardNames = cards.map(cardDisplayName);
+
+  if (cardNames.length === 0) {
+    return {
+      result: {
+        success: true,
+        kind: "ready_message",
+        command,
+        message:
+          "Voce ainda nao tem cartoes cadastrados. Cadastre um cartao no aplicativo para consultar os gastos.",
+      },
+    };
+  }
+
+  if (cardNames.length === 1) {
+    return {
+      command: withDefaultCurrentInvoice(withSelectedCard(command, cardNames[0])),
+    };
+  }
+
+  return {
+    result: {
+      success: true,
+      kind: "ready_message",
+      command,
+      message: buildCardSelectionMessage(cardNames),
+      pendingAction: {
+        type: "select_card_for_query",
+        command,
+        cards: cardNames.map((cardName, index) => ({
+          index: index + 1,
+          cardName,
+        })),
+      },
+    },
+  };
 }
 
 function withinPeriod(date: string, period: BFinancePeriod): boolean {
@@ -334,6 +478,100 @@ async function queryTransactions(
   return {
     items,
     totals: calculateTotals(items),
+  };
+}
+
+function invoicePeriodFromResult(
+  invoice: CardInvoiceTransactionsResult,
+): BFinancePeriod {
+  return {
+    raw: "fatura atual",
+    type: "current_invoice",
+    startDate: invoice.startDate,
+    endDate: invoice.endDate,
+    month: null,
+    year: null,
+    days: null,
+    isExplicit: true,
+  };
+}
+
+async function queryCurrentInvoiceTransactions(
+  userId: string,
+  command: BFinanceCommand,
+): Promise<PreparedTransactionQuery | { response: BFinanceCommandResult }> {
+  const scope = getCommandScope(command);
+  const cardName = scope.cardName;
+
+  if (!cardName) {
+    return {
+      response: {
+        success: false,
+        kind: "clarification",
+        command,
+        missingFields: ["cardName"],
+        message: "Qual cartao voce quer consultar?",
+      },
+    };
+  }
+
+  let invoice: CardInvoiceTransactionsResult;
+  try {
+    invoice = await getCurrentCardInvoiceTransactions(userId, cardName);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+
+    if (message.includes("Credit card billing is not configured")) {
+      return {
+        response: {
+          success: true,
+          kind: "ready_message",
+          command,
+          message:
+            "A fatura desse cartao ainda nao esta configurada. Configure o dia de fechamento e vencimento no aplicativo para consultar a fatura atual.",
+        },
+      };
+    }
+
+    if (message.includes("Credit card not found")) {
+      return {
+        response: {
+          success: true,
+          kind: "ready_message",
+          command,
+          message: "Nao encontrei esse cartao cadastrado.",
+        },
+      };
+    }
+
+    throw error;
+  }
+
+  const period = invoicePeriodFromResult(invoice);
+  const invoiceCommand = {
+    ...command,
+    period,
+    scope: {
+      ...scope,
+      cardName: invoice.cardName,
+    },
+  };
+  const items = invoice.transactions
+    .map(cardTransactionToItem)
+    .filter((item) => filterCardTransaction(item, invoiceCommand));
+  const sortedItems = applyLimit(
+    sortItems(items, invoiceCommand.filters),
+    invoiceCommand.filters,
+  );
+
+  return {
+    command: invoiceCommand,
+    period,
+    result: {
+      items: sortedItems,
+      totals: calculateTotals(sortedItems),
+    },
+    title: `Despesas da fatura atual do cartao ${invoice.cardName} (vence em ${formatDisplayDate(invoice.dueDate)})`,
   };
 }
 
@@ -600,8 +838,15 @@ async function executeBillsQuery(
   command: BFinanceCommand,
 ): Promise<BFinanceCommandResult> {
   const days = command.filters?.limit ?? command.period?.days ?? null;
+  const period = getCommandPeriod(command);
   const bills =
-    days && days <= 14 ? await getUpcomingBills(userId, days) : await getPendingBills(userId);
+    period.isExplicit && period.startDate && period.endDate
+      ? (await getPendingBills(userId)).filter((bill) =>
+          withinPeriod(bill.dueDate, period),
+        )
+      : days && days <= 14
+        ? await getUpcomingBills(userId, days)
+        : await getPendingBills(userId);
   const billItems = bills.map(toBillItem);
   const total = billItems.reduce((sum, bill) => sum + bill.amount, 0);
 
@@ -665,6 +910,10 @@ async function executeSummaryQuery(
     getPendingBills(userId),
     getInvestments(userId),
   ]);
+  const totals = {
+    ...transactionResult.totals,
+    balance: transactionResult.totals.income - transactionResult.totals.normalExpense,
+  };
 
   return {
     success: true,
@@ -672,20 +921,18 @@ async function executeSummaryQuery(
     command,
     title: "Resumo financeiro",
     period: getCommandPeriod(command),
-    totals: transactionResult.totals,
+    totals,
     pendingBills: pendingBills.map(toBillItem),
     investments: investments.map(toInvestmentItem),
   };
 }
 
-async function executeTransactionQuery(
-  userId: string,
+function buildTransactionQueryResponse(
   command: BFinanceCommand,
-): Promise<BFinanceCommandResult> {
-  const result = await queryTransactions(userId, command);
-  const period = getCommandPeriod(command);
-  const title = buildTransactionTitle(command);
-
+  result: TransactionQueryResult,
+  period: BFinancePeriod,
+  title: string = buildTransactionTitle(command),
+): BFinanceCommandResult {
   if (command.operation === "ranking") {
     const rankings = buildCategoryRanking(result.items);
     return {
@@ -720,6 +967,35 @@ async function executeTransactionQuery(
     totals: result.totals,
     items: result.items,
   };
+}
+
+async function executeTransactionQuery(
+  userId: string,
+  command: BFinanceCommand,
+): Promise<BFinanceCommandResult> {
+  const prepared = await prepareCardQueryCommand(userId, command);
+  if ("result" in prepared) return prepared.result;
+
+  const preparedCommand = prepared.command;
+
+  if (getCommandPeriod(preparedCommand).type === "current_invoice") {
+    const invoiceQuery = await queryCurrentInvoiceTransactions(
+      userId,
+      preparedCommand,
+    );
+    if ("response" in invoiceQuery) return invoiceQuery.response;
+
+    return buildTransactionQueryResponse(
+      invoiceQuery.command,
+      invoiceQuery.result,
+      invoiceQuery.period,
+      invoiceQuery.title,
+    );
+  }
+
+  const result = await queryTransactions(userId, preparedCommand);
+  const period = getCommandPeriod(preparedCommand);
+  return buildTransactionQueryResponse(preparedCommand, result, period);
 }
 
 export async function executeBFinanceCommand({
