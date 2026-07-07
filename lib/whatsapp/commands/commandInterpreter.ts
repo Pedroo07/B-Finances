@@ -3,6 +3,7 @@ import {
   type GenerateContentRequest,
   type Part,
 } from "@google/generative-ai";
+import { CREDIT_CARD_NAMES_TEXT } from "@/lib/creditCards/catalog";
 import type { ShortTermMemorySnapshot } from "../utils/shortTermMemory";
 import type {
   BFinanceAction,
@@ -407,6 +408,7 @@ REGRAS:
 - Responda APENAS com JSON. Nao use markdown. Nao responda ao usuario.
 - Nao execute regras finais de data, calculo ou escopo. Apenas interprete a intencao.
 - Nao invente dados financeiros.
+- Cartoes aceitos para scope.cardName/data.cardName: ${CREDIT_CARD_NAMES_TEXT}. Use esses nomes canonicos.
 - Para "quanto gastei", "qnt foi de gasto", "quanto entrou": action query, resource transaction, operation total.
 - Para "liste", "ultimas", "mostre": action query, operation list.
 - Para "resumo financeiro", "como foi meu mes", "balanco", "minhas financas": action query, resource summary, operation summary.

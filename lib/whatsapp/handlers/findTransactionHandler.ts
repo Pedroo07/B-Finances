@@ -6,18 +6,12 @@ import {
   getCardTransactions,
   type CardTransaction,
 } from "@/lib/services/admin/cardTransactionsAdmin";
+import {
+  findCreditCardNameInText,
+  getCreditCardBankKey,
+} from "@/lib/creditCards/catalog";
 import { formatCurrency } from "../formatters/responseFormatter";
 import { formatDate } from "../utils/dateParser";
-
-const CARD_NAMES = [
-  "Nubank",
-  "Inter",
-  "PicPay",
-  "BB",
-  "C6",
-  "Mercado Pago",
-  "Bradesco",
-] as const;
 
 const MAX_RESULTS_TO_SHOW = 20;
 
@@ -286,14 +280,7 @@ function parseAmount(rawQuery: string, normalizedQuery: string): number | undefi
 }
 
 function parseCard(normalizedQuery: string): string | undefined {
-  if (normalizedQuery.includes("mercado pago")) return "Mercado Pago";
-  if (/\bcartao\s+mercado\b/.test(normalizedQuery)) return "Mercado Pago";
-
-  return CARD_NAMES.find((cardName) => {
-    if (cardName === "Mercado Pago") return false;
-    const normalizedCard = normalizeText(cardName);
-    return new RegExp(`\\b${normalizedCard}\\b`).test(normalizedQuery);
-  });
+  return findCreditCardNameInText(normalizedQuery) ?? undefined;
 }
 
 function hasCardMention(normalizedQuery: string): boolean {
@@ -309,6 +296,7 @@ function tokenizeQuery(
   card: string | undefined,
 ): string[] {
   const cardWords = card ? normalizeText(card).split(/\s+/) : [];
+  const compactCard = card ? normalizeText(card).replace(/[^a-z0-9]/g, "") : "";
 
   return normalizedQuery
     .replace(/\d{1,3}(?:\.\d{3})*(?:,\d{1,2})?/g, " ")
@@ -317,7 +305,8 @@ function tokenizeQuery(
     .filter((token) => !STOP_WORDS.has(token))
     .filter((token) => !DATE_WORDS.has(token))
     .filter((token) => token !== "cartao" && token !== "credito")
-    .filter((token) => !cardWords.includes(token));
+    .filter((token) => !cardWords.includes(token))
+    .filter((token) => !compactCard || !compactCard.includes(token));
 }
 
 function buildCriteria(query: string): FindCriteria {
@@ -393,6 +382,13 @@ function textMatches(item: FindableTransaction, criteria: FindCriteria): boolean
 
 function cardMatches(item: FindableTransaction, criteria: FindCriteria): boolean {
   if (criteria.card) {
+    const itemBankKey = getCreditCardBankKey(item.card ?? "");
+    const criteriaBankKey = getCreditCardBankKey(criteria.card);
+
+    if (itemBankKey && criteriaBankKey) {
+      return item.source === "card" && itemBankKey === criteriaBankKey;
+    }
+
     return item.source === "card" && item.card === criteria.card;
   }
 

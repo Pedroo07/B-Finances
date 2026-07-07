@@ -1,20 +1,10 @@
-import { getCreditCardName } from "@/lib/creditCards/catalog";
+import { findCreditCardNameInText, getCreditCardName } from "@/lib/creditCards/catalog";
 import type {
   BFinanceCommand,
   BFinancePaymentMethod,
   BFinanceScope,
   CommandNormalizerContext,
 } from "../types";
-
-const CARD_NAMES = [
-  "Nubank",
-  "Inter",
-  "PicPay",
-  "BB",
-  "C6",
-  "Mercado Pago",
-  "Bradesco",
-];
 
 function normalizeText(value: string): string {
   return value
@@ -29,16 +19,7 @@ function hasAny(normalized: string, patterns: RegExp[]): boolean {
 }
 
 function extractCardName(messageText: string): string | null {
-  const normalized = normalizeText(messageText);
-
-  if (/\bmercado\s+pago\b/.test(normalized)) return "Mercado Pago";
-
-  const card = CARD_NAMES.find((cardName) => {
-    if (cardName === "Mercado Pago") return false;
-    return new RegExp(`\\b${normalizeText(cardName)}\\b`).test(normalized);
-  });
-
-  return card ? getCreditCardName(card) : null;
+  return findCreditCardNameInText(messageText);
 }
 
 function hasNegativeCardMention(normalized: string): boolean {
@@ -172,11 +153,10 @@ export function normalizeCommandScope(
   context: CommandNormalizerContext = {},
 ): BFinanceCommand {
   const normalized = normalizeText(messageText);
+  const commandCardName = command.scope?.cardName || command.data?.cardName || null;
   const currentCardName =
     extractCardName(messageText) ||
-    command.scope?.cardName ||
-    command.data?.cardName ||
-    null;
+    (commandCardName ? getCreditCardName(commandCardName) : null);
   const paymentMethod = extractPaymentMethod(normalized);
   const negativeCardMention = hasNegativeCardMention(normalized);
   const positiveCardMention = hasPositiveCardMention(

@@ -5,6 +5,7 @@ import type {
   BFinanceTransactionType,
   CommandNormalizerContext,
 } from "../types";
+import { getCreditCardBankKey } from "@/lib/creditCards/catalog";
 
 const CATEGORY_ALIASES: Array<{ category: string; terms: string[] }> = [
   {
@@ -36,17 +37,6 @@ const CATEGORY_ALIASES: Array<{ category: string; terms: string[] }> = [
     category: "extra",
     terms: ["extra", "freela", "bonus", "premio", "rendimento"],
   },
-];
-
-const CARD_DESCRIPTION_TERMS = [
-  "nubank",
-  "inter",
-  "picpay",
-  "pic pay",
-  "bb",
-  "c6",
-  "mercado pago",
-  "bradesco",
 ];
 
 function normalizeText(value: string): string {
@@ -191,10 +181,7 @@ function extractDescription(normalized: string): string | null {
     .replace(/\s+/g, " ")
     .trim();
 
-  if (
-    CARD_DESCRIPTION_TERMS.some((term) => description === term) ||
-    /\b(cartao|credito|fatura)\b/.test(description)
-  ) {
+  if (getCreditCardBankKey(description) || /\b(cartao|credito|fatura)\b/.test(description)) {
     return null;
   }
 

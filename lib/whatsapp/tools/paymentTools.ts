@@ -1,6 +1,7 @@
 import { IntentType } from "../intents/intentTypes";
 import { handlePayment } from "../handlers/paymentHandler";
 import type { Tool } from "./types";
+import { CREDIT_CARD_NAMES, CREDIT_CARD_NAMES_TEXT } from "@/lib/creditCards/catalog";
 
 export const payBillTool: Tool<string> = {
   name: "pay_bill",
@@ -24,9 +25,9 @@ export const payInvoiceTool: Tool<string> = {
     {
       name: "card",
       description:
-        "Nome do cartao pago: Nubank, Inter, PicPay, BB, C6, Mercado Pago ou Bradesco.",
+        `Nome do cartao pago: ${CREDIT_CARD_NAMES_TEXT}.`,
       required: true,
-      enum: ["Nubank", "Inter", "PicPay", "BB", "C6", "Mercado Pago", "Bradesco"],
+      enum: CREDIT_CARD_NAMES,
     },
     {
       name: "amount",

@@ -11,6 +11,7 @@ import {
 import { handleFinancialAdvice } from "../handlers/financialAdvisorHandler";
 import { handleQuery } from "../handlers/queryHandler";
 import type { DeleteToolResult, Tool } from "./types";
+import { CREDIT_CARD_NAMES, CREDIT_CARD_NAMES_TEXT } from "@/lib/creditCards/catalog";
 
 export const addTransactionTool: Tool<string> = {
   name: "add_transaction",
@@ -63,9 +64,9 @@ export const queryTransactionsTool: Tool<string> = {
     {
       name: "card_filter",
       description:
-        "Nome do cartao para filtrar gastos no cartao: Nubank, Inter, PicPay, BB, C6, Mercado Pago ou Bradesco.",
+        `Nome do cartao para filtrar gastos no cartao: ${CREDIT_CARD_NAMES_TEXT}.`,
       required: false,
-      enum: ["Nubank", "Inter", "PicPay", "BB", "C6", "Mercado Pago", "Bradesco"],
+      enum: CREDIT_CARD_NAMES,
     },
   ],
   requiredParameters: ["type"],
@@ -126,9 +127,9 @@ export const queryCardInvoiceTool: Tool<string> = {
     {
       name: "card",
       description:
-        "Nome do cartao especifico: Nubank, Inter, PicPay, BB, C6, Mercado Pago ou Bradesco.",
+        `Nome do cartao especifico: ${CREDIT_CARD_NAMES_TEXT}.`,
       required: false,
-      enum: ["Nubank", "Inter", "PicPay", "BB", "C6", "Mercado Pago", "Bradesco"],
+      enum: CREDIT_CARD_NAMES,
     },
     {
       name: "all_invoices",

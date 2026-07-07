@@ -3,6 +3,7 @@ import {
   type GenerateContentRequest,
   type Part,
 } from "@google/generative-ai";
+import { findCreditCardNameInText } from "@/lib/creditCards/catalog";
 import { plannableWhatsappTools, type Tool } from "../tools";
 import type {
   ShortTermMemorySnapshot,
@@ -310,21 +311,7 @@ function inferPeriodFromMessage(messageText: string): string | undefined {
 }
 
 function inferCardFromMessage(messageText: string): string | undefined {
-  const normalized = normalizeFreeText(messageText);
-  const cards = [
-    "Nubank",
-    "Inter",
-    "PicPay",
-    "BB",
-    "C6",
-    "Mercado Pago",
-    "Bradesco",
-  ];
-
-  return cards.find((card) => {
-    const normalizedCard = normalizeFreeText(card);
-    return new RegExp(`\\b${normalizedCard}\\b`).test(normalized);
-  });
+  return findCreditCardNameInText(messageText) ?? undefined;
 }
 
 function inferTransactionTypeFromMessage(

@@ -1,6 +1,13 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import {
+  GoogleGenerativeAI,
+  type GenerateContentRequest,
+  type Part,
+} from "@google/generative-ai";
 import { createCardTransaction } from "@/lib/services/admin/cardTransactionsAdmin";
 import { createTransaction } from "@/lib/services/admin/transactionsAdmin";
+import { CREDIT_CARD_NAMES, CREDIT_CARD_NAMES_TEXT } from "@/lib/creditCards/catalog";
+
+type PromptPayload = string | GenerateContentRequest | Array<string | Part>;
 
 const agentModels = [
   "gemini-3.1-flash-lite",
@@ -11,15 +18,17 @@ const agentModels = [
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!); // Supondo que você já tenha o genAI configurado
 
+const creditCardNameUnion = CREDIT_CARD_NAMES.map((cardName) => `"${cardName}"`).join(" | ");
+
 async function generateContentWithFallback(
-  promptPayload: any,
+  promptPayload: PromptPayload,
   systemInstruction?: string
 ): Promise<string> {
-  let ultimoErro: any = null;
+  let ultimoErro: unknown = null;
 
   for (const agent of agentModels) {
     try {
-      const config: any = { model: agent };
+      const config: { model: string; systemInstruction?: string } = { model: agent };
       if (systemInstruction) {
         config.systemInstruction = systemInstruction;
       }
@@ -35,7 +44,7 @@ async function generateContentWithFallback(
   }
 
   throw new Error(
-    `Todos os modelos falharam. Último erro: ${ultimoErro?.message || ultimoErro}`
+    `Todos os modelos falharam. Último erro: ${ultimoErro instanceof Error ? ultimoErro.message : String(ultimoErro)}`
   );
 }
 
@@ -63,7 +72,7 @@ export async function handleAddTransaction(
     ### REGRAS PARA DESPESAS (Gastos):
     1. O valor (amount) deve ser sempre NEGATIVO (ex: -15.50).
     2. Se o método de pagamento (paymentMethod) for "credit_card" (Cartão de Crédito), a transação é considerada uma "Transação de Cartão" (Card Transaction). Nesse caso, você DEVE extrair o campo "card" informando qual é o banco/cartão.
-        - Cartões aceitos (valores exatos): "Nubank", "Inter", "PicPay", "BB", "C6", "Mercado Pago", "Bradesco".
+        - Cartões aceitos (valores exatos): ${CREDIT_CARD_NAMES_TEXT}.
     3. Se o método de pagamento não for cartão de crédito, use uma das opções: "cash" (Dinheiro), "pix" (Pix), "debit" (Cartão de Débito).
     4. Categorias de despesas permitidas:
         - "fixes" (Contas fixas, aluguel, luz, internet, etc.)
@@ -96,7 +105,7 @@ export async function handleAddTransaction(
             "category": "foods" | "fixes" | "entertainment" | "other" | "salary" | "extra",
             "type": "income" | "expense",
             "paymentMethod": "cash" | "pix" | "debit",
-            "card": "Nubank" | "Inter" | "PicPay" | "BB" | "C6" | "Mercado Pago" | "Bradesco"
+            "card": ${creditCardNameUnion}
         }
     }
 

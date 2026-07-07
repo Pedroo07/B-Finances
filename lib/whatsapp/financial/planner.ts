@@ -2,6 +2,7 @@ import {
   AVAILABLE_FINANCIAL_CAPABILITIES,
   capabilitiesForPlan,
 } from "./capabilities";
+import { findCreditCardNameInText } from "@/lib/creditCards/catalog";
 import { resolveFinancialPeriod } from "./periodResolver";
 import type {
   FinancialEngineInput,
@@ -15,16 +16,6 @@ import type {
   ResponseLevel,
   ResolvedPeriod,
 } from "./types";
-
-const CARD_NAMES = [
-  "Nubank",
-  "Inter",
-  "PicPay",
-  "BB",
-  "C6",
-  "Mercado Pago",
-  "Bradesco",
-];
 
 const CATEGORY_ALIASES: Array<{ category: string; terms: string[] }> = [
   {
@@ -107,12 +98,7 @@ function isMutationRequest(normalized: string): boolean {
 }
 
 function extractCardName(messageText: string): string | undefined {
-  const normalized = normalizeText(messageText);
-
-  return CARD_NAMES.find((cardName) => {
-    const normalizedCard = normalizeText(cardName);
-    return new RegExp(`\\b${normalizedCard}\\b`).test(normalized);
-  });
+  return findCreditCardNameInText(messageText) ?? undefined;
 }
 
 function extractLimit(normalized: string): number | undefined {
@@ -209,9 +195,9 @@ function isFinancialCandidate(normalized: string): boolean {
     /\b(resumo|balanco|financas|financeiro)\b/,
     /\b(gastos?|despesas?|compras?|receitas?|ganhos?|saldo)\b/,
     /\b(categoria|categorias|economizar|economia|consultoria|analise)\b/,
-    /\b(cartao|cartoes|inter|nubank|picpay|bradesco|mercado pago)\b/,
+    /\b(cartao|cartoes|credito)\b/,
     /\b(transacoes|lancamentos)\b/,
-  ]);
+  ]) || findCreditCardNameInText(normalized) !== null;
 }
 
 function detectScope(
