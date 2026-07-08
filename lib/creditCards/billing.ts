@@ -172,16 +172,16 @@ export function getInvoiceDateRange(periodKey: string, closingDay: number, dueDa
     ) ?? { year, month }
   const previousClosingMonth = addMonths(closingPeriod.year, closingPeriod.month, -1)
   const previousClosingDay = getClampedBillingDay(previousClosingMonth.year, previousClosingMonth.month, closingDay)
-  const start = addDays(previousClosingMonth.year, previousClosingMonth.month, previousClosingDay, 1)
-  const endDay = getClampedBillingDay(closingPeriod.year, closingPeriod.month, closingDay)
+  const closingDate = getClosingDate(closingPeriod.year, closingPeriod.month, closingDay)
+  const end = addDays(closingDate.year, closingDate.month, closingDate.day, -1)
 
   return {
-    startDate: formatDateParts(start),
-    endDate: formatDateParts({
-      year: closingPeriod.year,
-      month: closingPeriod.month,
-      day: endDay,
+    startDate: formatDateParts({
+      year: previousClosingMonth.year,
+      month: previousClosingMonth.month,
+      day: previousClosingDay,
     }),
+    endDate: formatDateParts(end),
   }
 }
 
@@ -190,7 +190,9 @@ export function getInvoiceDueDate(periodKey: string, closingDay: number, dueDay:
   assertValidBillingDay(dueDay, 'dueDay')
 
   const { endDate } = getInvoiceDateRange(periodKey, closingDay, dueDay)
-  return formatDateParts(getDueDateAfterClosingDate(parseDateParts(endDate), dueDay))
+  const endDateParts = parseDateParts(endDate)
+  const closingDate = addDays(endDateParts.year, endDateParts.month, endDateParts.day, 1)
+  return formatDateParts(getDueDateAfterClosingDate(closingDate, dueDay))
 }
 
 export function getInvoicePeriodKeyForDueDate(dueDate: string, closingDay: number, dueDay: number): string {
