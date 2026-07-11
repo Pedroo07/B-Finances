@@ -6,38 +6,7 @@ import type {
   CommandNormalizerContext,
 } from "../types";
 import { getCreditCardBankKey } from "@/lib/creditCards/catalog";
-
-const CATEGORY_ALIASES: Array<{ category: string; terms: string[] }> = [
-  {
-    category: "foods",
-    terms: [
-      "alimentacao",
-      "comida",
-      "mercado",
-      "supermercado",
-      "restaurante",
-      "lanche",
-      "ifood",
-      "delivery",
-    ],
-  },
-  {
-    category: "fixes",
-    terms: ["fixas", "conta", "contas", "aluguel", "internet", "luz", "agua"],
-  },
-  {
-    category: "entertainment",
-    terms: ["lazer", "cinema", "festa", "viagem", "jogo", "jogos"],
-  },
-  {
-    category: "salary",
-    terms: ["salario", "ordenado"],
-  },
-  {
-    category: "extra",
-    terms: ["extra", "freela", "bonus", "premio", "rendimento"],
-  },
-];
+import { CATEGORY_ALIASES } from "@/lib/whatsapp/categories";
 
 function normalizeText(value: string): string {
   return value

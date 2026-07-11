@@ -3,6 +3,7 @@ import type { BillAccount } from "@/lib/services/admin/billAccountsAdmin";
 import type { Transaction } from "@/lib/services/admin/transactionsAdmin";
 import type { FinancialDataSet } from "./dataTools";
 import type { FinancialPlan, FinancialScope, ResolvedPeriod } from "./types";
+import { getCategoryLabel } from "@/lib/whatsapp/categories";
 
 export type FinancialEntry = {
   id: string;
@@ -163,23 +164,7 @@ export function sortEntriesByDate(entries: FinancialEntry[]): FinancialEntry[] {
 }
 
 export function categoryLabel(category: string): string {
-  const categoryMap: Record<string, string> = {
-    salary: "Salario",
-    credit_card: "Cartoes de Credito",
-    "credit card": "Cartoes de Credito",
-    extra: "Extra",
-    other: "Outros",
-    fixes: "Fixas",
-    foods: "Alimentacao",
-    entertainment: "Lazer",
-    cdb: "CDB",
-    imoveis: "Imoveis",
-    cripto: "Cripto",
-    acoes: "Acoes",
-    fundos: "Fundos",
-  };
-
-  return categoryMap[category] || category;
+  return getCategoryLabel(category);
 }
 
 export function groupByCategory(entries: FinancialEntry[]): CategoryTotal[] {

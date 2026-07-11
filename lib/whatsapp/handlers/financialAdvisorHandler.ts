@@ -16,6 +16,10 @@ import {
   type Investment,
 } from "@/lib/services/admin/investmentsAdmin";
 import { formatCurrency } from "../formatters/responseFormatter";
+import {
+  formatCategoryWithEmoji,
+  getCategoryLabel,
+} from "@/lib/whatsapp/categories";
 
 type ExpenseSource = "transaction" | "card";
 
@@ -188,23 +192,7 @@ function normalizeCategory(category: string | undefined): string {
 }
 
 function translateCategory(category: string): string {
-  const categoryMap: Record<string, string> = {
-    salary: "Salario",
-    credit_card: "Cartoes de Credito",
-    extra: "Extra",
-    other: "Outros",
-    fixes: "Fixas",
-    foods: "Alimentacao",
-    entertainment: "Lazer",
-    cdb: "CDB",
-    imoveis: "Imoveis",
-    cripto: "Cripto",
-    acoes: "Acoes",
-    fundos: "Fundos",
-    "credit card": "Cartoes de Credito",
-  };
-
-  return categoryMap[category] || category;
+  return getCategoryLabel(category);
 }
 
 function safeAmount(value: unknown): number {
@@ -783,7 +771,7 @@ function formatTopCategories(categories: CategoryInsight[]): string {
   return categories
     .map(
       (category, index) =>
-        `${index + 1}. ${translateCategory(category.category)}: ${formatCurrency(
+        `${index + 1}. ${formatCategoryWithEmoji(category.category)}: ${formatCurrency(
           category.amount,
         )} (${category.percentage.toFixed(1)}%)`,
     )

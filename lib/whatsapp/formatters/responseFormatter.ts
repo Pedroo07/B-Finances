@@ -3,6 +3,10 @@ import { CardTransaction } from "@/lib/services/admin/cardTransactionsAdmin";
 import { BillAccount } from "@/lib/services/admin/billAccountsAdmin";
 import { Investment } from "@/lib/services/admin/investmentsAdmin";
 import { formatDate } from "../utils/dateParser";
+import {
+  formatCategoryWithEmoji,
+  getCategoryLabel,
+} from "@/lib/whatsapp/categories";
 
 
 export function formatCurrency(value: number): string {
@@ -33,7 +37,7 @@ export function formatTransactionList(
     response += `   ${sign} ${formatCurrency(Math.abs(t.amount))}\n`;
     response += `   📅 ${formatDate(t.date)}\n`;
     if (t.category) {
-      response += `   🏷️ ${translateCategory(t.category)}\n`;
+      response += `   🏷️ ${getCategoryLabel(t.category)}\n`;
     }
     response += "\n";
   });
@@ -67,12 +71,11 @@ export function formatExpensesSummary(
     .sort(([, a], [, b]) => b - a)
     .forEach(([cat, amount]) => {
       const percentage = ((amount / total) * 100).toFixed(1);
-      response += `• ${translateCategory(cat)}: ${formatCurrency(amount)} (${percentage}%)\n`;
+      response += `• ${formatCategoryWithEmoji(cat)}: ${formatCurrency(amount)} (${percentage}%)\n`;
     });
 
   return response;
 }
-
 
 export function formatIncomeSummary(
   transactions: Transaction[],
@@ -98,7 +101,7 @@ export function formatIncomeSummary(
   Object.entries(byCategory)
     .sort(([, a], [, b]) => b - a)
     .forEach(([cat, amount]) => {
-      response += `• ${translateCategory(cat)}: ${formatCurrency(amount)}\n`;
+      response += `• ${formatCategoryWithEmoji(cat)}: ${formatCurrency(amount)}\n`;
     });
 
   return response;
@@ -158,7 +161,7 @@ export function formatDetailedBalance(
     .sort(([, a], [, b]) => b - a)
     .forEach(([cat, amount]) => {
       const pct = totalIncome > 0 ? ((amount / totalIncome) * 100).toFixed(0) : 0;
-      response += `  • ${translateCategory(cat)}: ${formatCurrency(amount)} (${pct}%)\n`;
+      response += `  • ${formatCategoryWithEmoji(cat)}: ${formatCurrency(amount)} (${pct}%)\n`;
     });
 
   response += `\n`;
@@ -182,7 +185,7 @@ export function formatDetailedBalance(
         totalExpense > 0
           ? ((amount / totalExpense) * 100).toFixed(0)
           : 0;
-      response += `  • ${translateCategory(cat)}: ${formatCurrency(amount)} (${pct}%)\n`;
+      response += `  • ${formatCategoryWithEmoji(cat)}: ${formatCurrency(amount)} (${pct}%)\n`;
     });
 
   response += `\n`;
@@ -337,7 +340,7 @@ export function formatInvestmentsSummary(investments: Investment[]): string {
   investments.forEach((inv) => {
     const yieldPercentage =
       inv.balance > 0 ? ((inv.total_yield / inv.balance) * 100).toFixed(2) : "0";
-    response += `• *${translateCategory(inv.category)}*\n`;
+    response += `• *${formatCategoryWithEmoji(inv.category)}*\n`;
     response += `  Saldo: ${formatCurrency(inv.balance)}\n`;
     response += `  Rendimento: ${formatCurrency(inv.total_yield || 0)} (+${yieldPercentage}%)\n`;
     response += `  Liquidez: ${inv.liquidez === "imediata" ? "Imediata" : "Longo Prazo"}\n\n`;
@@ -427,7 +430,7 @@ export function formatTransactionsList(
     const emoji = t.type === "income" ? "💰" : "💸";
     response += `${emoji} *${t.description}*\n`;
     response += `   ${formatCurrency(t.amount)} • ${formatDate(t.date)}\n`;
-    response += `   Categoria: ${translateCategory(t.category)}\n\n`;
+    response += `   Categoria: ${getCategoryLabel(t.category)}\n\n`;
   });
 
   if (limit && transactions.length > limit) {
@@ -435,23 +438,4 @@ export function formatTransactionsList(
   }
 
   return response;
-}
-
-function translateCategory(category: string): string {
-  const categoryMap: Record<string, string> = {
-    salary: "Salário",
-    credit_card: "Cartões de Crédito",
-    extra: "Extra",
-    other: "Outros",
-    fixes: "Fixas",
-    foods: "Alimentação",
-    entertainment: "Lazer",
-    cdb: "CDB",
-    imoveis: "Imóveis",
-    cripto: "Cripto",
-    acoes: "Ações",
-    fundos: "Fundos",
-  };
-
-  return categoryMap[category] || category;
 }

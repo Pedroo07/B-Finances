@@ -99,7 +99,7 @@ export const CONVERSATION_FLOWS: Record<ConversationAction, ConversationStep[]> 
       {
         field: ConversationField.CATEGORY,
         question:
-          "🏷️ Qual a categoria?\n\n1 - Alimentação\n2 - Fixas\n3 - Lazer\n4 - Outros",
+          "🏷️ Qual a categoria?\n\nAlimentação, Fixas, Moradia, Transporte, Delivery, Compras, Assinaturas, Lazer ou Outros",
       },
       {
         field: ConversationField.PAYMENT_METHOD,

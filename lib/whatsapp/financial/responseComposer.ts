@@ -1,4 +1,5 @@
 import { formatCurrency } from "../formatters/responseFormatter";
+import { formatCategoryWithEmoji } from "@/lib/whatsapp/categories";
 import {
   cardExpenseEntries,
   cashExpenseEntries,
@@ -249,7 +250,7 @@ function appendTopCategories(lines: string[], entries: FinancialEntry[]) {
 
   categories.forEach((category, index) => {
     lines.push(
-      `${index + 1}. ${category.label}: ${formatCurrency(category.amount)} (${formatPercent(category.percentage)})`,
+      `${index + 1}. ${formatCategoryWithEmoji(category.category)}: ${formatCurrency(category.amount)} (${formatPercent(category.percentage)})`,
     );
   });
 }
@@ -442,7 +443,7 @@ function composeSavingAdvice(plan: FinancialPlan, data: FinancialDataSet) {
   if (suggestions.length === 0 && variableCategories.length > 0) {
     variableCategories.forEach((category) => {
       suggestions.push(
-        `${category.label}: ${formatCurrency(category.amount)} (${formatPercent(category.percentage)} dos gastos).`,
+        `${formatCategoryWithEmoji(category.category)}: ${formatCurrency(category.amount)} (${formatPercent(category.percentage)} dos gastos).`,
       );
     });
   }

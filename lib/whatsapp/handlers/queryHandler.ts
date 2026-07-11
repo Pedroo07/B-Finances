@@ -24,6 +24,7 @@ import {
   formatInvestmentsSummary,
 } from "../formatters/responseFormatter";
 import { getPeriodDates } from "../utils/dateParser";
+import { getCategoryLabel } from "@/lib/whatsapp/categories";
 
 type QueryParameters = Record<string, unknown>;
 
@@ -131,7 +132,7 @@ async function handleExpensesQuery(
     );
     return formatExpensesSummary(
       transactions,
-      `${getPeriodLabel(period)} - categoria: ${categoryFilter}`
+      `${getPeriodLabel(period)} - categoria: ${getCategoryLabel(categoryFilter)}`
     );
   }
 

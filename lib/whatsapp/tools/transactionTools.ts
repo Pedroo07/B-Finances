@@ -57,9 +57,9 @@ export const queryTransactionsTool: Tool<string> = {
     {
       name: "category_filter",
       description:
-        "Categoria interna para filtrar: foods, fixes, entertainment, salary, extra ou other.",
+        "Categoria interna para filtrar: foods, fixes, housing, transport, delivery, shopping, subscriptions, entertainment, salary, extra ou other.",
       required: false,
-      enum: ["foods", "fixes", "entertainment", "salary", "extra", "other"],
+      enum: ["foods", "fixes", "housing", "transport", "delivery", "shopping", "subscriptions", "entertainment", "salary", "extra", "other"],
     },
     {
       name: "card_filter",

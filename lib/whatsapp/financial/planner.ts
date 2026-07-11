@@ -4,6 +4,7 @@ import {
 } from "./capabilities";
 import { findCreditCardNameInText } from "@/lib/creditCards/catalog";
 import { resolveFinancialPeriod } from "./periodResolver";
+import { CATEGORY_ALIASES } from "@/lib/whatsapp/categories";
 import type {
   FinancialEngineInput,
   FinancialFilters,
@@ -16,29 +17,6 @@ import type {
   ResponseLevel,
   ResolvedPeriod,
 } from "./types";
-
-const CATEGORY_ALIASES: Array<{ category: string; terms: string[] }> = [
-  {
-    category: "foods",
-    terms: ["alimentacao", "comida", "mercado", "restaurante", "delivery"],
-  },
-  {
-    category: "fixes",
-    terms: ["fixas", "contas", "aluguel", "internet", "luz"],
-  },
-  {
-    category: "entertainment",
-    terms: ["lazer", "cinema", "festa", "viagem", "jogos"],
-  },
-  {
-    category: "salary",
-    terms: ["salario"],
-  },
-  {
-    category: "extra",
-    terms: ["extra", "freela", "bonus"],
-  },
-];
 
 function normalizeText(value: string): string {
   return value

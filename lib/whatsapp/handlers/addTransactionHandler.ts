@@ -6,6 +6,8 @@ import {
 import { createCardTransaction } from "@/lib/services/admin/cardTransactionsAdmin";
 import { createTransaction } from "@/lib/services/admin/transactionsAdmin";
 import { CREDIT_CARD_NAMES, CREDIT_CARD_NAMES_TEXT } from "@/lib/creditCards/catalog";
+import { formatCategoryWithEmoji } from "@/lib/whatsapp/categories";
+import { formatCurrency } from "../formatters/responseFormatter";
 
 type PromptPayload = string | GenerateContentRequest | Array<string | Part>;
 
@@ -75,8 +77,13 @@ export async function handleAddTransaction(
         - Cartões aceitos (valores exatos): ${CREDIT_CARD_NAMES_TEXT}.
     3. Se o método de pagamento não for cartão de crédito, use uma das opções: "cash" (Dinheiro), "pix" (Pix), "debit" (Cartão de Débito).
     4. Categorias de despesas permitidas:
-        - "fixes" (Contas fixas, aluguel, luz, internet, etc.)
+        - "fixes" (Contas fixas, luz, internet, água, telefone)
         - "foods" (Alimentação, restaurantes, supermercado, lanches, sorvete)
+        - "housing" (Moradia, aluguel, condomínio, habitação)
+        - "transport" (Transporte, Uber, táxi, ônibus, metrô, combustível)
+        - "delivery" (Delivery, iFood e outras entregas)
+        - "shopping" (Compras, roupas, calçados, eletrônicos, shopping)
+        - "subscriptions" (Assinaturas, mensalidades, streaming, Netflix, Spotify)
         - "entertainment" (Lazer, cinema, festas, viagens, jogos)
         - "other" (Outros gastos que não se encaixam nos anteriores)
 
@@ -102,7 +109,7 @@ export async function handleAddTransaction(
             "description": "Descrição curta da transação",
             "date": "YYYY-MM-DD",
             "amount": number,
-            "category": "foods" | "fixes" | "entertainment" | "other" | "salary" | "extra",
+            "category": "foods" | "fixes" | "housing" | "transport" | "delivery" | "shopping" | "subscriptions" | "entertainment" | "other" | "salary" | "extra",
             "type": "income" | "expense",
             "paymentMethod": "cash" | "pix" | "debit",
             "card": ${creditCardNameUnion}
@@ -140,12 +147,18 @@ export async function handleAddTransaction(
       await createTransaction(userId, transactionData);
     }
 
-    const messageReply =
-      collectionName === "cardTransactions"
-       ? "Gasto adicionado ao cartão!✅"
-        : "Gasto adicionado a lista de transferencias!✅";
+    const typeLabel = transactionData.type === "income" ? "Receita" : "Despesa";
+    const messageLines = [
+      `✅ *${typeLabel} adicionada*`,
+      `${formatCategoryWithEmoji(transactionData.category)} · ${transactionData.description}`,
+      `💰 ${formatCurrency(Math.abs(transactionData.amount))} · ${transactionData.date}`,
+    ];
 
-    return messageReply;
+    if (collectionName === "cardTransactions" && transactionData.card) {
+      messageLines.push(`💳 ${transactionData.card}`);
+    }
+
+    return messageLines.join("\n");
   } else {
     return parsed.responseMessage;
   }

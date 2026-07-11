@@ -5,6 +5,7 @@ import type {
   CommandInvestmentItem,
   CommandTransactionItem,
 } from "./types";
+import { formatCategoryWithEmoji } from "@/lib/whatsapp/categories";
 
 const MONTH_NAMES = [
   "janeiro",
@@ -20,17 +21,6 @@ const MONTH_NAMES = [
   "novembro",
   "dezembro",
 ];
-
-const CATEGORY_LABELS: Record<string, string> = {
-  salary: "Salario",
-  extra: "Extra",
-  other: "Outros",
-  fixes: "Fixas",
-  foods: "Alimentacao",
-  entertainment: "Lazer",
-  credit_card: "Cartao de credito",
-  "Credit Card": "Cartao de credito",
-};
 
 function formatCurrency(value: number): string {
   return new Intl.NumberFormat("pt-BR", {
@@ -65,11 +55,6 @@ function formatPeriod(period: BFinancePeriod): string {
   return "periodo selecionado";
 }
 
-function translateCategory(category?: string | null): string {
-  if (!category) return "Sem categoria";
-  return CATEGORY_LABELS[category] || category;
-}
-
 function getOrigin(item: CommandTransactionItem): string {
   if (item.source === "card_transaction") {
     return item.cardName ? `Cartao ${item.cardName}` : "Cartao";
@@ -88,10 +73,10 @@ function formatTransactionLine(
 ): string {
   const amount = item.type === "income" ? Math.abs(item.amount) : -Math.abs(item.amount);
   if (item.source === "card_transaction") {
-    return `${index + 1}. ${formatDate(item.date)} - ${item.description} - ${formatCurrency(amount)} - ${translateCategory(item.category)}`;
+    return `${index + 1}. ${formatDate(item.date)} - ${item.description} - ${formatCurrency(amount)} - ${formatCategoryWithEmoji(item.category)}`;
   }
 
-  return `${index + 1}. ${formatDate(item.date)} - ${item.description} - ${formatCurrency(amount)} - ${translateCategory(item.category)} - ${getOrigin(item)}`;
+  return `${index + 1}. ${formatDate(item.date)} - ${item.description} - ${formatCurrency(amount)} - ${formatCategoryWithEmoji(item.category)} - ${getOrigin(item)}`;
 }
 
 function formatNoData(): string {
@@ -110,8 +95,8 @@ function formatTransactionList(result: Extract<BFinanceCommandResult, { kind: "t
         : `Saldo dos itens: ${formatCurrency(result.totals.balance)}`;
 
   return [
-    `${result.title} - ${formatPeriod(result.period)}`,
-    totalLine,
+    `📋 *${result.title} - ${formatPeriod(result.period)}*`,
+    `💰 ${totalLine}`,
     "",
     ...lines,
   ].join("\n");
@@ -212,13 +197,13 @@ function formatCategoryRanking(result: Extract<BFinanceCommandResult, { kind: "c
   if (result.rankings.length === 0) return formatNoData();
 
   return [
-    `${result.title} - ${formatPeriod(result.period)}`,
-    `Total: ${formatCurrency(result.total)}`,
+    `📊 *${result.title} - ${formatPeriod(result.period)}*`,
+    `💰 Total: ${formatCurrency(result.total)}`,
     "",
     ...result.rankings.map((item, index) => {
       const percentage =
         result.total > 0 ? ` (${((item.total / result.total) * 100).toFixed(1)}%)` : "";
-      return `${index + 1}. ${translateCategory(item.label)} - ${formatCurrency(item.total)} - ${item.count} item(ns)${percentage}`;
+      return `${index + 1}. ${formatCategoryWithEmoji(item.label)} - ${formatCurrency(item.total)} - ${item.count} item(ns)${percentage}`;
     }),
   ].join("\n");
 }
@@ -254,7 +239,12 @@ function formatCreated(result: Extract<BFinanceCommandResult, { kind: "transacti
   const item = result.item;
   const typeLabel = item.type === "income" ? "Receita" : "Despesa";
   const origin = getOrigin(item);
-  return `${typeLabel} adicionada: ${item.description} - ${formatCurrency(Math.abs(item.amount))} - ${formatDate(item.date)} - ${origin}.`;
+  return [
+    `✅ *${typeLabel} adicionada*`,
+    `${formatCategoryWithEmoji(item.category)} · ${item.description}`,
+    `💰 ${formatCurrency(Math.abs(item.amount))} · ${formatDate(item.date)}`,
+    origin,
+  ].join("\n");
 }
 
 export function formatBFinanceResponse(result: BFinanceCommandResult): string {

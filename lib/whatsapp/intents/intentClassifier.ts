@@ -133,7 +133,7 @@ RESPONDA APENAS COM UM JSON no seguinte formato:
 
 REGRAS PARA PARÂMETROS:
 - "limit": extraia quando o usuário pedir número específico (ex: "últimos 5", "3 gastos")
-- "category_filter": extraia a categoria interna quando filtrar por tipo (alimentação→foods, lazer→entertainment, fixas→fixes, salário→salary, extra→extra, outros→other)
+- "category_filter": extraia a categoria interna quando filtrar por tipo (alimentação→foods, moradia→housing, transporte→transport, delivery→delivery, compras→shopping, assinaturas→subscriptions, lazer→entertainment, fixas→fixes, salário→salary, extra→extra, outros→other)
 - "card_filter": extraia quando o usuário mencionar cartão em QUERY_EXPENSES (ex: "gastos no Inter")
 - "all_invoices": true quando pedir todas as faturas sem especificar cartão
 - "card": nome do cartão em QUERY_CARD_INVOICE quando especificado
