@@ -6,10 +6,23 @@ import {
   getInvestmentByCategory
 } from "@/lib/services/admin/investmentsAdmin";
 
+type InvestmentParameters = Record<string, unknown>;
+
+function getCategory(parameters: InvestmentParameters): string {
+  return typeof parameters.category === "string" ? parameters.category.trim() : "";
+}
+
+function getAmount(parameters: InvestmentParameters): number {
+  const value = parameters.amount;
+  if (typeof value === "number") return value;
+  if (typeof value === "string" && value.trim()) return Number(value);
+  return Number.NaN;
+}
+
 export async function handleInvestment(
   userId: string,
   intent: IntentType,
-  parameters: Record<string, any>
+  parameters: InvestmentParameters
 ): Promise<string> {
   try {
     switch (intent) {
@@ -28,13 +41,15 @@ export async function handleInvestment(
 
 async function handleAddInvestment(
   userId: string,
-  parameters: Record<string, any>
+  parameters: InvestmentParameters
 ): Promise<string> {
-  const category = parameters.category;
-  const amount = parameters.amount;
-  const liquidez = parameters.liquidez || "imediata";
+  const category = getCategory(parameters);
+  const amount = getAmount(parameters);
+  const liquidez = parameters.liquidez === "longo_prazo" || parameters.liquidez === "longo prazo"
+    ? "longo_prazo"
+    : "imediata";
 
-  if (!category || !amount || amount <= 0) {
+  if (!category || !Number.isFinite(amount) || amount <= 0) {
     return "❌ Para adicionar um investimento, preciso da categoria, valor e liquidez (imediata/longo prazo).";
   }
 
@@ -54,12 +69,12 @@ async function handleAddInvestment(
 
 async function handleRedeemInvestment(
   userId: string,
-  parameters: Record<string, any>
+  parameters: InvestmentParameters
 ): Promise<string> {
-  const category = parameters.category;
-  const amount = parameters.amount;
+  const category = getCategory(parameters);
+  const amount = getAmount(parameters);
 
-  if (!category || !amount || amount <= 0) {
+  if (!category || !Number.isFinite(amount) || amount <= 0) {
     return "❌ Para resgatar um investimento, preciso da categoria e do valor a ser resgatado.";
   }
   const investment = await getInvestmentByCategory(userId, category);

@@ -21,6 +21,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { formatCurrency } from '@/lib/utils'
 import { BANKS, BankKey, isBankKey } from '@/app/CreditCard/banks'
 import { UserCreditCard } from '@/lib/entities/userCreditCard'
+import { EXPENSE_CATEGORIES } from '@/lib/transactionCategories'
 import {
     getInvoiceDateRange,
     getInvoiceDueDate,
@@ -880,10 +881,9 @@ export const Main = () => {
                                             <SelectContent>
                                                 <SelectGroup>
                                                     <SelectLabel>Categorias</SelectLabel>
-                                                    <SelectItem value="fixes">Fixas</SelectItem>
-                                                    <SelectItem value="foods">Alimentação</SelectItem>
-                                                    <SelectItem value="entertainment">Lazer</SelectItem>
-                                                    <SelectItem value="other">Outros</SelectItem>
+                                                    {EXPENSE_CATEGORIES.map(({ value, label }) => (
+                                                        <SelectItem key={value} value={value}>{label}</SelectItem>
+                                                    ))}
                                                 </SelectGroup>
                                             </SelectContent>
                                         </Select>

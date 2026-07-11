@@ -5,7 +5,7 @@ import {
 
 export async function handleNotificationToggle(
   userId: string,
-  parameters: Record<string, any>
+  parameters: Record<string, unknown>
 ): Promise<string> {
   try {
     const enable = parameters.enable !== false; 

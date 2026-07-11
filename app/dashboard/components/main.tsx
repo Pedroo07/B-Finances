@@ -25,6 +25,7 @@ import { getUserCreditCards } from '@/lib/services/userCreditCards';
 import { createCardTransaction } from '@/lib/services/cardTransactions';
 import { BANKS, BankKey, isBankKey } from '@/app/CreditCard/banks';
 import { UserCreditCard } from '@/lib/entities/userCreditCard';
+import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from '@/lib/transactionCategories';
 
 export const Main: FC = () => {
     const [text, setText] = useState('')
@@ -394,9 +395,9 @@ export const Main: FC = () => {
                                     <SelectContent>
                                         <SelectGroup>
                                             <SelectLabel>Categorias</SelectLabel>
-                                            <SelectItem value="salary">Salário</SelectItem>
-                                            <SelectItem value="extra">Extra</SelectItem>
-                                            <SelectItem value="other">Outros</SelectItem>
+                                            {INCOME_CATEGORIES.map(({ value, label }) => (
+                                                <SelectItem key={value} value={value}>{label}</SelectItem>
+                                            ))}
                                         </SelectGroup>
                                     </SelectContent>
                                 </Select>
@@ -436,10 +437,9 @@ export const Main: FC = () => {
                                     <SelectContent>
                                         <SelectGroup>
                                             <SelectLabel>Categorias</SelectLabel>
-                                            <SelectItem value="fixes">Fixas</SelectItem>
-                                            <SelectItem value="foods">Alimentação</SelectItem>
-                                            <SelectItem value="entertainment">Lazer</SelectItem>
-                                            <SelectItem value="other">Outros</SelectItem>
+                                            {EXPENSE_CATEGORIES.map(({ value, label }) => (
+                                                <SelectItem key={value} value={value}>{label}</SelectItem>
+                                            ))}
                                         </SelectGroup>
                                     </SelectContent>
                                 </Select>

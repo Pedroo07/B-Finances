@@ -349,8 +349,7 @@ export function formatInvestmentsSummary(investments: Investment[]): string {
 // ─── Delete Confirmation ──────────────────────────────────────────────────────
 
 export function formatDeleteConfirmation(
-  items: (Transaction | CardTransaction)[],
-  type: "transaction" | "card"
+  items: (Transaction | CardTransaction)[]
 ): string {
   if (items.length === 0) {
     return "❌ Nenhuma transação encontrada com essa descrição nos últimos 30 dias.";

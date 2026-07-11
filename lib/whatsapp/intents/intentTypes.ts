@@ -20,5 +20,5 @@ export enum IntentType {
 export type IntentResult = {
   intent: IntentType;
   confidence: number;
-  parameters?: Record<string, any>;
+  parameters?: Record<string, unknown>;
 };

@@ -9,6 +9,7 @@ import { auth, db } from '@/lib/firebase'
 import { doc, setDoc } from 'firebase/firestore'
 import { toast } from 'sonner'
 import { standardizePhoneNumber } from '@/lib/utils'
+import { FirebaseError } from 'firebase/app'
 
 const authErrorMessages: Record<string, string> = {
   "auth/email-already-in-use": "Este e-mail já está em uso.",
@@ -24,8 +25,7 @@ export const Main = () => {
   const [
     createUserWithEmailAndPassword,
     user,
-    loading,
-    error
+    loading
   ] = useCreateUserWithEmailAndPassword(auth)
 
   const formatPhoneInput = (value: string) => {
@@ -90,8 +90,9 @@ export const Main = () => {
       } else {
         toast.error('Não foi possível concluir o cadastro.')
       }
-    } catch (err: any) {
-      toast.error(authErrorMessages[err?.code] ?? 'Não foi possível concluir o cadastro.')
+    } catch (err: unknown) {
+      const errorCode = err instanceof FirebaseError ? err.code : ''
+      toast.error(authErrorMessages[errorCode] ?? 'Não foi possível concluir o cadastro.')
     }
   }
 

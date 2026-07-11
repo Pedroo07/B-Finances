@@ -29,7 +29,7 @@ export type ConversationState = {
 
   action: ConversationAction;
 
-  collectedData: Record<string, any>;
+  collectedData: Record<string, unknown>;
 
   nextQuestion: string | null;
 
@@ -39,7 +39,7 @@ export type ConversationState = {
 
   createdAt: number;
 
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 };
 
 export type ConversationStep = {

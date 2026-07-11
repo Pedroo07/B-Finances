@@ -15,7 +15,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { TransactionsLoadings } from '@/app/dashboard/loadings/TrasactionsLoadings'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { translateCategory, translatePaymentMethod } from '@/lib/utils'
+import { translateCategory } from '@/lib/utils'
 import { BANKS, BankKey, isBankKey } from '@/app/CreditCard/banks'
 import { UserCreditCard } from '@/lib/entities/userCreditCard'
 

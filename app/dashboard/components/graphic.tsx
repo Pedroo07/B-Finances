@@ -1,10 +1,8 @@
 import dynamic from 'next/dynamic';
 const Chart = dynamic (() => import( "react-apexcharts"), {ssr: false} )
 import { FC, useEffect, useState } from "react"
-import { BiHome, BiGroup} from "react-icons/bi"
-import { IoFastFood } from "react-icons/io5";
-import { RiMoneyDollarCircleLine } from "react-icons/ri";
 import { translateCategory } from '@/lib/utils';
+import { CategoryIconBadge } from './transactionIcons';
 
  type Transaction = {
     description: string
@@ -109,9 +107,12 @@ type GraphicListItemProps = {
 export const GraphicListItem: FC<GraphicListItemProps> = ({ results }) => {
     return (
         <ul className="divide-y p-1">
-            {results.percentageData.map((item, index) => (
-                <li className='flex justify-between items-center p-2' key={index}>
-                    <p className='flex items-center gap-2 capitalize text-[#334155] dark:text-[#E2E8F0]' >{(item.category === "fixes") ? (<BiHome className='size-8 rounded-2xl bg-[#22C55E]/12 fill-[#16A34A] p-1.5 dark:bg-[#22C55E]/18 dark:fill-[#4ADE80]' />) : item.category === "entertainment" ? <BiGroup className='size-8 rounded-2xl bg-[#94A3BB]/20 fill-[#334155] p-1.5 dark:bg-white/10 dark:fill-[#CBD5E1]' /> : item.category === "foods" ? <IoFastFood className='size-8 rounded-2xl bg-[#22C55E]/12 p-1.5 text-[#16A34A] dark:bg-[#22C55E]/18 dark:text-[#4ADE80]' /> : <RiMoneyDollarCircleLine className='size-8 rounded-2xl bg-[#94A3BB]/20 p-1.5 text-[#334155] dark:bg-white/10 dark:text-[#CBD5E1]' />}{translateCategory(item.category)}</p>
+            {results.percentageData.map((item) => (
+                <li className='flex justify-between items-center p-2' key={item.category}>
+                    <p className='flex items-center gap-2 capitalize text-[#334155] dark:text-[#E2E8F0]' >
+                        <CategoryIconBadge category={item.category} />
+                        {translateCategory(item.category)}
+                    </p>
                     <p>{(Math.abs(item.value)).toFixed(2)}%</p>
                 </li>
             ))}

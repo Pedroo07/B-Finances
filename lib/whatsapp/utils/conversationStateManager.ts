@@ -2,7 +2,6 @@ import { db } from "@/lib/firebaseAdmin";
 import {
   ConversationState,
   ConversationAction,
-  ConversationField,
   CONVERSATION_FLOWS,
   CONVERSATION_STATE_TTL_MS,
   CANCEL_KEYWORDS,
@@ -35,8 +34,8 @@ export async function getConversationState(
 export async function createConversationState(
   phoneNumber: string,
   action: ConversationAction,
-  initialData: Record<string, any> = {},
-  metadata: Record<string, any> = {}
+  initialData: Record<string, unknown> = {},
+  metadata: Record<string, unknown> = {}
 ): Promise<{ state: ConversationState; question: string }> {
   const flow = CONVERSATION_FLOWS[action];
 
@@ -137,7 +136,7 @@ export async function clearConversationState(
 
 export async function updateConversationMetadata(
   phoneNumber: string,
-  metadata: Record<string, any>
+  metadata: Record<string, unknown>
 ): Promise<void> {
   const current = await getConversationState(phoneNumber);
   if (!current) return;

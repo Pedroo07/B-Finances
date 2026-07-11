@@ -9,14 +9,50 @@ import {
 } from "@/lib/services/admin/cardTransactionsAdmin";
 import { formatDeleteConfirmation } from "../formatters/responseFormatter";
 
+type DeleteTransactionSummary = {
+  id: string;
+  description: string;
+};
+
+export type PendingDeleteAction =
+  | {
+      type: "delete_transaction" | "delete_card_transaction";
+      transactionId: string;
+      description: string;
+    }
+  | {
+      type: "delete_transaction_multiple" | "delete_card_transaction_multiple";
+      transactions: DeleteTransactionSummary[];
+    };
+
+function isPendingDeleteAction(value: unknown): value is PendingDeleteAction {
+  if (!value || typeof value !== "object" || !("type" in value)) return false;
+
+  const action = value as Record<string, unknown>;
+  if (action.type === "delete_transaction" || action.type === "delete_card_transaction") {
+    return typeof action.transactionId === "string" && typeof action.description === "string";
+  }
+
+  if (action.type === "delete_transaction_multiple" || action.type === "delete_card_transaction_multiple") {
+    return Array.isArray(action.transactions) && action.transactions.every(
+      (item) => item && typeof item === "object"
+        && typeof (item as Record<string, unknown>).id === "string"
+        && typeof (item as Record<string, unknown>).description === "string"
+    );
+  }
+
+  return false;
+}
+
 export async function handleDelete(
   userId: string,
   intent: IntentType,
-  parameters: Record<string, any>,
-  phoneNumber: string
-): Promise<{ message: string; needsConfirmation: boolean; pendingAction?: any }> {
+  parameters: Record<string, unknown>
+): Promise<{ message: string; needsConfirmation: boolean; pendingAction?: PendingDeleteAction }> {
   try {
-    const description = parameters.description;
+    const description = typeof parameters.description === "string"
+      ? parameters.description
+      : "";
 
     if (!description) {
       return {
@@ -37,7 +73,7 @@ export async function handleDelete(
 
       if (transactions.length === 1) {
         return {
-          message: formatDeleteConfirmation(transactions, "transaction"),
+          message: formatDeleteConfirmation(transactions),
           needsConfirmation: true,
           pendingAction: {
             type: "delete_transaction",
@@ -48,7 +84,7 @@ export async function handleDelete(
       }
 
       return {
-        message: formatDeleteConfirmation(transactions, "transaction"),
+        message: formatDeleteConfirmation(transactions),
         needsConfirmation: true,
         pendingAction: {
           type: "delete_transaction_multiple",
@@ -69,7 +105,7 @@ export async function handleDelete(
 
       if (transactions.length === 1) {
         return {
-          message: formatDeleteConfirmation(transactions, "card"),
+          message: formatDeleteConfirmation(transactions),
           needsConfirmation: true,
           pendingAction: {
             type: "delete_card_transaction",
@@ -80,7 +116,7 @@ export async function handleDelete(
       }
 
       return {
-        message: formatDeleteConfirmation(transactions, "card"),
+        message: formatDeleteConfirmation(transactions),
         needsConfirmation: true,
         pendingAction: {
           type: "delete_card_transaction_multiple",
@@ -104,10 +140,14 @@ export async function handleDelete(
 
 export async function confirmDelete(
   userId: string,
-  pendingAction: any,
+  pendingAction: unknown,
   confirmation: string
 ): Promise<string> {
   try {
+    if (!isPendingDeleteAction(pendingAction)) {
+      return "❌ Ação pendente não reconhecida.";
+    }
+
     if (pendingAction.type === "delete_transaction" || pendingAction.type === "delete_card_transaction") {
       const isConfirmed = confirmation.toLowerCase().includes("sim");
 

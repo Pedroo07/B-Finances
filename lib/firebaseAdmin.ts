@@ -1,12 +1,12 @@
-import { initializeApp, getApps, cert, applicationDefault } from 'firebase-admin/app';
+import { initializeApp, getApps, cert, applicationDefault, type ServiceAccount } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 
 if (!getApps().length) {
-  let serviceAccount: any;
+  let serviceAccount: ServiceAccount | undefined;
 
   if (process.env.FIREBASE_SERVICE_ACCOUNT) {
     try {
-      serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+      serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT) as ServiceAccount;
     } catch (e) {
       console.error("Erro ao fazer parse:", e);
     }

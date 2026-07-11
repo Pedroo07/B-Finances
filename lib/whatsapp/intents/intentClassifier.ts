@@ -1,4 +1,9 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import {
+  GoogleGenerativeAI,
+  type GenerateContentRequest,
+  type ModelParams,
+  type Part,
+} from "@google/generative-ai";
 import { IntentType, IntentResult } from "./intentTypes";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
@@ -11,14 +16,14 @@ const agentModels = [
 ];
 
 async function generateContentWithFallback(
-  promptPayload: any,
+  promptPayload: GenerateContentRequest | string | Array<string | Part>,
   systemInstruction?: string,
 ): Promise<string> {
-  let ultimoErro: any = null;
+  let ultimoErro: unknown = null;
 
   for (const agent of agentModels) {
     try {
-      const config: any = { model: agent };
+      const config: ModelParams = { model: agent };
       if (systemInstruction) {
         config.systemInstruction = systemInstruction;
       }
@@ -34,8 +39,12 @@ async function generateContentWithFallback(
   }
 
   throw new Error(
-    `Todos os modelos falharam. Último erro: ${ultimoErro?.message || ultimoErro}`,
+    `Todos os modelos falharam. Último erro: ${ultimoErro instanceof Error ? ultimoErro.message : String(ultimoErro)}`,
   );
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
 export async function classifyIntent(
@@ -141,12 +150,24 @@ A confiança (confidence) deve ser um número entre 0 e 1.`;
       .replace(/```/g, "")
       .trim();
 
-    const parsed = JSON.parse(cleanJson);
+    const parsed: unknown = JSON.parse(cleanJson);
+    if (!isRecord(parsed)) {
+      throw new Error("Resposta do classificador não é um objeto JSON.");
+    }
+
+    const parsedIntent = typeof parsed.intent === "string"
+      && Object.values(IntentType).includes(parsed.intent as IntentType)
+      ? parsed.intent as IntentType
+      : IntentType.UNKNOWN;
+    const parsedConfidence = typeof parsed.confidence === "number"
+      ? parsed.confidence
+      : 0.8;
+    const parsedParameters = isRecord(parsed.parameters) ? parsed.parameters : {};
 
     return {
-      intent: parsed.intent as IntentType,
-      confidence: parsed.confidence || 0.8,
-      parameters: parsed.parameters || {},
+      intent: parsedIntent,
+      confidence: parsedConfidence,
+      parameters: parsedParameters,
     };
   } catch (error) {
     console.error("Erro ao classificar intenção:", error);

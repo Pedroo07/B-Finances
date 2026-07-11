@@ -25,10 +25,35 @@ import {
 } from "../formatters/responseFormatter";
 import { getPeriodDates } from "../utils/dateParser";
 
+type QueryParameters = Record<string, unknown>;
+
+function getStringParameter(
+  parameters: QueryParameters,
+  key: string,
+  fallback: string = ""
+): string {
+  const value = parameters[key];
+  return typeof value === "string" ? value : fallback;
+}
+
+function getNumberParameter(
+  parameters: QueryParameters,
+  key: string,
+  fallback?: number
+): number | undefined {
+  const value = parameters[key];
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return fallback;
+}
+
 export async function handleQuery(
   userId: string,
   intent: IntentType,
-  parameters: Record<string, any>,
+  parameters: QueryParameters,
   messageText: string = ""
 ): Promise<string> {
   const enrichedParameters = {
@@ -69,14 +94,12 @@ export async function handleQuery(
 
 async function handleExpensesQuery(
   userId: string,
-  parameters: Record<string, any>
+  parameters: QueryParameters
 ): Promise<string> {
-  const period = parameters.period || "month";
-  const limit: number | undefined = parameters.limit
-    ? Number(parameters.limit)
-    : undefined;
-  const categoryFilter: string | undefined = parameters.category_filter;
-  const cardFilter: string | undefined = parameters.card_filter;
+  const period = getStringParameter(parameters, "period", "month");
+  const limit = getNumberParameter(parameters, "limit");
+  const categoryFilter = getStringParameter(parameters, "category_filter") || undefined;
+  const cardFilter = getStringParameter(parameters, "card_filter") || undefined;
 
   if (limit) {
     const { startDate, endDate } = getPeriodDates(period);
@@ -88,7 +111,7 @@ async function handleExpensesQuery(
       startDate,
       endDate
     );
-    const label = buildExpenseLabel(limit, categoryFilter, cardFilter, period);
+    const label = buildExpenseLabel(limit, categoryFilter, cardFilter);
     return formatTransactionList(transactions, "expense", label);
   }
 
@@ -120,15 +143,13 @@ async function handleExpensesQuery(
 async function handleCardExpensesQuery(
   userId: string,
   cardFilter: string,
-  parameters: Record<string, any>
+  parameters: QueryParameters
 ): Promise<string> {
   const { getCardTransactionsByCard } = await import(
     "@/lib/services/admin/cardTransactionsAdmin"
   );
-  const period = parameters.period || "month";
-  const messageText = typeof parameters.__messageText === "string"
-    ? parameters.__messageText
-    : "";
+  const period = getStringParameter(parameters, "period", "month");
+  const messageText = getStringParameter(parameters, "__messageText");
 
   if (shouldUseInvoicePeriod(period, messageText)) {
     const invoice = await getCurrentCardInvoiceTransactions(userId, cardFilter);
@@ -198,12 +219,10 @@ function formatDisplayDate(date: string): string {
 
 async function handleIncomeQuery(
   userId: string,
-  parameters: Record<string, any>
+  parameters: QueryParameters
 ): Promise<string> {
-  const period = parameters.period || "month";
-  const limit: number | undefined = parameters.limit
-    ? Number(parameters.limit)
-    : undefined;
+  const period = getStringParameter(parameters, "period", "month");
+  const limit = getNumberParameter(parameters, "limit");
 
   if (limit) {
     const { startDate, endDate } = getPeriodDates(period);
@@ -229,9 +248,9 @@ async function handleIncomeQuery(
 
 async function handleBalanceQuery(
   userId: string,
-  parameters: Record<string, any>
+  parameters: QueryParameters
 ): Promise<string> {
-  const period = parameters.period || "month";
+  const period = getStringParameter(parameters, "period", "month");
   const { startDate, endDate } = getPeriodDates(period);
 
   const transactions = await getTransactionsByPeriod(userId, startDate, endDate);
@@ -251,20 +270,20 @@ async function handleBalanceQuery(
 
 async function handleCardInvoiceQuery(
   userId: string,
-  parameters: Record<string, any>
+  parameters: QueryParameters
 ): Promise<string> {
   const today = new Date();
-  const month = parameters.month || today.getMonth() + 1;
-  const year = parameters.year || today.getFullYear();
+  const month = getNumberParameter(parameters, "month", today.getMonth() + 1)!;
+  const year = getNumberParameter(parameters, "year", today.getFullYear())!;
+  const cardName = getStringParameter(parameters, "card");
 
 
-  if (parameters.all_invoices || !parameters.card) {
+  if (parameters.all_invoices === true || !cardName) {
     const invoices = await getAllCardInvoices(userId, year, month);
     return formatAllCardInvoices(invoices, month, year);
   }
 
 
-  const cardName = parameters.card;
   const amount = await getCardInvoiceAmount(userId, cardName, year, month);
   return formatCardInvoice(cardName, amount, month, year);
 }
@@ -272,9 +291,9 @@ async function handleCardInvoiceQuery(
 
 async function handleBillsQuery(
   userId: string,
-  parameters: Record<string, any>
+  parameters: QueryParameters
 ): Promise<string> {
-  const days = parameters.days || 30;
+  const days = getNumberParameter(parameters, "days", 30)!;
 
   let bills;
   if (days <= 7) {
@@ -307,8 +326,7 @@ function getPeriodLabel(period: string): string {
 function buildExpenseLabel(
   limit: number,
   category?: string,
-  card?: string,
-  period?: string
+  card?: string
 ): string {
   let label = `Últimos ${limit} gastos`;
   if (category) label += ` (${category})`;

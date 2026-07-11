@@ -687,7 +687,6 @@ async function executeCreateTransaction(
 async function executeDeleteTransaction(
   userId: string,
   command: BFinanceCommand,
-  phoneNumber?: string,
 ): Promise<BFinanceCommandResult> {
   const description = command.data?.description || command.filters?.description;
 
@@ -716,7 +715,6 @@ async function executeDeleteTransaction(
       description,
       source,
     },
-    phoneNumber ?? "",
   );
 
   return {
@@ -1001,7 +999,6 @@ async function executeTransactionQuery(
 export async function executeBFinanceCommand({
   userId,
   command,
-  phoneNumber,
 }: ExecutorInput): Promise<BFinanceCommandResult> {
   try {
     if (command.action === "help") {
@@ -1042,7 +1039,7 @@ export async function executeBFinanceCommand({
       (command.resource === "transaction" ||
         command.resource === "card_transaction")
     ) {
-      return await executeDeleteTransaction(userId, command, phoneNumber);
+      return await executeDeleteTransaction(userId, command);
     }
 
     if (command.action === "update") {

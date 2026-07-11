@@ -213,17 +213,13 @@ export const deleteTransactionTool: Tool<DeleteToolResult> = {
     },
   ],
   requiredParameters: ["description"],
-  execute: ({
-    userId,
-    parameters = {},
-    phoneNumber = "",
-  }) => {
+  execute: ({ userId, parameters = {} }) => {
     const intent =
       parameters.source === "card"
         ? IntentType.DELETE_CARD_TRANSACTION
         : IntentType.DELETE_TRANSACTION;
 
-    return handleDelete(userId, intent, parameters, phoneNumber);
+    return handleDelete(userId, intent, parameters);
   },
 };
 

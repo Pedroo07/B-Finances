@@ -1,12 +1,12 @@
 "use client"
-import { ChangeEvent, FC, useEffect, useState } from 'react'
+import { FC, useEffect, useState } from 'react'
 import { Dialog, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogContent, DialogDescription } from '@/components/ui/dialog'
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
 import { useAuthState } from 'react-firebase-hooks/auth'
 import { auth } from '@/lib/firebase'
-import { formatCurrency, translateCategory } from '@/lib/utils'
+import { formatCurrency } from '@/lib/utils'
 import { Investment } from '@/lib/entities/investment'
 import { getInvestments, addInvestmentYield, createInvestment, deleteInvestment, redeemInvestmentBalance } from '@/lib/services/investments'
 import { FiPlusCircle } from "react-icons/fi"
@@ -127,7 +127,6 @@ export const Main: FC = () => {
   const [yieldValue, setYieldValue] = useState(0)
   const [yieldDate, setYieldDate] = useState('')
   const [selectedInvestmentId, setSelectedInvestmentId] = useState('')
-  const [selectedInvestmentIdForAdd, setSelectedInvestmentIdForAdd] = useState('')
   const [filteredCategories, setFilteredCategories] = useState<string[]>([])
   const [showCategorySuggestions, setShowCategorySuggestions] = useState(false)
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
@@ -205,7 +204,7 @@ export const Main: FC = () => {
     }
 
     try {
-      const created = await createInvestment(newInvestment)
+      await createInvestment(newInvestment)
       const allInvestments = await getInvestments()
       setInvestments(allInvestments)
       resetNewInvestmentForm()
@@ -233,7 +232,7 @@ export const Main: FC = () => {
     if (!selectedInvestmentId || yieldValue <= 0 || !yieldDate) return
 
     try {
-      const updated = await addInvestmentYield(selectedInvestmentId, yieldValue, yieldDate)
+      await addInvestmentYield(selectedInvestmentId, yieldValue, yieldDate)
       const allInvestments = await getInvestments()
       setInvestments(allInvestments)
       resetYieldForm()
@@ -278,9 +277,6 @@ export const Main: FC = () => {
 
     return { total, percentage }
   }
-
-  const monthName = new Date().toLocaleDateString('pt-BR', { month: 'long' }).charAt(0).toUpperCase() +
-                     new Date().toLocaleDateString('pt-BR', { month: 'long' }).slice(1)
 
   return (
     <div className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6">

@@ -1,4 +1,5 @@
 import { db } from "@/lib/firebaseAdmin";
+import type { DocumentData, Query } from "firebase-admin/firestore";
 
 export type TransactionDto = {
   description: string;
@@ -125,7 +126,7 @@ export async function getRecentTransactions(
   startDate?: string,
   endDate?: string
 ): Promise<Transaction[]> {
-  let query: any = db.collection(`users/${userId}/transactions`);
+  let query: Query<DocumentData> = db.collection(`users/${userId}/transactions`);
 
   if (startDate) query = query.where("date", ">=", startDate);
   if (endDate) query = query.where("date", "<=", endDate);
@@ -134,8 +135,8 @@ export async function getRecentTransactions(
 
   const snapshot = await query.get();
 
-  return (snapshot.docs as any[])
-    .map((doc: any) => ({ id: doc.id, ...doc.data() } as Transaction))
+  return snapshot.docs
+    .map((doc) => ({ id: doc.id, ...doc.data() } as Transaction))
     .sort((a, b) => b.date.localeCompare(a.date))
     .slice(0, limit);
 }
