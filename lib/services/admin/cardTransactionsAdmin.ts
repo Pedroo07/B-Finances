@@ -6,6 +6,9 @@ export type CardTransactionDto = {
   date: string;
   amount: number;
   card: string;
+  installmentGroupId?: string;
+  installmentNumber?: number;
+  installmentCount?: number;
 };
 
 export type CardTransaction = CardTransactionDto & {

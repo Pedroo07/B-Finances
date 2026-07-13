@@ -5,4 +5,7 @@ export type CardTransaction = {
     amount: number
     card: string
     id: string
+    installmentGroupId?: string
+    installmentNumber?: number
+    installmentCount?: number
 }

@@ -8,11 +8,18 @@ import { IoIosArrowRoundDown, IoIosArrowRoundUp } from 'react-icons/io'
 import { FaChevronRight, FaChevronLeft } from "react-icons/fa"
 import { Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { DialogHeader, DialogFooter, Dialog, DialogContent, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/dialog'
+import { DialogHeader, DialogFooter, Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectGroup, SelectLabel, SelectItem } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import { FiMinusCircle, FiPlusCircle } from 'react-icons/fi'
-import { CardTransactionDto, createCardTransaction, deleteCardTransaction, getCardTransaction } from '@/lib/services/cardTransactions'
+import {
+    CardTransactionDto,
+    createCardInstallmentTransactions,
+    createCardTransaction,
+    deleteCardTransaction,
+    deleteCardTransactions,
+    getCardTransaction,
+} from '@/lib/services/cardTransactions'
 import { createUserCreditCard, deleteUserCreditCard, getUserCreditCards, payCreditCardInvoice, updateUserCreditCardBilling } from '@/lib/services/userCreditCards'
 import Image from 'next/image'
 import { auth } from '@/lib/firebase'
@@ -48,6 +55,12 @@ export const Main = () => {
     const [card, setCard] = useState('')
     const [price, setPrice] = useState(0)
     const [date, setDate] = useState('')
+    const [installmentCount, setInstallmentCount] = useState(1)
+    const [isAddExpenseDialogOpen, setIsAddExpenseDialogOpen] = useState(false)
+    const [isSavingExpense, setIsSavingExpense] = useState(false)
+    const [expenseFormError, setExpenseFormError] = useState('')
+    const [installmentToDelete, setInstallmentToDelete] = useState<CardTransaction | null>(null)
+    const [isDeletingInstallment, setIsDeletingInstallment] = useState(false)
     const [cardToAdd, setCardToAdd] = useState<BankKey | ''>('')
     const [closingDayToAdd, setClosingDayToAdd] = useState(0)
     const [dueDayToAdd, setDueDayToAdd] = useState(0)
@@ -123,6 +136,8 @@ export const Main = () => {
         setPrice(0)
         setCategory('')
         setDate('')
+        setInstallmentCount(1)
+        setExpenseFormError('')
     }
 
     const handleTextChange = (event: ChangeEvent<HTMLInputElement>): void => {
@@ -268,30 +283,82 @@ export const Main = () => {
             : 'border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-300'
 
     const handleDeleteItem = async (id: string) => {
-        await deleteCardTransaction(id)
-        setItems((currentItems) => currentItems.filter(item => item.id !== id))
-        resetForm()
-    }
-
-    const handleAddNewItem = async (isIncomeDialog: boolean) => {
-        if (!selectedTransactionCard) return
-
-        const adjustedPrice = isIncomeDialog ? Math.abs(price) : -Math.abs(price)
-
-        const newItem: CardTransactionDto = {
-            amount: adjustedPrice,
-            date: date,
-            card: selectedTransactionCard,
-            description: text,
-            category: category,
+        const item = items.find((currentItem) => currentItem.id === id)
+        if (item?.installmentGroupId) {
+            setInstallmentToDelete(item)
+            return
         }
 
+        await deleteCardTransaction(id)
+        setItems((currentItems) => currentItems.filter(item => item.id !== id))
+    }
+
+    const handleAddNewItem = async () => {
+        if (!selectedTransactionCard || isSavingExpense) return
+
+        setExpenseFormError('')
+        setIsSavingExpense(true)
         try {
-            const newTransaction = await createCardTransaction(newItem)
-            setItems((currentItems) => sortItemByDate([newTransaction, ...currentItems]))
+            if (installmentCount === 1) {
+                const newItem: CardTransactionDto = {
+                    amount: -Math.abs(price),
+                    date,
+                    card: selectedTransactionCard,
+                    description: text.trim(),
+                    category,
+                }
+                const newTransaction = await createCardTransaction(newItem)
+                setItems((currentItems) => sortItemByDate([newTransaction, ...currentItems]))
+            } else {
+                const newTransactions = await createCardInstallmentTransactions({
+                    totalAmount: Math.abs(price),
+                    purchaseDate: date,
+                    card: selectedTransactionCard,
+                    description: text.trim(),
+                    category,
+                    installmentCount,
+                })
+                setItems((currentItems) => sortItemByDate([...newTransactions, ...currentItems]))
+            }
+
             resetForm()
+            setIsAddExpenseDialogOpen(false)
         } catch (error) {
             console.error("Error adding card transaction:", error)
+            setExpenseFormError(error instanceof Error ? error.message : 'Não foi possível criar o lançamento')
+        } finally {
+            setIsSavingExpense(false)
+        }
+    }
+
+    const handleDeleteSelectedInstallment = async () => {
+        if (!installmentToDelete || isDeletingInstallment) return
+
+        try {
+            setIsDeletingInstallment(true)
+            await deleteCardTransaction(installmentToDelete.id)
+            setItems((currentItems) => currentItems.filter((item) => item.id !== installmentToDelete.id))
+            setInstallmentToDelete(null)
+        } finally {
+            setIsDeletingInstallment(false)
+        }
+    }
+
+    const handleDeleteInstallmentGroup = async () => {
+        if (!installmentToDelete?.installmentGroupId || isDeletingInstallment) return
+
+        const groupId = installmentToDelete.installmentGroupId
+        const groupIds = items
+            .filter((item) => item.installmentGroupId === groupId)
+            .map((item) => item.id)
+
+        try {
+            setIsDeletingInstallment(true)
+            await deleteCardTransactions(groupIds)
+            setItems((currentItems) => currentItems.filter((item) => item.installmentGroupId !== groupId))
+            setInstallmentToDelete(null)
+        } finally {
+            setIsDeletingInstallment(false)
         }
     }
 
@@ -679,6 +746,100 @@ export const Main = () => {
                 </DialogContent>
             </Dialog>
 
+            <Dialog
+                open={isAddExpenseDialogOpen}
+                onOpenChange={(open) => {
+                    setIsAddExpenseDialogOpen(open)
+                    if (!open && !isSavingExpense) resetForm()
+                }}
+            >
+                <DialogContent className="sm:max-w-106">
+                    <DialogHeader>
+                        <DialogTitle>Adicionar nova despesa</DialogTitle>
+                        <DialogDescription>
+                            Informe o valor total da compra. A data será usada como a primeira parcela.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                        <Input type="text" placeholder="Descrição" value={text} onChange={handleTextChange} />
+                        <Input type="number" min="0.01" step="0.01" placeholder="Valor total da compra" value={price || ''} onChange={handlePriceChange} />
+                        <Input type="date" placeholder="Data da compra" value={date} onChange={handleDateChange} />
+                        <Select value={String(installmentCount)} onValueChange={(value) => setInstallmentCount(Number(value))}>
+                            <SelectTrigger className="w-full">
+                                <SelectValue placeholder="Parcelamento" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectGroup>
+                                    <SelectLabel>Parcelamento</SelectLabel>
+                                    <SelectItem value="1">À vista</SelectItem>
+                                    {Array.from({ length: 11 }, (_, index) => index + 2).map((count) => (
+                                        <SelectItem key={count} value={String(count)}>{count}x</SelectItem>
+                                    ))}
+                                </SelectGroup>
+                            </SelectContent>
+                        </Select>
+                        <Select value={category} onValueChange={handleCategoryChange}>
+                            <SelectTrigger className="w-full">
+                                <SelectValue placeholder="Selecione uma categoria" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectGroup>
+                                    <SelectLabel>Categorias</SelectLabel>
+                                    {EXPENSE_CATEGORIES.map(({ value, label }) => (
+                                        <SelectItem key={value} value={value}>{label}</SelectItem>
+                                    ))}
+                                </SelectGroup>
+                            </SelectContent>
+                        </Select>
+                        <Select value={selectedTransactionCard} onValueChange={handleCardChange}>
+                            <SelectTrigger className="w-full">
+                                <SelectValue placeholder="Selecione um cartão" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectGroup>
+                                    <SelectLabel>Cartões adicionados</SelectLabel>
+                                    {cards.map(([bankKey, bank]) => (
+                                        <SelectItem key={bankKey} value={bank.name}>{bank.name}</SelectItem>
+                                    ))}
+                                </SelectGroup>
+                            </SelectContent>
+                        </Select>
+                        {expenseFormError ? <p className="text-sm text-rose-500">{expenseFormError}</p> : null}
+                    </div>
+                    <DialogFooter>
+                        <Button
+                            onClick={handleAddNewItem}
+                            type="button"
+                            disabled={!text.trim() || price <= 0 || !category || !date || !selectedTransactionCard || isSavingExpense}
+                            className="w-full sm:w-auto"
+                        >
+                            <span>{isSavingExpense ? 'Criando...' : 'Criar lançamento'}</span>
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog
+                open={Boolean(installmentToDelete)}
+                onOpenChange={(open) => {
+                    if (!open && !isDeletingInstallment) setInstallmentToDelete(null)
+                }}
+            >
+                <DialogContent className="sm:max-w-106">
+                    <DialogHeader>
+                        <DialogTitle>Excluir compra parcelada</DialogTitle>
+                        <DialogDescription>
+                            Exclua somente a parcela {installmentToDelete?.installmentNumber}/{installmentToDelete?.installmentCount} ou todas as parcelas cadastradas desta compra.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <Button type="button" variant="outline" onClick={() => setInstallmentToDelete(null)} disabled={isDeletingInstallment}>Cancelar</Button>
+                        <Button type="button" variant="outline" onClick={handleDeleteSelectedInstallment} disabled={isDeletingInstallment}>Somente esta parcela</Button>
+                        <Button type="button" variant="destructive" onClick={handleDeleteInstallmentGroup} disabled={isDeletingInstallment}>Todas as parcelas</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
             <section className='surface-card p-6 sm:p-7'>
                 <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
                     <div className='space-y-2'>
@@ -860,61 +1021,17 @@ export const Main = () => {
 
                     <section className='grid gap-6 xl:grid-cols-[0.8fr_1.2fr]'>
                         <div className="surface-card flex items-center gap-4 p-5 sm:p-6">
-                            <Dialog>
-                                <DialogTrigger asChild>
-                                    <div className="flex h-14 w-14 cursor-pointer items-center justify-center rounded-2xl bg-rose-500/12 text-rose-500 transition-transform hover:scale-[1.03] dark:bg-rose-500/18 dark:text-rose-300">
-                                        <FiMinusCircle className="text-2xl" />
-                                    </div>
-                                </DialogTrigger>
-                                <DialogContent className="sm:max-w-106">
-                                    <DialogHeader>
-                                        <DialogTitle>Adicionar nova despesa</DialogTitle>
-                                    </DialogHeader>
-                                    <div className="grid gap-4 py-4">
-                                        <Input type="text" placeholder="Descricao" value={text} onChange={handleTextChange}></Input>
-                                        <Input type="number" placeholder="Valor" value={price} onChange={handlePriceChange}></Input>
-                                        <Input type="date" placeholder="Data" value={date} onChange={handleDateChange}></Input>
-                                        <Select value={category} onValueChange={handleCategoryChange}>
-                                            <SelectTrigger className="w-full">
-                                                <SelectValue placeholder="Selecione uma categoria" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectGroup>
-                                                    <SelectLabel>Categorias</SelectLabel>
-                                                    {EXPENSE_CATEGORIES.map(({ value, label }) => (
-                                                        <SelectItem key={value} value={value}>{label}</SelectItem>
-                                                    ))}
-                                                </SelectGroup>
-                                            </SelectContent>
-                                        </Select>
-                                        <Select value={selectedTransactionCard} onValueChange={handleCardChange}>
-                                            <SelectTrigger className="w-full">
-                                                <SelectValue placeholder="Selecione um cartao" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectGroup>
-                                                    <SelectLabel>Cartões adicionados</SelectLabel>
-                                                    {cards.map(([bankKey, bank]) => (
-                                                        <SelectItem key={bankKey} value={bank.name}>
-                                                            {bank.name}
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectGroup>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                            <DialogFooter>
-                                                <Button
-                                                    onClick={() => handleAddNewItem(false)}
-                                                    type="button"
-                                                    disabled={!text || !price || !category || !date || !selectedTransactionCard}
-                                                    className='w-full sm:w-auto'
-                                                >
-                                            <span>Criar lançamento</span>
-                                        </Button>
-                                    </DialogFooter>
-                                </DialogContent>
-                            </Dialog>
+                            <button
+                                type="button"
+                                aria-label="Adicionar despesa"
+                                onClick={() => {
+                                    setDate(getTodayDate())
+                                    setIsAddExpenseDialogOpen(true)
+                                }}
+                                className="flex h-14 w-14 cursor-pointer items-center justify-center rounded-2xl bg-rose-500/12 text-rose-500 transition-transform hover:scale-[1.03] dark:bg-rose-500/18 dark:text-rose-300"
+                            >
+                                <FiMinusCircle className="text-2xl" />
+                            </button>
                             <div className="px-1">
                                 <p className="font-semibold text-[#0F172A] dark:text-white">Adicionar despesa</p>
                                 <p className="text-sm text-[#64748B] dark:text-[#94A3BB]">Registre uma nova compra no cartão selecionado.</p>
@@ -943,7 +1060,7 @@ export const Main = () => {
                                 {filterItems.length > 0 ? (
                                     <ul className="divide-y divide-border/40">
                                         {filterItems.map((item) => (
-                                            <TransactionItem key={item.id} item={item} onDelete={handleDeleteItem} />
+                                            <TransactionItem key={item.id} item={item} onDelete={handleDeleteItem} showInstallment />
                                         ))}
                                     </ul>
                                 ) : (

@@ -3,7 +3,6 @@ import { Dialog, DialogTrigger } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
-import React from 'react'
 import { LogOut, Settings2 } from "lucide-react";
 import { toast } from 'sonner';
 import { useAuthState } from 'react-firebase-hooks/auth';
