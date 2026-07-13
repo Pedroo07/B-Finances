@@ -1,6 +1,10 @@
 import { db } from "@/lib/firebaseAdmin";
 import { buildInstallmentSchedule } from "@/lib/creditCards/installments";
 import { getBrasiliaDate } from "@/lib/whatsapp/utils/brasiliaDate";
+import type {
+  DocumentData,
+  DocumentSnapshot,
+} from "firebase-admin/firestore";
 
 export type CardTransactionDto = {
   description: string;
@@ -15,7 +19,23 @@ export type CardTransactionDto = {
 
 export type CardTransaction = CardTransactionDto & {
   id: string;
+  createdAt?: string;
 };
+
+function mapCardTransactionSnapshot(
+  snapshot: DocumentSnapshot<DocumentData>,
+): CardTransaction {
+  const data = snapshot.data();
+  if (!data) {
+    throw new Error(`Transação de cartão ${snapshot.id} não encontrada.`);
+  }
+
+  return {
+    ...data,
+    id: snapshot.id,
+    createdAt: snapshot.createTime?.toDate().toISOString(),
+  } as CardTransaction;
+}
 
 export type CardInstallmentTransactionDto = {
   description: string;
@@ -34,10 +54,7 @@ export async function createCardTransaction(
     .collection(`users/${userId}/cardTransactions`)
     .add(data);
 
-  return {
-    id: docRef.id,
-    ...data,
-  };
+  return mapCardTransactionSnapshot(await docRef.get());
 }
 
 export async function createCardInstallmentTransactions(
@@ -53,7 +70,7 @@ export async function createCardInstallmentTransactions(
   );
   const installmentGroupId = firstRef.id;
 
-  const transactions = schedule.map((installment, index) => {
+  schedule.forEach((installment, index) => {
     const transaction: CardTransactionDto = {
       description: data.description,
       category: data.category,
@@ -66,11 +83,11 @@ export async function createCardInstallmentTransactions(
     };
 
     batch.set(transactionRefs[index], transaction);
-    return { id: transactionRefs[index].id, ...transaction };
   });
 
   await batch.commit();
-  return transactions;
+  const snapshots = await Promise.all(transactionRefs.map((ref) => ref.get()));
+  return snapshots.map(mapCardTransactionSnapshot);
 }
 
 export async function getCardTransactions(
@@ -80,10 +97,7 @@ export async function getCardTransactions(
     .collection(`users/${userId}/cardTransactions`)
     .get();
 
-  return snapshot.docs.map((doc) => ({
-    id: doc.id,
-    ...doc.data(),
-  })) as CardTransaction[];
+  return snapshot.docs.map(mapCardTransactionSnapshot);
 }
 
 export async function getCardTransactionsByCard(
@@ -105,10 +119,7 @@ export async function getCardTransactionsByCard(
 
   const snapshot = await query.get();
 
-  return snapshot.docs.map((doc) => ({
-    id: doc.id,
-    ...doc.data(),
-  })) as CardTransaction[];
+  return snapshot.docs.map(mapCardTransactionSnapshot);
 }
 
 export async function deleteCardTransaction(
@@ -153,8 +164,5 @@ export async function findCardTransactionByDescription(
       const data = doc.data();
       return data.description?.toLowerCase().includes(descLower);
     })
-    .map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    })) as CardTransaction[];
+    .map(mapCardTransactionSnapshot);
 }

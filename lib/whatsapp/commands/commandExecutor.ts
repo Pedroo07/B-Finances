@@ -16,12 +16,17 @@ import {
   type Transaction,
 } from "@/lib/services/admin/transactionsAdmin";
 import {
+  beginUpdateForTarget,
   buildTransactionSelectionMessage,
-  FIELD_QUESTION,
-  type PendingUpdateTransactionAction,
+  createPendingUpdateAction,
   type UpdateTransactionTarget,
 } from "../handlers/updateTransactionHandler";
 import { getBrasiliaDate } from "../utils/brasiliaDate";
+import { resolveCreationDate } from "./normalizers/creationDateResolver";
+import {
+  compareCreatedAtDescending,
+  resolveUpdateTargetStrategy,
+} from "../handlers/updateTransactionFlow";
 import {
   getAllCardInvoices,
   getCardInvoiceAmount,
@@ -57,6 +62,7 @@ type ExecutorInput = {
   messageText: string;
   conversationHistory?: string;
   phoneNumber?: string;
+  recentTransaction?: UpdateTransactionTarget | null;
 };
 
 type TransactionQueryResult = {
@@ -77,13 +83,6 @@ function normalizeText(value: string): string {
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .trim();
-}
-
-function formatDate(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
 }
 
 function formatDisplayDate(date: string): string {
@@ -317,6 +316,7 @@ function normalTransactionToItem(transaction: Transaction): CommandTransactionIt
     type,
     paymentMethod: transaction.paymentMethod,
     cardName: null,
+    createdAt: transaction.createdAt ?? null,
   };
 }
 
@@ -333,6 +333,7 @@ function cardTransactionToItem(transaction: CardTransaction): CommandTransaction
     cardName: getCreditCardName(transaction.card),
     installmentNumber: transaction.installmentNumber ?? null,
     installmentCount: transaction.installmentCount ?? null,
+    createdAt: transaction.createdAt ?? null,
   };
 }
 
@@ -388,11 +389,20 @@ function sortItems(
 ): CommandTransactionItem[] {
   const orderBy = filters?.orderBy ?? "date_desc";
   return [...items].sort((a, b) => {
-    if (orderBy === "date_asc") return a.date.localeCompare(b.date);
+    if (orderBy === "created_desc") {
+      return compareCreatedAtDescending(a, b);
+    }
+    if (orderBy === "date_asc") {
+      const dateComparison = a.date.localeCompare(b.date);
+      if (dateComparison !== 0) return dateComparison;
+      return (a.createdAt ?? "").localeCompare(b.createdAt ?? "");
+    }
     if (orderBy === "amount_desc") return Math.abs(b.amount) - Math.abs(a.amount);
     if (orderBy === "amount_asc") return Math.abs(a.amount) - Math.abs(b.amount);
 
-    return b.date.localeCompare(a.date);
+    const dateComparison = b.date.localeCompare(a.date);
+    if (dateComparison !== 0) return dateComparison;
+    return (b.createdAt ?? "").localeCompare(a.createdAt ?? "");
   });
 }
 
@@ -621,6 +631,7 @@ function normalizePaymentMethod(command: BFinanceCommand): BFinancePaymentMethod
 async function executeCreateTransaction(
   userId: string,
   command: BFinanceCommand,
+  messageText: string,
 ): Promise<BFinanceCommandResult> {
   const missingFields: string[] = [];
   const description = command.data?.description || command.filters?.description;
@@ -642,7 +653,7 @@ async function executeCreateTransaction(
   const descriptionText = description ?? "";
   const amountValue = amount ?? 0;
   const paymentMethod = normalizePaymentMethod(command);
-  const date = command.data?.date || formatDate(getBrasiliaDate());
+  const date = resolveCreationDate(messageText, command.data?.date);
   const category = normalizeCategory(command);
   const type = command.transactionType === "income" ? "income" : "expense";
   const normalizedAmount =
@@ -709,6 +720,7 @@ async function executeCreateTransaction(
           pendingAction: {
             type: "select_card_for_query",
             command,
+            sourceMessageText: messageText,
             cards: cardNames.map((name, index) => ({ index: index + 1, cardName: name })),
           },
         };
@@ -774,56 +786,117 @@ async function executeCreateTransaction(
 async function executeUpdateTransaction(
   userId: string,
   command: BFinanceCommand,
+  recentTransaction?: UpdateTransactionTarget | null,
 ): Promise<BFinanceCommandResult> {
-  const targetDate = command.data?.date;
+  const update = command.update ?? {};
+  const filters = command.filters ?? {};
+  const isContextOnlyReference =
+    update.reference === "recent" && !update.targetText?.trim();
+  const hasExplicitTarget =
+    !isContextOnlyReference &&
+    Boolean(
+      filters.description ||
+        filters.category ||
+        (filters.amount !== null && filters.amount !== undefined) ||
+        (filters.minAmount !== null && filters.minAmount !== undefined) ||
+        (filters.maxAmount !== null && filters.maxAmount !== undefined) ||
+        command.period?.isExplicit ||
+        command.scope?.cardName,
+    );
+
+  const recentMatchesType =
+    recentTransaction &&
+    (command.transactionType === undefined ||
+      command.transactionType === "all" ||
+      command.transactionType === recentTransaction.type);
+  const targetStrategy = resolveUpdateTargetStrategy({
+    reference: update.reference,
+    hasExplicitTarget,
+    hasRecentTarget: Boolean(recentTransaction),
+    recentMatchesType: Boolean(recentMatchesType),
+  });
+
+  if (targetStrategy === "recent" && recentTransaction) {
+    const pendingResult = await beginUpdateForTarget(
+      userId,
+      recentTransaction,
+      update,
+      command,
+    );
+    return {
+      success: true,
+      kind: "ready_message",
+      command,
+      message: pendingResult.message,
+      pendingAction: pendingResult.pendingAction,
+      updatedItem: pendingResult.updatedTarget,
+    };
+  }
+
+  if (targetStrategy === "criteria") {
+    return {
+      success: true,
+      kind: "ready_message",
+      command,
+      message:
+        "Qual transação você quer alterar? Dê uma pista, como descrição, valor, data ou cartão.",
+      pendingAction: createPendingUpdateAction({
+        step: "criteria",
+        command,
+        update,
+      }),
+    };
+  }
+
   const targetCommand: BFinanceCommand = {
     ...command,
     filters: {
-      ...(command.filters ?? {}),
-      description:
-        command.filters?.description ?? command.data?.description ?? null,
-      amount: command.filters?.amount ?? command.data?.amount ?? null,
-      category: command.filters?.category ?? command.data?.category ?? null,
+      ...filters,
+      orderBy:
+        update.reference === "latest" ? "created_desc" : "date_desc",
+      ...(update.reference === "latest" ? { limit: 1 } : {}),
     },
-    period: targetDate
-      ? {
-          raw: targetDate,
-          type: "date_range",
-          startDate: targetDate,
-          endDate: targetDate,
-          month: null,
-          year: null,
-          days: null,
-          isExplicit: true,
-        }
-      : command.period,
+    scope: command.scope ?? {
+      includeNormalTransactions: true,
+      includeCardTransactions: true,
+      cardName: null,
+      excludeCardTransactions: false,
+      paymentMethod: null,
+      excludePaymentMethod: null,
+    },
   };
   const result = await queryTransactions(userId, targetCommand);
   const candidates = result.items.slice(0, 5) as UpdateTransactionTarget[];
 
   if (candidates.length === 0) {
     return {
-      success: false,
-      kind: "clarification",
+      success: true,
+      kind: "ready_message",
       command,
       message:
-        "Não encontrei a transação que você quer alterar. Informe uma pista, como descrição, valor ou data.",
+        "Não encontrei essa transação. Dê outra pista, como descrição, valor, data ou cartão.",
+      pendingAction: createPendingUpdateAction({
+        step: "criteria",
+        command,
+        update,
+      }),
     };
   }
 
-  let message = FIELD_QUESTION;
-  let pendingAction: PendingUpdateTransactionAction = {
-    type: "update_transaction",
-    step: "field",
-    target: candidates[0],
-  };
-
-  if (candidates.length > 1) {
-    message = buildTransactionSelectionMessage(candidates);
-    pendingAction = {
-      type: "update_transaction",
-      step: "transaction",
-      candidates,
+  if (candidates.length === 1) {
+    const pendingResult = await beginUpdateForTarget(
+      userId,
+      candidates[0],
+      update,
+      command,
+    );
+    return {
+      success: true,
+      kind: "ready_message",
+      command,
+      message: pendingResult.message,
+      pendingAction: pendingResult.pendingAction,
+      updatedItem: pendingResult.updatedTarget,
     };
   }
 
@@ -831,8 +904,13 @@ async function executeUpdateTransaction(
     success: true,
     kind: "ready_message",
     command,
-    message,
-    pendingAction,
+    message: buildTransactionSelectionMessage(candidates),
+    pendingAction: createPendingUpdateAction({
+      step: "transaction",
+      candidates,
+      command,
+      update,
+    }),
   };
 }
 
@@ -1151,6 +1229,8 @@ async function executeTransactionQuery(
 export async function executeBFinanceCommand({
   userId,
   command,
+  messageText,
+  recentTransaction,
 }: ExecutorInput): Promise<BFinanceCommandResult> {
   try {
     if (command.action === "help") {
@@ -1176,14 +1256,14 @@ export async function executeBFinanceCommand({
     }
 
     if (command.action === "create" && command.resource === "transaction") {
-      return await executeCreateTransaction(userId, command);
+      return await executeCreateTransaction(userId, command, messageText);
     }
 
     if (
       command.action === "create" &&
       command.resource === "card_transaction"
     ) {
-      return await executeCreateTransaction(userId, command);
+      return await executeCreateTransaction(userId, command, messageText);
     }
 
     if (
@@ -1199,7 +1279,11 @@ export async function executeBFinanceCommand({
       (command.resource === "transaction" ||
         command.resource === "card_transaction")
     ) {
-      return await executeUpdateTransaction(userId, command);
+      return await executeUpdateTransaction(
+        userId,
+        command,
+        recentTransaction,
+      );
     }
 
     if (command.action === "pay") {

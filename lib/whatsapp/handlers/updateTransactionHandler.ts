@@ -10,13 +10,19 @@ import {
   formatBrasiliaDate,
   getBrasiliaDate,
 } from "@/lib/whatsapp/utils/brasiliaDate";
+import type {
+  BFinanceCommand,
+  BFinanceCommandUpdate,
+  BFinanceUpdateField,
+} from "@/lib/whatsapp/commands/types";
+import { extractMoney } from "@/lib/whatsapp/utils/moneyParser";
+import {
+  getNextUpdateStep,
+  getNextUpdateStepAfterFieldSelection,
+  selectCandidateByNumber,
+} from "./updateTransactionFlow";
 
-export type EditableTransactionField =
-  | "description"
-  | "amount"
-  | "date"
-  | "category"
-  | "paymentMethod";
+export type EditableTransactionField = BFinanceUpdateField;
 
 export type UpdateTransactionTarget = {
   id: string;
@@ -28,21 +34,37 @@ export type UpdateTransactionTarget = {
   type: "expense" | "income";
   paymentMethod?: string | null;
   cardName?: string | null;
+  createdAt?: string | null;
 };
+
+export const UPDATE_PENDING_ACTION_VERSION = 2;
+export const UPDATE_PENDING_ACTION_TTL_MS = 15 * 60 * 1000;
 
 export type PendingUpdateTransactionAction = {
   type: "update_transaction";
-  step: "transaction" | "field" | "value" | "card";
+  version: typeof UPDATE_PENDING_ACTION_VERSION;
+  step: "criteria" | "transaction" | "field" | "value" | "card";
   candidates?: UpdateTransactionTarget[];
   target?: UpdateTransactionTarget;
-  field?: EditableTransactionField;
+  update?: BFinanceCommandUpdate;
+  command?: BFinanceCommand;
   paymentMethod?: "credit_card";
+  expiresAt: string;
+};
+
+export type PendingQueryTransactionSelectionAction = {
+  type: "select_transaction_from_query";
+  version: typeof UPDATE_PENDING_ACTION_VERSION;
+  candidates: UpdateTransactionTarget[];
+  expiresAt: string;
 };
 
 export type UpdatePendingResult = {
   message: string;
   pendingAction?: PendingUpdateTransactionAction;
   completed: boolean;
+  updatedTarget?: UpdateTransactionTarget;
+  needsCriteria?: boolean;
 };
 
 const FIELD_QUESTION =
@@ -85,6 +107,80 @@ function isTarget(value: unknown): value is UpdateTransactionTarget {
   );
 }
 
+function newExpiry(): string {
+  return new Date(Date.now() + UPDATE_PENDING_ACTION_TTL_MS).toISOString();
+}
+
+function isExpired(expiresAt: string): boolean {
+  const expiresAtMs = Date.parse(expiresAt);
+  return !Number.isFinite(expiresAtMs) || expiresAtMs <= Date.now();
+}
+
+function isUpdateField(value: unknown): value is EditableTransactionField {
+  return (
+    value === "description" ||
+    value === "amount" ||
+    value === "date" ||
+    value === "category" ||
+    value === "paymentMethod"
+  );
+}
+
+function normalizeRequestedUpdate(
+  update?: BFinanceCommandUpdate,
+): BFinanceCommandUpdate {
+  return {
+    field: isUpdateField(update?.field) ? update.field : null,
+    value:
+      typeof update?.value === "string" || typeof update?.value === "number"
+        ? update.value
+        : null,
+    reference: update?.reference ?? null,
+    targetText: update?.targetText ?? null,
+  };
+}
+
+export function createPendingUpdateAction(
+  action: Omit<
+    PendingUpdateTransactionAction,
+    "type" | "version" | "expiresAt"
+  >,
+): PendingUpdateTransactionAction {
+  return {
+    type: "update_transaction",
+    version: UPDATE_PENDING_ACTION_VERSION,
+    expiresAt: newExpiry(),
+    ...action,
+    update: normalizeRequestedUpdate(action.update),
+  };
+}
+
+export function createQuerySelectionAction(
+  candidates: UpdateTransactionTarget[],
+): PendingQueryTransactionSelectionAction {
+  return {
+    type: "select_transaction_from_query",
+    version: UPDATE_PENDING_ACTION_VERSION,
+    candidates,
+    expiresAt: newExpiry(),
+  };
+}
+
+export function isPendingQueryTransactionSelectionAction(
+  value: unknown,
+): value is PendingQueryTransactionSelectionAction {
+  if (!value || typeof value !== "object") return false;
+  const action = value as Partial<PendingQueryTransactionSelectionAction>;
+  return (
+    action.type === "select_transaction_from_query" &&
+    action.version === UPDATE_PENDING_ACTION_VERSION &&
+    typeof action.expiresAt === "string" &&
+    Array.isArray(action.candidates) &&
+    action.candidates.length > 0 &&
+    action.candidates.every(isTarget)
+  );
+}
+
 export function isPendingUpdateTransactionAction(
   value: unknown,
 ): value is PendingUpdateTransactionAction {
@@ -92,7 +188,11 @@ export function isPendingUpdateTransactionAction(
   const action = value as Partial<PendingUpdateTransactionAction>;
   return (
     action.type === "update_transaction" &&
-    ["transaction", "field", "value", "card"].includes(action.step ?? "") &&
+    action.version === UPDATE_PENDING_ACTION_VERSION &&
+    typeof action.expiresAt === "string" &&
+    ["criteria", "transaction", "field", "value", "card"].includes(
+      action.step ?? "",
+    ) &&
     (!action.target || isTarget(action.target)) &&
     (!action.candidates ||
       (Array.isArray(action.candidates) && action.candidates.every(isTarget)))
@@ -137,20 +237,8 @@ function parseField(messageText: string): EditableTransactionField | null {
 }
 
 function parseAmount(messageText: string): number | null {
-  const match = messageText.replace(/\s/g, "").match(/-?\d[\d.,]*/);
-  if (!match) return null;
-
-  let raw = match[0];
-  if (raw.includes(",")) {
-    raw = raw.replace(/\./g, "").replace(",", ".");
-  } else if ((raw.match(/\./g) ?? []).length > 1) {
-    raw = raw.replace(/\./g, "");
-  } else if (/\.\d{3}$/.test(raw)) {
-    raw = raw.replace(".", "");
-  }
-
-  const value = Number(raw);
-  return Number.isFinite(value) && value > 0 ? value : null;
+  const value = extractMoney(messageText)?.value ?? null;
+  return value !== null && Number.isFinite(value) && value > 0 ? value : null;
 }
 
 function formatLocalDate(date: Date): string {
@@ -227,10 +315,10 @@ async function changePaymentMethod(
   target: UpdateTransactionTarget,
   method: "cash" | "pix" | "debit" | "credit_card",
   cardName?: string,
-): Promise<void> {
+): Promise<UpdateTransactionTarget> {
   if (target.source === "transaction" && method !== "credit_card") {
     await updateTransaction(userId, target.id, { paymentMethod: method });
-    return;
+    return { ...target, paymentMethod: method, cardName: null };
   }
 
   if (target.source === "card_transaction" && method === "credit_card") {
@@ -239,7 +327,11 @@ async function changePaymentMethod(
         card: getCreditCardName(cardName),
       });
     }
-    return;
+    return {
+      ...target,
+      paymentMethod: "credit_card",
+      cardName: cardName ? getCreditCardName(cardName) : target.cardName,
+    };
   }
 
   const batch = db.batch();
@@ -254,6 +346,17 @@ async function changePaymentMethod(
       card: getCreditCardName(cardName ?? ""),
     });
     batch.delete(sourceRef);
+    await batch.commit();
+    return {
+      ...target,
+      id: destinationRef.id,
+      source: "card_transaction",
+      type: "expense",
+      amount: -Math.abs(target.amount),
+      paymentMethod: "credit_card",
+      cardName: getCreditCardName(cardName ?? ""),
+      createdAt: new Date().toISOString(),
+    };
   } else {
     const sourceRef = db.collection(`users/${userId}/cardTransactions`).doc(target.id);
     const destinationRef = db.collection(`users/${userId}/transactions`).doc();
@@ -266,8 +369,18 @@ async function changePaymentMethod(
       paymentMethod: method,
     });
     batch.delete(sourceRef);
+    await batch.commit();
+    return {
+      ...target,
+      id: destinationRef.id,
+      source: "transaction",
+      type: "expense",
+      amount: -Math.abs(target.amount),
+      paymentMethod: method,
+      cardName: null,
+      createdAt: new Date().toISOString(),
+    };
   }
-  await batch.commit();
 }
 
 async function applyUpdate(
@@ -289,7 +402,24 @@ async function applyUpdate(
       return {
         completed: false,
         message: "Não reconheci esse método. Responda com Pix, dinheiro, débito ou cartão de crédito.",
-        pendingAction: { type: "update_transaction", step: "value", target, field },
+        pendingAction: createPendingUpdateAction({
+          step: "value",
+          target,
+          update: { field, value: null },
+        }),
+      };
+    }
+
+    if (payment.method === "credit_card" && target.type === "income") {
+      return {
+        completed: false,
+        message:
+          "Receitas não podem ser movidas para cartão de crédito. Escolha Pix, dinheiro ou débito.",
+        pendingAction: createPendingUpdateAction({
+          step: "value",
+          target,
+          update: { field, value: null },
+        }),
       };
     }
 
@@ -297,20 +427,25 @@ async function applyUpdate(
       return {
         completed: false,
         message: "Qual cartão de crédito devo usar? Informe o nome do cartão.",
-        pendingAction: {
-          type: "update_transaction",
+        pendingAction: createPendingUpdateAction({
           step: "card",
           target,
-          field,
+          update: { field, value: payment.method },
           paymentMethod: "credit_card",
-        },
+        }),
       };
     }
 
-    await changePaymentMethod(userId, target, payment.method, payment.cardName);
+    const updatedTarget = await changePaymentMethod(
+      userId,
+      target,
+      payment.method,
+      payment.cardName,
+    );
     return {
       completed: true,
       message: `✅ Método de pagamento de “${target.description}” atualizado com sucesso.`,
+      updatedTarget,
     };
   }
 
@@ -324,7 +459,11 @@ async function applyUpdate(
     return {
       completed: false,
       message: hints[field],
-      pendingAction: { type: "update_transaction", step: "value", target, field },
+      pendingAction: createPendingUpdateAction({
+        step: "value",
+        target,
+        update: { field, value: null },
+      }),
     };
   }
 
@@ -342,10 +481,103 @@ async function applyUpdate(
     await updateTransaction(userId, target.id, patch);
   }
 
+
+  const updatedTarget: UpdateTransactionTarget = {
+    ...target,
+    ...(field === "description" ? { description: String(value) } : {}),
+    ...(field === "date" ? { date: String(value) } : {}),
+    ...(field === "category" ? { category: String(value) } : {}),
+    ...(field === "amount" ? { amount: Number(patch.amount) } : {}),
+  };
+
   return {
     completed: true,
-    message: `✅ ${FIELD_UPDATED_LABELS[field]} em “${target.description}” com sucesso.`,
+    message: `✅ Alteração concluída em “${target.description}”: ${FIELD_UPDATED_LABELS[field].toLocaleLowerCase("pt-BR")}.`,
+    updatedTarget,
   };
+}
+
+function valueAsMessage(value: string | number): string {
+  return typeof value === "number" ? String(value) : value;
+}
+
+function extractInlineValue(
+  messageText: string,
+  field: EditableTransactionField,
+): string | null {
+  const match = messageText.match(/\bpara\s+(.+)$/i);
+  if (match?.[1]?.trim()) return match[1].trim();
+
+  const fieldPatterns: Record<EditableTransactionField, RegExp> = {
+    description: /^(?:(?:a|o)\s+)?(?:descri[cç][aã]o|nome)\s+(.+)$/iu,
+    amount: /^(?:(?:o|a)\s+)?(?:valor|pre[cç]o|quantia)\s+(.+)$/iu,
+    date: /^(?:(?:a|o)\s+)?(?:data|dia)\s+(.+)$/iu,
+    category: /^(?:(?:a|o)\s+)?categoria\s+(.+)$/iu,
+    paymentMethod:
+      /^(?:(?:o|a)\s+)?(?:(?:m[eé]todo|forma)\s+(?:de\s+)?pagamento|pagamento)\s+(.+)$/iu,
+  };
+  return fieldPatterns[field].exec(messageText.trim())?.[1]?.trim() || null;
+}
+
+export async function beginUpdateForTarget(
+  userId: string,
+  target: UpdateTransactionTarget,
+  requestedUpdate?: BFinanceCommandUpdate,
+  command?: BFinanceCommand,
+): Promise<UpdatePendingResult> {
+  const update = normalizeRequestedUpdate(requestedUpdate);
+  const nextStep = getNextUpdateStep(update);
+
+  if (nextStep.kind === "apply" && isUpdateField(nextStep.field)) {
+    return applyUpdate(
+      userId,
+      target,
+      nextStep.field,
+      valueAsMessage(nextStep.value),
+    );
+  }
+
+  if (nextStep.kind === "ask_value" && isUpdateField(nextStep.field)) {
+    return {
+      completed: false,
+      message: FIELD_VALUE_QUESTIONS[nextStep.field],
+      pendingAction: createPendingUpdateAction({
+        step: "value",
+        target,
+        update,
+        command,
+      }),
+    };
+  }
+
+  return {
+    completed: false,
+    message: FIELD_QUESTION,
+    pendingAction: createPendingUpdateAction({
+      step: "field",
+      target,
+      update,
+      command,
+    }),
+  };
+}
+
+export function resolveQueryTransactionSelection(
+  pendingAction: unknown,
+  messageText: string,
+): { target?: UpdateTransactionTarget; expired: boolean; valid: boolean } {
+  if (!isPendingQueryTransactionSelectionAction(pendingAction)) {
+    return { expired: false, valid: false };
+  }
+  if (isExpired(pendingAction.expiresAt)) {
+    return { expired: true, valid: false };
+  }
+
+  const target = selectCandidateByNumber(
+    pendingAction.candidates,
+    messageText,
+  ) ?? undefined;
+  return { target, expired: false, valid: Boolean(target) };
 }
 
 export async function handleUpdateTransactionPendingAction(
@@ -356,14 +588,31 @@ export async function handleUpdateTransactionPendingAction(
   if (!isPendingUpdateTransactionAction(pendingAction)) {
     return {
       completed: true,
-      message: "Não encontrei uma edição pendente. Tente solicitar a alteração novamente.",
+      message:
+        "Esta edição foi iniciada em uma versão anterior e não pode ser retomada. Solicite a alteração novamente.",
+    };
+  }
+
+  if (isExpired(pendingAction.expiresAt)) {
+    return {
+      completed: true,
+      message: "A edição expirou. Solicite a alteração novamente.",
+    };
+  }
+
+  if (pendingAction.step === "criteria") {
+    return {
+      completed: false,
+      needsCriteria: true,
+      message: "",
+      pendingAction,
     };
   }
 
   if (pendingAction.step === "transaction") {
     const candidates = pendingAction.candidates ?? [];
-    const index = Number(normalizeText(messageText).replace(/^#/, "")) - 1;
-    const target = Number.isInteger(index) ? candidates[index] : undefined;
+    const target =
+      selectCandidateByNumber(candidates, messageText) ?? undefined;
     if (!target) {
       return {
         completed: false,
@@ -371,11 +620,12 @@ export async function handleUpdateTransactionPendingAction(
         pendingAction,
       };
     }
-    return {
-      completed: false,
-      message: FIELD_QUESTION,
-      pendingAction: { type: "update_transaction", step: "field", target },
-    };
+    return beginUpdateForTarget(
+      userId,
+      target,
+      pendingAction.update,
+      pendingAction.command,
+    );
   }
 
   const target = pendingAction.target;
@@ -395,10 +645,30 @@ export async function handleUpdateTransactionPendingAction(
         pendingAction,
       };
     }
+
+    const nextStep = getNextUpdateStepAfterFieldSelection(
+      pendingAction.update,
+      field,
+      extractInlineValue(messageText, field),
+    );
+    if (nextStep.kind === "apply") {
+      return applyUpdate(
+        userId,
+        target,
+        field,
+        valueAsMessage(nextStep.value),
+      );
+    }
+
     return {
       completed: false,
       message: FIELD_VALUE_QUESTIONS[field],
-      pendingAction: { type: "update_transaction", step: "value", target, field },
+      pendingAction: createPendingUpdateAction({
+        step: "value",
+        target,
+        update: { ...pendingAction.update, field, value: null },
+        command: pendingAction.command,
+      }),
     };
   }
 
@@ -411,21 +681,28 @@ export async function handleUpdateTransactionPendingAction(
         pendingAction,
       };
     }
-    await changePaymentMethod(userId, target, "credit_card", cardName);
+    const updatedTarget = await changePaymentMethod(
+      userId,
+      target,
+      "credit_card",
+      cardName,
+    );
     return {
       completed: true,
       message: `✅ Método de pagamento de “${target.description}” atualizado para o cartão ${cardName}.`,
+      updatedTarget,
     };
   }
 
-  if (!pendingAction.field) {
+  const field = pendingAction.update?.field;
+  if (!isUpdateField(field)) {
     return {
       completed: true,
       message: "Não encontrei o campo que deveria ser alterado. Tente novamente.",
     };
   }
 
-  return applyUpdate(userId, target, pendingAction.field, messageText);
+  return applyUpdate(userId, target, field, messageText);
 }
 
 export { FIELD_QUESTION };

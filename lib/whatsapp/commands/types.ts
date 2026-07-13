@@ -45,11 +45,28 @@ export type BFinancePeriodType =
 
 export type BFinancePaymentMethod = "cash" | "pix" | "debit" | "credit_card";
 
+export type BFinanceUpdateField =
+  | "description"
+  | "amount"
+  | "date"
+  | "category"
+  | "paymentMethod";
+
+export type BFinanceUpdateReference = "recent" | "latest";
+
+export type BFinanceCommandUpdate = {
+  field?: BFinanceUpdateField | null;
+  value?: string | number | null;
+  reference?: BFinanceUpdateReference | null;
+  targetText?: string | null;
+};
+
 export type BFinanceOrderBy =
   | "date_desc"
   | "date_asc"
   | "amount_desc"
-  | "amount_asc";
+  | "amount_asc"
+  | "created_desc";
 
 export type BFinancePeriod = {
   raw?: string | null;
@@ -106,6 +123,7 @@ export type BFinanceCommand = {
   scope?: BFinanceScope;
   filters?: BFinanceFilters;
   data?: BFinanceCommandData;
+  update?: BFinanceCommandUpdate;
   clarification?: BFinanceClarification;
   confidence: number;
 };
@@ -127,6 +145,7 @@ export type CommandTransactionItem = {
   installmentNumber?: number | null;
   installmentCount?: number | null;
   totalAmount?: number | null;
+  createdAt?: string | null;
 };
 
 export type CommandTotals = {
@@ -241,6 +260,7 @@ export type BFinanceCommandResult =
       command: BFinanceCommand;
       message: string;
       pendingAction?: unknown;
+      updatedItem?: CommandTransactionItem;
     }
   | {
       success: false;

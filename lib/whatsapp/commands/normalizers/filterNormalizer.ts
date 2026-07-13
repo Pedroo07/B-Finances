@@ -7,6 +7,7 @@ import type {
 } from "../types";
 import { getCreditCardBankKey } from "@/lib/creditCards/catalog";
 import { CATEGORY_ALIASES } from "@/lib/whatsapp/categories";
+import { MONEY_VALUE_PATTERN, parseMoney } from "../../utils/moneyParser";
 
 function normalizeText(value: string): string {
   return value
@@ -20,27 +21,24 @@ function messageLooksLikeContinuation(normalized: string): boolean {
   return (
     /^(agora|so|somente|apenas|tambem|e|ordene|ordenar|filtra|filtre)\b/.test(
       normalized,
-    ) ||
-    /\b(acima de|maior que|menor que|do maior|do menor)\b/.test(normalized)
+    ) || /\b(acima de|maior que|menor que|do maior|do menor)\b/.test(normalized)
   );
 }
 
 function extractLimit(normalized: string): number | null {
   const match =
     normalized.match(/\bultim[oa]s?\s+(\d{1,3})\b/) ||
-    normalized.match(/\blist[ae]?\s+(?:meus|minhas|as|os|todos|todas)?\s*(\d{1,3})\b/) ||
-    normalized.match(/\b(\d{1,3})\s+(?:transacoes|gastos|despesas|receitas|ganhos|lucros|compras)\b/);
+    normalized.match(
+      /\blist[ae]?\s+(?:meus|minhas|as|os|todos|todas)?\s*(\d{1,3})\b/,
+    ) ||
+    normalized.match(
+      /\b(\d{1,3})\s+(?:transacoes|gastos|despesas|receitas|ganhos|lucros|compras)\b/,
+    );
 
   if (!match) return null;
 
   const limit = Number(match[1]);
   return Number.isFinite(limit) && limit > 0 ? Math.min(limit, 100) : null;
-}
-
-function parseMoney(value: string): number | null {
-  const normalized = value.replace(/\./g, "").replace(",", ".");
-  const numberValue = Number(normalized);
-  return Number.isFinite(numberValue) ? numberValue : null;
 }
 
 function extractMoneyAfter(pattern: RegExp, normalized: string): number | null {
@@ -54,29 +52,38 @@ function extractAmountFilters(normalized: string): Partial<BFinanceFilters> {
 
   const minAmount =
     extractMoneyAfter(
-      /\b(?:acima de|maior que|mais que|a partir de)\s*(?:r\$|rs)?\s*(\d+(?:[.,]\d{1,2})?)/,
+      new RegExp(
+        `\\b(?:acima de|maior que|mais que|a partir de)\\s*(?:r\\$|rs)?\\s*(${MONEY_VALUE_PATTERN})(?![\\d.,])`,
+      ),
       normalized,
     ) ??
     extractMoneyAfter(
-      /\b(?:os|as)?\s*(?:acima|maiores)\s+de\s*(?:r\$|rs)?\s*(\d+(?:[.,]\d{1,2})?)/,
+      new RegExp(
+        `\\b(?:os|as)?\\s*(?:acima|maiores)\\s+de\\s*(?:r\\$|rs)?\\s*(${MONEY_VALUE_PATTERN})(?![\\d.,])`,
+      ),
       normalized,
     );
 
   const maxAmount =
     extractMoneyAfter(
-      /\b(?:abaixo de|menor que|menos que|ate)\s*(?:r\$|rs)?\s*(\d+(?:[.,]\d{1,2})?)/,
+      new RegExp(
+        `\\b(?:abaixo de|menor que|menos que|ate)\\s*(?:r\\$|rs)?\\s*(${MONEY_VALUE_PATTERN})(?![\\d.,])`,
+      ),
       normalized,
     ) ??
     extractMoneyAfter(
-      /\b(?:os|as)?\s*(?:abaixo|menores)\s+de\s*(?:r\$|rs)?\s*(\d+(?:[.,]\d{1,2})?)/,
+      new RegExp(
+        `\\b(?:os|as)?\\s*(?:abaixo|menores)\\s+de\\s*(?:r\\$|rs)?\\s*(${MONEY_VALUE_PATTERN})(?![\\d.,])`,
+      ),
       normalized,
     );
 
-  const exactAmount =
-    extractMoneyAfter(
-      /\b(?:de|no valor de)\s*(?:r\$|rs)?\s*(\d+(?:[.,]\d{1,2})?)\b/,
-      normalized,
-    );
+  const exactAmount = extractMoneyAfter(
+    new RegExp(
+      `\\b(?:de|no valor de)\\s*(?:r\\$|rs)?\\s*(${MONEY_VALUE_PATTERN})(?![\\d.,])`,
+    ),
+    normalized,
+  );
 
   if (minAmount !== null) filters.minAmount = minAmount;
   if (maxAmount !== null) filters.maxAmount = maxAmount;
@@ -150,14 +157,19 @@ function extractDescription(normalized: string): string | null {
     .replace(/\s+/g, " ")
     .trim();
 
-  if (getCreditCardBankKey(description) || /\b(cartao|credito|fatura)\b/.test(description)) {
+  if (
+    getCreditCardBankKey(description) ||
+    /\b(cartao|credito|fatura)\b/.test(description)
+  ) {
     return null;
   }
 
   return description.length > 1 ? description : null;
 }
 
-function inferTransactionType(normalized: string): BFinanceTransactionType | null {
+function inferTransactionType(
+  normalized: string,
+): BFinanceTransactionType | null {
   if (
     /\b(gasto|gastos|gastei|despesa|despesas|compra|compras|paguei|saidas?)\b/.test(
       normalized,
@@ -174,7 +186,9 @@ function inferTransactionType(normalized: string): BFinanceTransactionType | nul
     return "income";
   }
 
-  if (/\b(transacao|transacoes|lancamentos?|movimentacoes?)\b/.test(normalized)) {
+  if (
+    /\b(transacao|transacoes|lancamentos?|movimentacoes?)\b/.test(normalized)
+  ) {
     return "all";
   }
 
@@ -225,13 +239,14 @@ export function normalizeCommandFilters(
       ? {
           ...previous,
           ...command,
-          action: command.action === "clarify" ? previous.action : command.action,
+          action:
+            command.action === "clarify" ? previous.action : command.action,
           resource:
             command.action === "clarify" ? previous.resource : command.resource,
           operation:
             command.action === "clarify"
               ? previous.operation
-              : command.operation ?? previous.operation,
+              : (command.operation ?? previous.operation),
           transactionType:
             inferredTransactionType ??
             command.transactionType ??

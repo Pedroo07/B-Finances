@@ -6,6 +6,7 @@ import {
 import { CREDIT_CARD_NAMES_TEXT } from "@/lib/creditCards/catalog";
 import type { ShortTermMemorySnapshot } from "../utils/shortTermMemory";
 import { getBrasiliaDate } from "../utils/brasiliaDate";
+import { parseMoney } from "../utils/moneyParser";
 import type {
   BFinanceAction,
   BFinanceCommand,
@@ -14,6 +15,8 @@ import type {
   BFinancePeriodType,
   BFinanceResource,
   BFinanceTransactionType,
+  BFinanceUpdateField,
+  BFinanceUpdateReference,
 } from "./types";
 
 type PromptPayload = string | GenerateContentRequest | Array<string | Part>;
@@ -92,6 +95,19 @@ const PAYMENT_METHODS = new Set<BFinancePaymentMethod>([
   "pix",
   "debit",
   "credit_card",
+]);
+
+const UPDATE_FIELDS = new Set<BFinanceUpdateField>([
+  "description",
+  "amount",
+  "date",
+  "category",
+  "paymentMethod",
+]);
+
+const UPDATE_REFERENCES = new Set<BFinanceUpdateReference>([
+  "recent",
+  "latest",
 ]);
 
 async function generateContentWithFallback(
@@ -178,8 +194,7 @@ function asString(value: unknown): string | undefined {
 function asNumber(value: unknown): number | undefined {
   if (typeof value === "number" && Number.isFinite(value)) return value;
   if (typeof value === "string") {
-    const parsed = Number(value.replace(/\./g, "").replace(",", "."));
-    return Number.isFinite(parsed) ? parsed : undefined;
+    return parseMoney(value) ?? undefined;
   }
   return undefined;
 }
@@ -221,6 +236,7 @@ function normalizeParsedCommand(parsed: unknown): BFinanceCommand {
   const rawScope = isRecord(parsed.scope) ? parsed.scope : undefined;
   const rawFilters = isRecord(parsed.filters) ? parsed.filters : undefined;
   const rawData = isRecord(parsed.data) ? parsed.data : undefined;
+  const rawUpdate = isRecord(parsed.update) ? parsed.update : undefined;
   const rawClarification = isRecord(parsed.clarification)
     ? parsed.clarification
     : undefined;
@@ -316,6 +332,27 @@ function normalizeParsedCommand(parsed: unknown): BFinanceCommand {
     };
   }
 
+  if (rawUpdate) {
+    const rawValue = rawUpdate.value;
+    command.update = {
+      field:
+        typeof rawUpdate.field === "string" &&
+        UPDATE_FIELDS.has(rawUpdate.field as BFinanceUpdateField)
+          ? (rawUpdate.field as BFinanceUpdateField)
+          : null,
+      value:
+        typeof rawValue === "number" && Number.isFinite(rawValue)
+          ? rawValue
+          : nullableString(rawValue) ?? null,
+      reference:
+        typeof rawUpdate.reference === "string" &&
+        UPDATE_REFERENCES.has(rawUpdate.reference as BFinanceUpdateReference)
+          ? (rawUpdate.reference as BFinanceUpdateReference)
+          : null,
+      targetText: nullableString(rawUpdate.targetText) ?? null,
+    };
+  }
+
   if (rawClarification) {
     command.clarification = {
       question:
@@ -400,6 +437,12 @@ CONTRATO DE SAIDA:
     "paymentMethod": string | null,
     "installmentCount": number | null
   },
+  "update": {
+    "field": "description" | "amount" | "date" | "category" | "paymentMethod" | null,
+    "value": string | number | null,
+    "reference": "recent" | "latest" | null,
+    "targetText": string | null
+  },
   "clarification": {
     "question": string,
     "missingFields": string[]
@@ -429,6 +472,10 @@ REGRAS:
 - Para "comprei um tenis de 1500 parcelado em 10x": action create, resource card_transaction, transactionType expense, data.amount 1500 e data.installmentCount 10. O valor informado e o total da compra.
 - Expressoes como "parcelado", "dividido", "em 5 vezes" ou "5x" indicam compra parcelada no cartao. Sem essas expressoes, installmentCount deve ser 1.
 - Para "recebi 300 do freela": action create, resource transaction, transactionType income, data preenchido.
+- Para atualizacoes, use filters/period/scope SOMENTE para identificar a transacao existente e update SOMENTE para o campo e o novo valor. Nunca coloque o novo valor em filters.
+- Em "altere o valor para 4,75", use update.field amount, update.value 4.75 e update.reference recent.
+- Em "altere o valor da ultima despesa para 4,75", use update.field amount, update.value 4.75, update.reference latest e transactionType expense.
+- Em "altere o valor da padaria para 4,75", use filters.description padaria, update.field amount e update.value 4.75.
 - Para cartao de credito, use resource card_transaction apenas quando for uma compra/transacao de cartao; use resource invoice para fatura.
 - Para "sem cartao", "ignore cartao", "tirando credito", marque escopo negativo. A normalizacao deterministica fara a correcao final.
 - Para "agora so os acima de 500" ou "ordene do maior para o menor", use a memoria para manter a consulta anterior e alterar somente o filtro.
@@ -450,6 +497,8 @@ EXEMPLOS:
 "gastos com comida" => query transaction list expense, category foods
 "apaga o uber de ontem" => delete transaction, description uber, yesterday
 "edita o mercado" => update transaction, description mercado
+"altere o valor para 4,75" => update transaction, update amount 4.75, reference recent
+"altere o valor da ultima despesa para 4,75" => update transaction expense, update amount 4.75, reference latest
 "paguei a conta de luz" => pay bill, description luz
 "minhas contas pendentes" => query bill list
 "como foi meu mes?" => query summary summary current_month`;

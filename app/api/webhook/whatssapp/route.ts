@@ -9,12 +9,23 @@ import { getPhoneVariations } from "@/lib/utils";
 import { sendWhatsAppMessage } from "@/lib/whatsapp";
 import { confirmDeleteTool } from "@/lib/whatsapp/tools";
 import { resolveFindTransactionSelection } from "@/lib/whatsapp/handlers/findTransactionHandler";
-import { handleUpdateTransactionPendingAction } from "@/lib/whatsapp/handlers/updateTransactionHandler";
+import {
+  beginUpdateForTarget,
+  createQuerySelectionAction,
+  handleUpdateTransactionPendingAction,
+  isPendingQueryTransactionSelectionAction,
+  isPendingUpdateTransactionAction,
+  resolveQueryTransactionSelection,
+  type PendingUpdateTransactionAction,
+  type UpdateTransactionTarget,
+} from "@/lib/whatsapp/handlers/updateTransactionHandler";
+import { clearlyStartsNewCommand } from "@/lib/whatsapp/handlers/updateTransactionFlow";
 import { interpretBFinanceCommand } from "@/lib/whatsapp/commands/commandInterpreter";
 import { executeBFinanceCommand } from "@/lib/whatsapp/commands/commandExecutor";
 import { formatBFinanceResponse } from "@/lib/whatsapp/commands/responseFormatter";
 import { normalizeCommandFilters } from "@/lib/whatsapp/commands/normalizers/filterNormalizer";
 import { normalizeCommandInstallments } from "@/lib/whatsapp/commands/normalizers/installmentNormalizer";
+import { normalizeCommandUpdate } from "@/lib/whatsapp/commands/normalizers/updateNormalizer";
 import { normalizeCommandPeriod } from "@/lib/whatsapp/commands/normalizers/periodNormalizer";
 import { normalizeCommandScope } from "@/lib/whatsapp/commands/normalizers/scopeNormalizer";
 import type { BFinanceCommand } from "@/lib/whatsapp/commands/types";
@@ -25,6 +36,8 @@ import {
   getPendingAction,
   clearPendingAction,
   checkRateLimit,
+  getLastTransactionReference,
+  rememberLastTransactionReference,
 } from "@/lib/whatsapp/utils/sessionManager";
 import {
   getShortTermMemory,
@@ -32,6 +45,7 @@ import {
   type ShortTermMemorySnapshot,
 } from "@/lib/whatsapp/utils/shortTermMemory";
 import { getBrasiliaDate } from "@/lib/whatsapp/utils/brasiliaDate";
+import { extractMoney } from "@/lib/whatsapp/utils/moneyParser";
 
 const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN;
 const WHATSAPP_ACCESS_TOKEN = process.env.WHATSAPP_ACCESS_TOKEN!;
@@ -177,6 +191,10 @@ function isPendingActionResponse(messageText: string): boolean {
   );
 }
 
+function isNumericSelectionResponse(messageText: string): boolean {
+  return /^#?\s*\d+\s*$/.test(messageText.trim());
+}
+
 function isCancelPendingResponse(messageText: string): boolean {
   const normalized = normalizeFreeText(messageText);
   return /^(cancelar|cancela|nao|n)$/.test(normalized);
@@ -184,6 +202,102 @@ function isCancelPendingResponse(messageText: string): boolean {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+async function rememberTransactionTarget(
+  phoneNumber: string,
+  target: UpdateTransactionTarget,
+): Promise<void> {
+  await rememberLastTransactionReference(phoneNumber, {
+    id: target.id,
+    source: target.source,
+    description: target.description,
+    date: target.date,
+    amount: target.amount,
+    category: target.category ?? null,
+    type: target.type,
+    paymentMethod: target.paymentMethod ?? null,
+    cardName: target.cardName ?? null,
+    createdAt: target.createdAt ?? null,
+  });
+}
+
+function buildPendingUpdateCriteriaCommand(
+  pendingAction: PendingUpdateTransactionAction,
+  messageText: string,
+  currentDate: Date,
+): BFinanceCommand | null {
+  if (!pendingAction.command) return null;
+
+  const normalized = normalizeFreeText(messageText);
+  const latestReference = /\b(ultim[oa]|mais recente)\b/.test(normalized);
+  const baseCommand: BFinanceCommand = {
+    ...pendingAction.command,
+    action: "update",
+    resource: "transaction",
+    period: undefined,
+    filters: {},
+    scope: {
+      includeNormalTransactions: true,
+      includeCardTransactions: true,
+      cardName: null,
+      excludeCardTransactions: false,
+      paymentMethod: null,
+      excludePaymentMethod: null,
+    },
+    update: {
+      ...pendingAction.update,
+      reference: latestReference
+        ? "latest"
+        : pendingAction.update?.reference ?? null,
+      targetText: messageText.trim(),
+    },
+  };
+
+  let command = normalizeCommandPeriod(messageText, baseCommand, currentDate);
+  command = normalizeCommandScope(messageText, command, currentDate);
+  command = normalizeCommandFilters(messageText, command, currentDate);
+
+  const money = extractMoney(messageText);
+  if (
+    money &&
+    !command.filters?.amount &&
+    normalizeFreeText(messageText).replace(/\b(r\$|rs|reais?)\b/g, "").match(/^[\d.,\s-]+$/)
+  ) {
+    command.filters = { ...command.filters, amount: Math.abs(money.value) };
+  }
+
+  const hasStructuredCriterion = Boolean(
+    command.filters?.description ||
+      command.filters?.category ||
+      (command.filters?.amount !== null &&
+        command.filters?.amount !== undefined) ||
+      command.period?.isExplicit ||
+      command.scope?.cardName ||
+      command.scope?.paymentMethod,
+  );
+
+  if (!hasStructuredCriterion && !latestReference) {
+    command.filters = {
+      ...command.filters,
+      description: messageText.trim(),
+    };
+  }
+
+  if (latestReference) {
+    command.filters = {
+      ...command.filters,
+      limit: 1,
+      orderBy: "date_desc",
+    };
+    if (/\b(despesa|gasto|compra)\b/.test(normalized)) {
+      command.transactionType = "expense";
+    } else if (/\b(receita|entrada|ganho)\b/.test(normalized)) {
+      command.transactionType = "income";
+    }
+  }
+
+  return command;
 }
 
 function formatResetTime(date: Date): string {
@@ -308,10 +422,14 @@ async function handleCardSelectionPendingAction(
   }
 
   const selectedCommand = commandWithSelectedCard(command, selectedCard);
+  const sourceMessageText =
+    typeof pendingAction.sourceMessageText === "string"
+      ? pendingAction.sourceMessageText
+      : messageText;
   const commandResult = await executeBFinanceCommand({
     userId,
     command: selectedCommand,
-    messageText,
+    messageText: sourceMessageText,
     phoneNumber: fromPhoneNumber,
   });
 
@@ -321,8 +439,45 @@ async function handleCardSelectionPendingAction(
     commandResult.pendingAction
   ) {
     await setPendingAction(fromPhoneNumber, commandResult.pendingAction);
+  } else if (
+    commandResult.success &&
+    commandResult.kind === "transaction_list" &&
+    commandResult.items.length > 0
+  ) {
+    await setPendingAction(
+      fromPhoneNumber,
+      createQuerySelectionAction(commandResult.items),
+    );
   } else {
     await clearPendingAction(fromPhoneNumber);
+  }
+
+  if (
+    commandResult.success &&
+    commandResult.kind === "transaction_created"
+  ) {
+    await rememberTransactionTarget(fromPhoneNumber, commandResult.item);
+  }
+
+  if (
+    commandResult.success &&
+    commandResult.kind === "ready_message" &&
+    commandResult.updatedItem
+  ) {
+    await rememberTransactionTarget(
+      fromPhoneNumber,
+      commandResult.updatedItem,
+    );
+  } else if (
+    commandResult.success &&
+    commandResult.kind === "ready_message" &&
+    isPendingUpdateTransactionAction(commandResult.pendingAction) &&
+    commandResult.pendingAction.target
+  ) {
+    await rememberTransactionTarget(
+      fromPhoneNumber,
+      commandResult.pendingAction.target,
+    );
   }
 
   const reply = formatBFinanceResponse(commandResult);
@@ -360,7 +515,135 @@ async function handlePendingActionIfApplicable(
     );
   }
 
+  if (pendingAction.type === "select_transaction_from_query") {
+    if (!isPendingQueryTransactionSelectionAction(pendingAction)) {
+      await clearPendingAction(fromPhoneNumber);
+      const reply =
+        "Essa lista foi criada em uma versão anterior. Faça a consulta novamente.";
+      await sendWhatsAppMessage(fromPhoneNumber, reply);
+      await updateSessionHistory(fromPhoneNumber, "assistant", reply);
+      return true;
+    }
+
+    if (!isNumericSelectionResponse(messageText)) {
+      await clearPendingAction(fromPhoneNumber);
+      return false;
+    }
+
+    const selection = resolveQueryTransactionSelection(
+      pendingAction,
+      messageText,
+    );
+
+    if (selection.expired) {
+      await clearPendingAction(fromPhoneNumber);
+      const reply = "Essa lista expirou. Faça a consulta novamente.";
+      await sendWhatsAppMessage(fromPhoneNumber, reply);
+      await updateSessionHistory(fromPhoneNumber, "assistant", reply);
+      return true;
+    }
+
+    if (!selection.valid || !selection.target) {
+      const candidates = pendingAction.candidates;
+      const reply = [
+        "Número inválido. Escolha um item da lista ou envie “cancelar”.",
+        candidates.length > 0
+          ? `Use um número entre 1 e ${candidates.length}.`
+          : null,
+      ]
+        .filter(Boolean)
+        .join("\n");
+      await sendWhatsAppMessage(fromPhoneNumber, reply);
+      await updateSessionHistory(fromPhoneNumber, "assistant", reply);
+      return true;
+    }
+
+    await rememberTransactionTarget(fromPhoneNumber, selection.target);
+    const result = await beginUpdateForTarget(
+      userId,
+      selection.target,
+    );
+    if (result.pendingAction) {
+      await setPendingAction(fromPhoneNumber, result.pendingAction);
+    } else {
+      await clearPendingAction(fromPhoneNumber);
+    }
+    await sendWhatsAppMessage(fromPhoneNumber, result.message);
+    await updateSessionHistory(fromPhoneNumber, "assistant", result.message);
+    return true;
+  }
+
   if (pendingAction.type === "update_transaction") {
+    if (clearlyStartsNewCommand(messageText)) {
+      await clearPendingAction(fromPhoneNumber);
+      return false;
+    }
+
+    if (
+      isPendingUpdateTransactionAction(pendingAction) &&
+      pendingAction.step === "criteria"
+    ) {
+      const pendingState = await handleUpdateTransactionPendingAction(
+        userId,
+        pendingAction,
+        messageText,
+      );
+      if (!pendingState.needsCriteria) {
+        await clearPendingAction(fromPhoneNumber);
+        await sendWhatsAppMessage(fromPhoneNumber, pendingState.message);
+        await updateSessionHistory(
+          fromPhoneNumber,
+          "assistant",
+          pendingState.message,
+        );
+        return true;
+      }
+
+      const command = buildPendingUpdateCriteriaCommand(
+        pendingAction,
+        messageText,
+        getBrasiliaDate(),
+      );
+
+      if (!command) {
+        await clearPendingAction(fromPhoneNumber);
+        return false;
+      }
+
+      const commandResult = await executeBFinanceCommand({
+        userId,
+        command,
+        messageText,
+        phoneNumber: fromPhoneNumber,
+      });
+
+      if (
+        commandResult.success &&
+        commandResult.kind === "ready_message" &&
+        commandResult.pendingAction
+      ) {
+        await setPendingAction(fromPhoneNumber, commandResult.pendingAction);
+      } else {
+        await clearPendingAction(fromPhoneNumber);
+      }
+
+      if (
+        commandResult.success &&
+        commandResult.kind === "ready_message" &&
+        commandResult.updatedItem
+      ) {
+        await rememberTransactionTarget(
+          fromPhoneNumber,
+          commandResult.updatedItem,
+        );
+      }
+
+      const reply = formatBFinanceResponse(commandResult);
+      await sendWhatsAppMessage(fromPhoneNumber, reply);
+      await updateSessionHistory(fromPhoneNumber, "assistant", reply);
+      return true;
+    }
+
     const result = await handleUpdateTransactionPendingAction(
       userId,
       pendingAction,
@@ -371,6 +654,15 @@ async function handlePendingActionIfApplicable(
       await setPendingAction(fromPhoneNumber, result.pendingAction);
     } else {
       await clearPendingAction(fromPhoneNumber);
+    }
+
+    const rememberedTarget =
+      result.updatedTarget ?? result.pendingAction?.target;
+    if (rememberedTarget) {
+      await rememberTransactionTarget(
+        fromPhoneNumber,
+        rememberedTarget,
+      );
     }
 
     await sendWhatsAppMessage(fromPhoneNumber, result.message);
@@ -523,20 +815,26 @@ export async function POST(req: Request) {
     });
     const normalizerContext = { previousCommand };
 
-    let command = normalizeCommandPeriod(
-      messageText,
-      interpretedCommand,
+    let command = normalizeCommandUpdate(messageText, interpretedCommand);
+    const targetMessageText =
+      command.action === "update"
+        ? command.update?.targetText ?? ""
+        : messageText;
+
+    command = normalizeCommandPeriod(
+      targetMessageText,
+      command,
       currentDate,
       normalizerContext,
     );
     command = normalizeCommandScope(
-      messageText,
+      targetMessageText,
       command,
       currentDate,
       normalizerContext,
     );
     command = normalizeCommandFilters(
-      messageText,
+      targetMessageText,
       command,
       currentDate,
       normalizerContext,
@@ -545,12 +843,16 @@ export async function POST(req: Request) {
 
     console.log("B-Finances command:", JSON.stringify(command));
 
+    const recentTransaction = await getLastTransactionReference(
+      fromPhoneNumber,
+    );
     const commandResult = await executeBFinanceCommand({
       userId,
       command,
       messageText,
       conversationHistory,
       phoneNumber: fromPhoneNumber,
+      recentTransaction,
     });
 
     if (
@@ -559,6 +861,43 @@ export async function POST(req: Request) {
       commandResult.pendingAction
     ) {
       await setPendingAction(fromPhoneNumber, commandResult.pendingAction);
+    } else if (
+      commandResult.success &&
+      commandResult.kind === "transaction_list" &&
+      commandResult.items.length > 0
+    ) {
+      await setPendingAction(
+        fromPhoneNumber,
+        createQuerySelectionAction(commandResult.items),
+      );
+    }
+
+    if (
+      commandResult.success &&
+      commandResult.kind === "transaction_created"
+    ) {
+      await rememberTransactionTarget(fromPhoneNumber, commandResult.item);
+    }
+
+    if (
+      commandResult.success &&
+      commandResult.kind === "ready_message" &&
+      commandResult.updatedItem
+    ) {
+      await rememberTransactionTarget(
+        fromPhoneNumber,
+        commandResult.updatedItem,
+      );
+    } else if (
+      commandResult.success &&
+      commandResult.kind === "ready_message" &&
+      isPendingUpdateTransactionAction(commandResult.pendingAction) &&
+      commandResult.pendingAction.target
+    ) {
+      await rememberTransactionTarget(
+        fromPhoneNumber,
+        commandResult.pendingAction.target,
+      );
     }
 
     const reply = formatBFinanceResponse(commandResult);

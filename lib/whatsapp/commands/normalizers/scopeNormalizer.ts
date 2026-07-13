@@ -138,7 +138,8 @@ function defaultScope(command: BFinanceCommand): BFinanceScope {
 
   return {
     includeNormalTransactions: true,
-    includeCardTransactions: command.action === "query",
+    includeCardTransactions:
+      command.action === "query" || command.action === "update",
     cardName: command.scope?.cardName ?? command.data?.cardName ?? null,
     excludeCardTransactions: false,
     paymentMethod: command.scope?.paymentMethod ?? null,
@@ -176,7 +177,7 @@ export function normalizeCommandScope(
         };
 
   if (
-    command.action === "query" &&
+    (command.action === "query" || command.action === "update") &&
     (command.resource === "transaction" ||
       command.resource === "card_transaction") &&
     !isContinuation &&

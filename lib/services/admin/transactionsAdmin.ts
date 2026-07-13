@@ -1,5 +1,9 @@
 import { db } from "@/lib/firebaseAdmin";
-import type { DocumentData, Query } from "firebase-admin/firestore";
+import type {
+  DocumentData,
+  DocumentSnapshot,
+  Query,
+} from "firebase-admin/firestore";
 import { getBrasiliaDate } from "@/lib/whatsapp/utils/brasiliaDate";
 
 export type TransactionDto = {
@@ -13,7 +17,23 @@ export type TransactionDto = {
 
 export type Transaction = TransactionDto & {
   id: string;
+  createdAt?: string;
 };
+
+function mapTransactionSnapshot(
+  snapshot: DocumentSnapshot<DocumentData>,
+): Transaction {
+  const data = snapshot.data();
+  if (!data) {
+    throw new Error(`Transação ${snapshot.id} não encontrada.`);
+  }
+
+  return {
+    ...data,
+    id: snapshot.id,
+    createdAt: snapshot.createTime?.toDate().toISOString(),
+  } as Transaction;
+}
 
 export async function createTransaction(
   userId: string,
@@ -23,10 +43,7 @@ export async function createTransaction(
     .collection(`users/${userId}/transactions`)
     .add(data);
 
-  return {
-    id: docRef.id,
-    ...data,
-  };
+  return mapTransactionSnapshot(await docRef.get());
 }
 
 export async function getTransactions(userId: string): Promise<Transaction[]> {
@@ -34,10 +51,7 @@ export async function getTransactions(userId: string): Promise<Transaction[]> {
     .collection(`users/${userId}/transactions`)
     .get();
 
-  return snapshot.docs.map((doc) => ({
-    id: doc.id,
-    ...doc.data(),
-  })) as Transaction[];
+  return snapshot.docs.map(mapTransactionSnapshot);
 }
 
 export async function getTransactionsByPeriod(
@@ -51,10 +65,7 @@ export async function getTransactionsByPeriod(
     .where("date", "<=", endDate)
     .get();
 
-  return snapshot.docs.map((doc) => ({
-    id: doc.id,
-    ...doc.data(),
-  })) as Transaction[];
+  return snapshot.docs.map(mapTransactionSnapshot);
 }
 
 export async function getTransactionsByCategory(
@@ -76,10 +87,7 @@ export async function getTransactionsByCategory(
 
   const snapshot = await query.get();
 
-  return snapshot.docs.map((doc) => ({
-    id: doc.id,
-    ...doc.data(),
-  })) as Transaction[];
+  return snapshot.docs.map(mapTransactionSnapshot);
 }
 
 export async function deleteTransaction(
@@ -124,10 +132,7 @@ export async function findTransactionByDescription(
       const data = doc.data();
       return data.description?.toLowerCase().includes(descLower);
     })
-    .map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    })) as Transaction[];
+    .map(mapTransactionSnapshot);
 }
 
 export async function getRecentTransactions(
@@ -148,8 +153,14 @@ export async function getRecentTransactions(
   const snapshot = await query.get();
 
   return snapshot.docs
-    .map((doc) => ({ id: doc.id, ...doc.data() } as Transaction))
-    .sort((a, b) => b.date.localeCompare(a.date))
+    .map(mapTransactionSnapshot)
+    .sort((a, b) => {
+      const createdAtCompare = (b.createdAt ?? "").localeCompare(
+        a.createdAt ?? "",
+      );
+      if (createdAtCompare !== 0) return createdAtCompare;
+      return b.date.localeCompare(a.date);
+    })
     .slice(0, limit);
 }
 
@@ -166,9 +177,6 @@ export async function getTransactionsByPeriodAndCategory(
     .where("category", "==", category)
     .get();
 
-  return snapshot.docs.map((doc) => ({
-    id: doc.id,
-    ...doc.data(),
-  })) as Transaction[];
+  return snapshot.docs.map(mapTransactionSnapshot);
 }
 
