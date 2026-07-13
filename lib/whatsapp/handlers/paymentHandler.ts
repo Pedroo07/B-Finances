@@ -4,6 +4,7 @@ import {
   payBillAccount,
 } from "@/lib/services/admin/billAccountsAdmin";
 import { payCardInvoice } from "@/lib/services/admin/userCreditCardsAdmin";
+import { formatBrasiliaDate } from "@/lib/whatsapp/utils/brasiliaDate";
 
 type PaymentParameters = Record<string, unknown>;
 
@@ -70,7 +71,7 @@ async function handleBillPayment(
   }
 
   const bill = bills[0];
-  const today = new Date().toISOString().split("T")[0];
+  const today = formatBrasiliaDate();
 
   await payBillAccount(userId, bill.id, today);
 
@@ -92,7 +93,7 @@ async function handleCardInvoicePayment(
     return "❌ Por favor, especifique o valor pago (ex: 'paguei 500 reais da fatura do Nubank').";
   }
 
-  const today = new Date().toISOString().split("T")[0];
+  const today = formatBrasiliaDate();
 
   await payCardInvoice(userId, cardName, amount, today, {
     month: getNumberParameter(parameters, "month"),

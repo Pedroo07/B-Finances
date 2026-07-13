@@ -5,6 +5,7 @@ import {
   InvestmentDto,
   getInvestmentByCategory
 } from "@/lib/services/admin/investmentsAdmin";
+import { formatBrasiliaDate } from "../utils/brasiliaDate";
 
 type InvestmentParameters = Record<string, unknown>;
 
@@ -57,7 +58,7 @@ async function handleAddInvestment(
     category: category,
     balance: amount,
     liquidez: liquidez,
-    created_at: new Date().toISOString().split("T")[0],
+    created_at: formatBrasiliaDate(),
     rendimentos: [],
     total_yield: 0,
   };

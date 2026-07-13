@@ -16,6 +16,13 @@ import {
   type Transaction,
 } from "@/lib/services/admin/transactionsAdmin";
 import {
+  buildTransactionSelectionMessage,
+  FIELD_QUESTION,
+  type PendingUpdateTransactionAction,
+  type UpdateTransactionTarget,
+} from "../handlers/updateTransactionHandler";
+import { getBrasiliaDate } from "../utils/brasiliaDate";
+import {
   getAllCardInvoices,
   getCardInvoiceAmount,
   getCurrentCardInvoiceTransactions,
@@ -189,7 +196,7 @@ function withDefaultCurrentInvoice(command: BFinanceCommand): BFinanceCommand {
 
 function buildCardSelectionMessage(cardNames: string[]): string {
   return [
-    "Qual cartao voce quer consultar?",
+    "Qual cartão você quer consultar?",
     "",
     ...cardNames.map((cardName, index) => `${index + 1}. ${cardName}`),
   ].join("\n");
@@ -215,7 +222,7 @@ async function prepareCardQueryCommand(
         kind: "ready_message",
         command,
         message:
-          "Voce ainda nao tem cartoes cadastrados. Cadastre um cartao no aplicativo para consultar os gastos.",
+          "Você ainda não tem cartões cadastrados. Cadastre um cartão no aplicativo para consultar os gastos.",
       },
     };
   }
@@ -445,13 +452,13 @@ function buildTransactionTitle(command: BFinanceCommand): string {
       ? "Receitas"
       : command.transactionType === "expense"
         ? "Despesas"
-        : "Transacoes";
+        : "Transações";
 
   if (scope.includeCardTransactions && !scope.includeNormalTransactions) {
-    return scope.cardName ? `${typeLabel} do cartao ${scope.cardName}` : `${typeLabel} do cartao`;
+    return scope.cardName ? `${typeLabel} do cartão ${scope.cardName}` : `${typeLabel} do cartão`;
   }
 
-  if (scope.excludeCardTransactions) return `${typeLabel} sem cartao`;
+  if (scope.excludeCardTransactions) return `${typeLabel} sem cartão`;
   return typeLabel;
 }
 
@@ -513,7 +520,7 @@ async function queryCurrentInvoiceTransactions(
         kind: "clarification",
         command,
         missingFields: ["cardName"],
-        message: "Qual cartao voce quer consultar?",
+        message: "Qual cartão você quer consultar?",
       },
     };
   }
@@ -531,7 +538,7 @@ async function queryCurrentInvoiceTransactions(
           kind: "ready_message",
           command,
           message:
-            "A fatura desse cartao ainda nao esta configurada. Configure o dia de fechamento e vencimento no aplicativo para consultar a fatura atual.",
+            "A fatura desse cartão ainda não está configurada. Configure o dia de fechamento e vencimento no aplicativo para consultar a fatura atual.",
         },
       };
     }
@@ -542,7 +549,7 @@ async function queryCurrentInvoiceTransactions(
           success: true,
           kind: "ready_message",
           command,
-          message: "Nao encontrei esse cartao cadastrado.",
+          message: "Não encontrei esse cartão cadastrado.",
         },
       };
     }
@@ -574,7 +581,7 @@ async function queryCurrentInvoiceTransactions(
       items: sortedItems,
       totals: calculateTotals(sortedItems),
     },
-    title: `Despesas da fatura atual do cartao ${invoice.cardName} (vence em ${formatDisplayDate(invoice.dueDate)})`,
+    title: `Despesas da fatura atual do cartão ${invoice.cardName} (vence em ${formatDisplayDate(invoice.dueDate)})`,
   };
 }
 
@@ -628,14 +635,14 @@ async function executeCreateTransaction(
       kind: "clarification",
       command,
       missingFields,
-      message: "Preciso da descricao e do valor para adicionar a transacao.",
+      message: "Preciso da descrição e do valor para adicionar a transação.",
     };
   }
 
   const descriptionText = description ?? "";
   const amountValue = amount ?? 0;
   const paymentMethod = normalizePaymentMethod(command);
-  const date = command.data?.date || formatDate(new Date());
+  const date = command.data?.date || formatDate(getBrasiliaDate());
   const category = normalizeCategory(command);
   const type = command.transactionType === "income" ? "income" : "expense";
   const normalizedAmount =
@@ -685,7 +692,7 @@ async function executeCreateTransaction(
           success: true,
           kind: "ready_message",
           command,
-          message: "Voce ainda nao tem cartoes cadastrados. Cadastre um cartao no aplicativo antes de adicionar esta compra.",
+          message: "Você ainda não tem cartões cadastrados. Cadastre um cartão no aplicativo antes de adicionar esta compra.",
         };
       }
 
@@ -695,7 +702,7 @@ async function executeCreateTransaction(
           kind: "ready_message",
           command,
           message: [
-            "Qual cartao devo usar para essa compra?",
+            "Qual cartão devo usar para essa compra?",
             "",
             ...cardNames.map((name, index) => `${index + 1}. ${name}`),
           ].join("\n"),
@@ -764,6 +771,71 @@ async function executeCreateTransaction(
   };
 }
 
+async function executeUpdateTransaction(
+  userId: string,
+  command: BFinanceCommand,
+): Promise<BFinanceCommandResult> {
+  const targetDate = command.data?.date;
+  const targetCommand: BFinanceCommand = {
+    ...command,
+    filters: {
+      ...(command.filters ?? {}),
+      description:
+        command.filters?.description ?? command.data?.description ?? null,
+      amount: command.filters?.amount ?? command.data?.amount ?? null,
+      category: command.filters?.category ?? command.data?.category ?? null,
+    },
+    period: targetDate
+      ? {
+          raw: targetDate,
+          type: "date_range",
+          startDate: targetDate,
+          endDate: targetDate,
+          month: null,
+          year: null,
+          days: null,
+          isExplicit: true,
+        }
+      : command.period,
+  };
+  const result = await queryTransactions(userId, targetCommand);
+  const candidates = result.items.slice(0, 5) as UpdateTransactionTarget[];
+
+  if (candidates.length === 0) {
+    return {
+      success: false,
+      kind: "clarification",
+      command,
+      message:
+        "Não encontrei a transação que você quer alterar. Informe uma pista, como descrição, valor ou data.",
+    };
+  }
+
+  let message = FIELD_QUESTION;
+  let pendingAction: PendingUpdateTransactionAction = {
+    type: "update_transaction",
+    step: "field",
+    target: candidates[0],
+  };
+
+  if (candidates.length > 1) {
+    message = buildTransactionSelectionMessage(candidates);
+    pendingAction = {
+      type: "update_transaction",
+      step: "transaction",
+      candidates,
+    };
+  }
+
+  return {
+    success: true,
+    kind: "ready_message",
+    command,
+    message,
+    pendingAction,
+  };
+}
+
 async function executeDeleteTransaction(
   userId: string,
   command: BFinanceCommand,
@@ -777,7 +849,7 @@ async function executeDeleteTransaction(
       command,
       missingFields: ["description"],
       message:
-        "Qual transacao voce quer apagar? Me diga uma pista, como descricao, valor, data ou cartao.",
+        "Qual transação você quer apagar? Dê uma pista, como descrição, valor, data ou cartão.",
     };
   }
 
@@ -821,7 +893,7 @@ async function executePayment(
       kind: "clarification",
       command,
       missingFields: ["cardName"],
-      message: "Qual fatura/cartao voce pagou?",
+      message: "Qual fatura ou cartão você pagou?",
     };
   }
 
@@ -831,7 +903,7 @@ async function executePayment(
       kind: "clarification",
       command,
       missingFields: ["amount"],
-      message: "Qual valor voce pagou nessa fatura?",
+      message: "Qual valor você pagou nessa fatura?",
     };
   }
 
@@ -841,7 +913,7 @@ async function executePayment(
       kind: "clarification",
       command,
       missingFields: ["description"],
-      message: "Qual conta voce pagou?",
+      message: "Qual conta você pagou?",
     };
   }
 
@@ -870,7 +942,7 @@ async function executeInvoiceQuery(
   userId: string,
   command: BFinanceCommand,
 ): Promise<BFinanceCommandResult> {
-  const today = new Date();
+  const today = getBrasiliaDate();
   const period = getCommandPeriod(command);
   const month = period.month || today.getMonth() + 1;
   const year = period.year || today.getFullYear();
@@ -1087,7 +1159,7 @@ export async function executeBFinanceCommand({
         kind: "ready_message",
         command,
         message:
-          "Voce pode adicionar gastos e receitas, listar transacoes, consultar faturas, contas, investimentos e pedir resumo financeiro.",
+          "Você pode adicionar gastos e receitas, listar transações, consultar faturas, contas, investimentos e pedir um resumo financeiro.",
       };
     }
 
@@ -1098,7 +1170,7 @@ export async function executeBFinanceCommand({
         command,
         message:
           command.clarification?.question ||
-          "Pode me dizer um pouco melhor o que voce quer fazer?",
+          "Pode explicar um pouco melhor o que você quer fazer?",
         missingFields: command.clarification?.missingFields,
       };
     }
@@ -1122,15 +1194,12 @@ export async function executeBFinanceCommand({
       return await executeDeleteTransaction(userId, command);
     }
 
-    if (command.action === "update") {
-      return {
-        success: false,
-        kind: "clarification",
-        command,
-        missingFields: ["fieldToEdit"],
-        message:
-          "Qual campo voce quer alterar nessa transacao: descricao, valor, data, categoria ou metodo de pagamento?",
-      };
+    if (
+      command.action === "update" &&
+      (command.resource === "transaction" ||
+        command.resource === "card_transaction")
+    ) {
+      return await executeUpdateTransaction(userId, command);
     }
 
     if (command.action === "pay") {
@@ -1142,7 +1211,7 @@ export async function executeBFinanceCommand({
         success: false,
         kind: "clarification",
         command,
-        message: "Nao entendi qual acao voce quer executar.",
+        message: "Não entendi qual ação você quer executar.",
       };
     }
 
@@ -1173,7 +1242,7 @@ export async function executeBFinanceCommand({
       success: false,
       kind: "clarification",
       command,
-      message: "Nao entendi muito bem o que voce quer consultar.",
+      message: "Não entendi muito bem o que você quer consultar.",
     };
   } catch (error) {
     console.error("Erro ao executar comando B-Finances:", error);
@@ -1181,7 +1250,7 @@ export async function executeBFinanceCommand({
       success: false,
       kind: "error",
       command,
-      message: "Ocorreu um erro ao processar sua solicitacao. Tente novamente.",
+      message: "Ocorreu um erro ao processar sua solicitação. Tente novamente.",
     };
   }
 }

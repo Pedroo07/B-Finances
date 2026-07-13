@@ -1,9 +1,10 @@
 import { resolveFinancialPeriod } from "../financial/periodResolver";
+import { getBrasiliaDate } from "./brasiliaDate";
 
 export function getPeriodDates(period: string): { startDate: string; endDate: string } {
   const resolved = resolveFinancialPeriod({
     messageText: period,
-    currentDate: new Date(),
+    currentDate: getBrasiliaDate(),
   });
 
   return {
@@ -25,7 +26,7 @@ export function getMonthName(monthNumber: number): string {
   const months = [
     "Janeiro",
     "Fevereiro",
-    "Marco",
+    "Março",
     "Abril",
     "Maio",
     "Junho",

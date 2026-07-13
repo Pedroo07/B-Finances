@@ -5,6 +5,7 @@ import {
 } from "@google/generative-ai";
 import { CREDIT_CARD_NAMES_TEXT } from "@/lib/creditCards/catalog";
 import type { ShortTermMemorySnapshot } from "../utils/shortTermMemory";
+import { getBrasiliaDate } from "../utils/brasiliaDate";
 import type {
   BFinanceAction,
   BFinanceCommand,
@@ -210,7 +211,7 @@ function nullableNumber(value: unknown): number | null | undefined {
 function normalizeParsedCommand(parsed: unknown): BFinanceCommand {
   if (!isRecord(parsed)) {
     return buildClarificationCommand(
-      "Nao consegui entender com seguranca. Voce pode reformular o pedido?",
+      "Não consegui entender com segurança. Você pode reformular o pedido?",
     );
   }
 
@@ -319,7 +320,7 @@ function normalizeParsedCommand(parsed: unknown): BFinanceCommand {
     command.clarification = {
       question:
         asString(rawClarification.question) ||
-        "Pode me dizer um pouco melhor o que voce quer fazer?",
+        "Pode explicar um pouco melhor o que você quer fazer?",
       missingFields: Array.isArray(rawClarification.missingFields)
         ? rawClarification.missingFields.filter(
             (field): field is string => typeof field === "string",
@@ -408,6 +409,7 @@ CONTRATO DE SAIDA:
 
 REGRAS:
 - Responda APENAS com JSON. Nao use markdown. Nao responda ao usuario.
+- Ao preencher clarification.question, escreva em português do Brasil com acentuação correta.
 - Nao execute regras finais de data, calculo ou escopo. Apenas interprete a intencao.
 - Nao invente dados financeiros.
 - Cartoes aceitos para scope.cardName/data.cardName: ${CREDIT_CARD_NAMES_TEXT}. Use esses nomes canonicos.
@@ -457,7 +459,7 @@ export async function interpretBFinanceCommand({
   messageText,
   conversationHistory,
   shortTermMemory = null,
-  currentDate = new Date(),
+  currentDate = getBrasiliaDate(),
 }: InterpreterInput): Promise<BFinanceCommand> {
   const input = {
     messageText,
@@ -475,7 +477,7 @@ export async function interpretBFinanceCommand({
   } catch (error) {
     console.error("Erro ao interpretar comando B-Finances:", error);
     return buildClarificationCommand(
-      "Nao consegui entender com seguranca. Voce pode reformular o pedido?",
+      "Não consegui entender com segurança. Você pode reformular o pedido?",
     );
   }
 }

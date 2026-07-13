@@ -9,6 +9,7 @@ import type {
   ShortTermMemorySnapshot,
   ShortTermMemoryTurn,
 } from "../utils/shortTermMemory";
+import { formatBrasiliaDate } from "../utils/brasiliaDate";
 
 type PromptPayload = string | GenerateContentRequest | Array<string | Part>;
 
@@ -177,7 +178,7 @@ function buildMissingParameterQuestion(
     .map((parameterName) => friendlyNames[parameterName] || parameterName)
     .join(", ");
 
-  return `Preciso que voce informe: ${labels}.`;
+  return `Preciso que você informe: ${labels}.`;
 }
 
 function normalizePlan(parsed: unknown): ToolPlan {
@@ -452,7 +453,7 @@ export async function planToolExecution(
   conversationHistory: string,
   shortTermMemory?: ShortTermMemorySnapshot | null,
 ): Promise<ToolPlan> {
-  const todayStr = new Date().toISOString().split("T")[0];
+  const todayStr = formatBrasiliaDate();
   const tools = buildToolsPromptPayload();
 
   const systemInstruction = `Voce e o planejador de ferramentas do assistente financeiro B-Finances no WhatsApp.

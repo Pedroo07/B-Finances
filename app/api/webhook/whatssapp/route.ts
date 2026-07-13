@@ -9,6 +9,7 @@ import { getPhoneVariations } from "@/lib/utils";
 import { sendWhatsAppMessage } from "@/lib/whatsapp";
 import { confirmDeleteTool } from "@/lib/whatsapp/tools";
 import { resolveFindTransactionSelection } from "@/lib/whatsapp/handlers/findTransactionHandler";
+import { handleUpdateTransactionPendingAction } from "@/lib/whatsapp/handlers/updateTransactionHandler";
 import { interpretBFinanceCommand } from "@/lib/whatsapp/commands/commandInterpreter";
 import { executeBFinanceCommand } from "@/lib/whatsapp/commands/commandExecutor";
 import { formatBFinanceResponse } from "@/lib/whatsapp/commands/responseFormatter";
@@ -30,6 +31,7 @@ import {
   rememberShortTermTopic,
   type ShortTermMemorySnapshot,
 } from "@/lib/whatsapp/utils/shortTermMemory";
+import { getBrasiliaDate } from "@/lib/whatsapp/utils/brasiliaDate";
 
 const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN;
 const WHATSAPP_ACCESS_TOKEN = process.env.WHATSAPP_ACCESS_TOKEN!;
@@ -296,7 +298,7 @@ async function handleCardSelectionPendingAction(
 
   if (!selectedCard) {
     const reply = [
-      "Nao encontrei esse cartao na lista. Responda com o numero ou o nome do cartao:",
+      "Não encontrei esse cartão na lista. Responda com o número ou o nome do cartão:",
       "",
       ...options.map((option) => `${option.index}. ${option.cardName}`),
     ].join("\n");
@@ -343,7 +345,7 @@ async function handlePendingActionIfApplicable(
 ): Promise<boolean> {
   if (isCancelPendingResponse(messageText)) {
     await clearPendingAction(fromPhoneNumber);
-    const reply = "Acao cancelada.";
+    const reply = "Ação cancelada.";
     await sendWhatsAppMessage(fromPhoneNumber, reply);
     await updateSessionHistory(fromPhoneNumber, "assistant", reply);
     return true;
@@ -356,6 +358,24 @@ async function handlePendingActionIfApplicable(
       fromPhoneNumber,
       messageText,
     );
+  }
+
+  if (pendingAction.type === "update_transaction") {
+    const result = await handleUpdateTransactionPendingAction(
+      userId,
+      pendingAction,
+      messageText,
+    );
+
+    if (result.pendingAction) {
+      await setPendingAction(fromPhoneNumber, result.pendingAction);
+    } else {
+      await clearPendingAction(fromPhoneNumber);
+    }
+
+    await sendWhatsAppMessage(fromPhoneNumber, result.message);
+    await updateSessionHistory(fromPhoneNumber, "assistant", result.message);
+    return true;
   }
 
   if (!isPendingActionResponse(messageText)) {
@@ -435,7 +455,7 @@ export async function POST(req: Request) {
       );
       await sendWhatsAppMessage(
         fromPhoneNumber,
-        "Ola! Nao encontramos nenhuma conta associada a este numero no B-Finances. Cadastre seu telefone no aplicativo para usar o bot do WhatsApp.",
+        "Olá! Não encontramos nenhuma conta associada a este número no B-Finances. Cadastre seu telefone no aplicativo para usar o bot do WhatsApp.",
       );
       return NextResponse.json({
         status: "error",
@@ -447,7 +467,7 @@ export async function POST(req: Request) {
     if (!rateLimit.allowed) {
       await sendWhatsAppMessage(
         fromPhoneNumber,
-        `Voce atingiu o limite de ${rateLimit.limit} mensagens por hora. Tente novamente apos ${formatResetTime(rateLimit.resetAt)}.`,
+        `Você atingiu o limite de ${rateLimit.limit} mensagens por hora. Tente novamente após ${formatResetTime(rateLimit.resetAt)}.`,
       );
       return NextResponse.json({ status: "rate_limited" });
     }
@@ -493,7 +513,7 @@ export async function POST(req: Request) {
 
     const session = await getSession(fromPhoneNumber);
     const conversationHistory = buildHistoryString(session?.history);
-    const currentDate = new Date();
+    const currentDate = getBrasiliaDate();
     const previousCommand = getPreviousBFinanceCommand(shortTermMemory);
     const interpretedCommand = await interpretBFinanceCommand({
       messageText,

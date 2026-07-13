@@ -20,6 +20,7 @@ import {
   formatCategoryWithEmoji,
   getCategoryLabel,
 } from "@/lib/whatsapp/categories";
+import { getBrasiliaDate } from "../utils/brasiliaDate";
 
 type ExpenseSource = "transaction" | "card";
 
@@ -675,7 +676,7 @@ function buildAnalysis(
   investments: Investment[],
   targetAmount: number | null,
 ): FinancialAdviceAnalysis {
-  const today = new Date();
+  const today = getBrasiliaDate();
   const expenses = toExpenseEntries(transactions, cardTransactions);
   const currentRange = monthRangeFromOffset(today, 0);
   const previousRange = monthRangeFromOffset(today, 1);

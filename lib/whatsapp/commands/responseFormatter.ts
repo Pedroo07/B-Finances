@@ -10,7 +10,7 @@ import { formatCategoryWithEmoji } from "@/lib/whatsapp/categories";
 const MONTH_NAMES = [
   "janeiro",
   "fevereiro",
-  "marco",
+  "março",
   "abril",
   "maio",
   "junho",
@@ -36,7 +36,7 @@ function formatDate(date: string): string {
 }
 
 function formatPeriod(period: BFinancePeriod): string {
-  if (period.type === "all") return "todo o periodo";
+  if (period.type === "all") return "todo o período";
   if (period.type === "current_invoice" && !period.startDate) return "fatura atual";
   if (period.type === "today") return "hoje";
   if (period.type === "yesterday") return "ontem";
@@ -52,19 +52,19 @@ function formatPeriod(period: BFinancePeriod): string {
     return `${formatDate(period.startDate)} a ${formatDate(period.endDate)}`;
   }
 
-  return "periodo selecionado";
+  return "período selecionado";
 }
 
 function getOrigin(item: CommandTransactionItem): string {
   if (item.source === "card_transaction") {
-    return item.cardName ? `Cartao ${item.cardName}` : "Cartao";
+    return item.cardName ? `Cartão ${item.cardName}` : "Cartão";
   }
 
   if (item.type === "income") return "Receita";
   if (item.paymentMethod === "pix") return "Pix";
-  if (item.paymentMethod === "debit") return "Debito";
+  if (item.paymentMethod === "debit") return "Débito";
   if (item.paymentMethod === "cash") return "Dinheiro";
-  return "Transacao";
+  return "Transação";
 }
 
 function formatTransactionLine(
@@ -80,7 +80,7 @@ function formatTransactionLine(
 }
 
 function formatNoData(): string {
-  return "Nao encontrei dados para esse periodo.";
+  return "Não encontrei dados para esse período.";
 }
 
 function formatTransactionList(result: Extract<BFinanceCommandResult, { kind: "transaction_list" }>): string {
@@ -108,11 +108,11 @@ function formatTransactionTotal(result: Extract<BFinanceCommandResult, { kind: "
   const period = formatPeriod(result.period);
 
   if (result.command.transactionType === "income") {
-    return `Voce recebeu ${formatCurrency(result.totals.income)} em ${period}.`;
+    return `Você recebeu ${formatCurrency(result.totals.income)} em ${period}.`;
   }
 
   if (result.command.transactionType === "all") {
-    return `Em ${period}, voce recebeu ${formatCurrency(result.totals.income)} e gastou ${formatCurrency(result.totals.expense)}. Saldo: ${formatCurrency(result.totals.balance)}.`;
+    return `Em ${period}, você recebeu ${formatCurrency(result.totals.income)} e gastou ${formatCurrency(result.totals.expense)}. Saldo: ${formatCurrency(result.totals.balance)}.`;
   }
 
   if (
@@ -120,12 +120,12 @@ function formatTransactionTotal(result: Extract<BFinanceCommandResult, { kind: "
     !result.command.scope.includeNormalTransactions
   ) {
     const cardLabel = result.command.scope.cardName
-      ? ` no cartao ${result.command.scope.cardName}`
-      : " no cartao";
-    return `Voce gastou ${formatCurrency(result.totals.cardExpense)}${cardLabel} em ${period}.`;
+      ? ` no cartão ${result.command.scope.cardName}`
+      : " no cartão";
+    return `Você gastou ${formatCurrency(result.totals.cardExpense)}${cardLabel} em ${period}.`;
   }
 
-  return `Voce gastou ${formatCurrency(result.totals.expense)} em ${period}.`;
+  return `Você gastou ${formatCurrency(result.totals.expense)} em ${period}.`;
 }
 
 function formatBillLine(bill: CommandBillItem): string {
@@ -150,7 +150,7 @@ function formatFinancialSummary(result: Extract<BFinanceCommandResult, { kind: "
     `Resumo financeiro - ${formatPeriod(result.period)}`,
     `Receitas: ${formatCurrency(result.totals.income)}`,
     `Despesas normais: ${formatCurrency(result.totals.normalExpense)}`,
-    `Despesas de cartao: ${formatCurrency(result.totals.cardExpense)}`,
+    `Despesas de cartão: ${formatCurrency(result.totals.cardExpense)}`,
     `Saldo: ${formatCurrency(result.totals.balance)}`,
     `Contas pendentes: ${formatCurrency(pendingBillsTotal)} (${result.pendingBills.length})`,
     `Investimentos: ${formatCurrency(investmentTotal)}`,
@@ -158,7 +158,7 @@ function formatFinancialSummary(result: Extract<BFinanceCommandResult, { kind: "
 
   if (result.pendingBills.length > 0) {
     lines.push("");
-    lines.push("Proximas contas:");
+    lines.push("Próximas contas:");
     lines.push(...result.pendingBills.slice(0, 5).map(formatBillLine));
   }
 
@@ -173,7 +173,7 @@ function formatFinancialSummary(result: Extract<BFinanceCommandResult, { kind: "
 
 function formatInvoiceSummary(result: Extract<BFinanceCommandResult, { kind: "invoice_summary" }>): string {
   if (result.invoices.length === 0 || result.total <= 0.01) {
-    return `Nao encontrei faturas em aberto para ${formatPeriod(result.period)}.`;
+    return `Não encontrei faturas em aberto para ${formatPeriod(result.period)}.`;
   }
 
   if (result.invoices.length === 1) {
@@ -210,7 +210,7 @@ function formatCategoryRanking(result: Extract<BFinanceCommandResult, { kind: "c
 
 function formatBillList(result: Extract<BFinanceCommandResult, { kind: "bill_list" }>): string {
   if (result.bills.length === 0) {
-    return "Voce nao tem contas pendentes.";
+    return "Você não tem contas pendentes.";
   }
 
   return [
@@ -224,7 +224,7 @@ function formatBillList(result: Extract<BFinanceCommandResult, { kind: "bill_lis
 
 function formatInvestments(result: Extract<BFinanceCommandResult, { kind: "investment_summary" }>): string {
   if (result.investments.length === 0) {
-    return "Voce ainda nao tem investimentos cadastrados.";
+    return "Você ainda não tem investimentos cadastrados.";
   }
 
   return [
@@ -277,6 +277,6 @@ export function formatBFinanceResponse(result: BFinanceCommandResult): string {
     case "ready_message":
       return result.message;
     default:
-      return "Nao consegui montar a resposta final.";
+      return "Não consegui montar a resposta final.";
   }
 }

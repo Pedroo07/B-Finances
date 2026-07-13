@@ -3,6 +3,7 @@ import { CardTransaction } from "@/lib/services/admin/cardTransactionsAdmin";
 import { BillAccount } from "@/lib/services/admin/billAccountsAdmin";
 import { Investment } from "@/lib/services/admin/investmentsAdmin";
 import { formatDate } from "../utils/dateParser";
+import { getBrasiliaDate } from "../utils/brasiliaDate";
 import {
   formatCategoryWithEmoji,
   getCategoryLabel,
@@ -293,8 +294,12 @@ export function formatBillsList(bills: BillAccount[]): string {
   bills
     .sort((a, b) => a.dueDate.localeCompare(b.dueDate))
     .forEach((bill) => {
+      const [year, month, day] = bill.dueDate.split("-").map(Number);
+      const dueDate = new Date(year, month - 1, day);
+      const today = getBrasiliaDate();
+      today.setHours(0, 0, 0, 0);
       const daysUntil = Math.ceil(
-        (new Date(bill.dueDate).getTime() - new Date().getTime()) /
+        (dueDate.getTime() - today.getTime()) /
           (1000 * 60 * 60 * 24)
       );
       const urgency = daysUntil <= 3 ? "🔴" : daysUntil <= 7 ? "🟡" : "🟢";

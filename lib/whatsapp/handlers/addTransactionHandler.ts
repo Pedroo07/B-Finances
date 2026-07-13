@@ -12,6 +12,7 @@ import { CREDIT_CARD_NAMES, CREDIT_CARD_NAMES_TEXT } from "@/lib/creditCards/cat
 import { formatCategoryWithEmoji } from "@/lib/whatsapp/categories";
 import { formatCurrency } from "../formatters/responseFormatter";
 import { extractInstallmentMention } from "../commands/normalizers/installmentNormalizer";
+import { formatBrasiliaDate } from "../utils/brasiliaDate";
 
 type PromptPayload = string | GenerateContentRequest | Array<string | Part>;
 
@@ -59,7 +60,7 @@ export async function handleAddTransaction(
   messageText: string,
   conversationHistory: string
 ): Promise<string> {
-  const todayStr = new Date().toISOString().split("T")[0];
+  const todayStr = formatBrasiliaDate();
 
   const systemInstruction = `Você é o Assistente Financeiro do aplicativo B-Finances. Sua missão é ler mensagens do usuário descrevendo transações financeiras (despesas ou receitas) e extrair os dados estruturados no formato JSON especificado.
     Você deve responder EXCLUSIVAMENTE com o objeto JSON estruturado. Não adicione nenhuma saudação, explicação, markdown ou texto adicional fora do JSON.

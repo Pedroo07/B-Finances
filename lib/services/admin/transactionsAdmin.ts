@@ -1,5 +1,6 @@
 import { db } from "@/lib/firebaseAdmin";
 import type { DocumentData, Query } from "firebase-admin/firestore";
+import { getBrasiliaDate } from "@/lib/whatsapp/utils/brasiliaDate";
 
 export type TransactionDto = {
   description: string;
@@ -91,14 +92,25 @@ export async function deleteTransaction(
     .delete();
 }
 
+export async function updateTransaction(
+  userId: string,
+  transactionId: string,
+  data: Partial<TransactionDto>,
+): Promise<void> {
+  await db
+    .collection(`users/${userId}/transactions`)
+    .doc(transactionId)
+    .update(data);
+}
+
 export async function findTransactionByDescription(
   userId: string,
   description: string,
   daysBack: number = 30
 ): Promise<Transaction[]> {
-  const startDate = new Date();
+  const startDate = getBrasiliaDate();
   startDate.setDate(startDate.getDate() - daysBack);
-  const startDateStr = startDate.toISOString().split("T")[0];
+  const startDateStr = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, "0")}-${String(startDate.getDate()).padStart(2, "0")}`;
 
   const snapshot = await db
     .collection(`users/${userId}/transactions`)

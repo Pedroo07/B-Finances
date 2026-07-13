@@ -12,6 +12,7 @@ import {
 } from "@/lib/creditCards/catalog";
 import { formatCurrency } from "../formatters/responseFormatter";
 import { formatDate } from "../utils/dateParser";
+import { getBrasiliaDate } from "../utils/brasiliaDate";
 
 const MAX_RESULTS_TO_SHOW = 20;
 
@@ -177,7 +178,7 @@ function parseExplicitDate(normalizedQuery: string, today: Date): DateFilter | u
   return exactDateFilter(date);
 }
 
-function parseDateFilter(normalizedQuery: string, today = new Date()): DateFilter | undefined {
+function parseDateFilter(normalizedQuery: string, today = getBrasiliaDate()): DateFilter | undefined {
   const explicitDate = parseExplicitDate(normalizedQuery, today);
   if (explicitDate) return explicitDate;
 
@@ -436,8 +437,8 @@ function getSourceLabel(item: FindableTransaction): string {
   if (item.type === "income") return "Receita";
   if (item.paymentMethod === "pix") return "Pix";
   if (item.paymentMethod === "cash") return "Dinheiro";
-  if (item.paymentMethod === "debit") return "Debito";
-  return "Transacao";
+  if (item.paymentMethod === "debit") return "Débito";
+  return "Transação";
 }
 
 function formatFoundTransaction(
@@ -458,7 +459,7 @@ function formatFoundTransaction(
 }
 
 function formatSingleResult(item: FindableTransaction): string {
-  return `Encontrei esta transacao:\n\n${formatFoundTransaction(item)}`;
+  return `Encontrei esta transação:\n\n${formatFoundTransaction(item)}`;
 }
 
 function formatMultipleResults(
@@ -474,10 +475,10 @@ function formatMultipleResults(
     .join("\n\n");
 
   if (hiddenCount > 0) {
-    response += `\n\nMostrei as ${MAX_RESULTS_TO_SHOW} mais recentes. Se nao estiver aqui, refine a busca.`;
+    response += `\n\nMostrei as ${MAX_RESULTS_TO_SHOW} mais recentes. Se não estiver aqui, refine a busca.`;
   }
 
-  response += "\n\nQual delas voce quer? Responda com o numero.";
+  response += "\n\nQual delas você quer? Responda com o número.";
 
   return response;
 }
@@ -496,7 +497,7 @@ export async function handleFindTransaction(
   ) {
     return {
       message:
-        "Me diga uma pista da transacao, como descricao, data, valor ou cartao.",
+        "Dê uma pista da transação, como descrição, data, valor ou cartão.",
       needsSelection: false,
     };
   }
@@ -513,7 +514,7 @@ export async function handleFindTransaction(
 
   if (matches.length === 0) {
     return {
-      message: `Nao encontrei transacoes para "${criteria.rawQuery}".`,
+      message: `Não encontrei transações para "${criteria.rawQuery}".`,
       needsSelection: false,
     };
   }
@@ -551,7 +552,7 @@ export function resolveFindTransactionSelection(
     !Array.isArray(action.transactions)
   ) {
     return {
-      message: "Nao encontrei uma busca pendente para essa escolha.",
+      message: "Não encontrei uma busca pendente para essa escolha.",
       shouldClear: true,
     };
   }
@@ -560,7 +561,7 @@ export function resolveFindTransactionSelection(
   if (!match) {
     return {
       message:
-        "Responda com o numero da transacao da lista, ou envie cancelar.",
+        "Responda com o número da transação da lista ou envie “cancelar”.",
       shouldClear: false,
     };
   }
@@ -571,13 +572,13 @@ export function resolveFindTransactionSelection(
   if (!selected) {
     return {
       message:
-        "Numero invalido. Escolha um numero da lista, ou envie cancelar.",
+        "Número inválido. Escolha um número da lista ou envie “cancelar”.",
       shouldClear: false,
     };
   }
 
   return {
-    message: `Transacao escolhida:\n\n${formatFoundTransaction(selected)}`,
+    message: `Transação escolhida:\n\n${formatFoundTransaction(selected)}`,
     shouldClear: true,
   };
 }

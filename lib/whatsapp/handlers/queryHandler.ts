@@ -25,6 +25,7 @@ import {
 } from "../formatters/responseFormatter";
 import { getPeriodDates } from "../utils/dateParser";
 import { getCategoryLabel } from "@/lib/whatsapp/categories";
+import { getBrasiliaDate } from "../utils/brasiliaDate";
 
 type QueryParameters = Record<string, unknown>;
 
@@ -273,7 +274,7 @@ async function handleCardInvoiceQuery(
   userId: string,
   parameters: QueryParameters
 ): Promise<string> {
-  const today = new Date();
+  const today = getBrasiliaDate();
   const month = getNumberParameter(parameters, "month", today.getMonth() + 1)!;
   const year = getNumberParameter(parameters, "year", today.getFullYear())!;
   const cardName = getStringParameter(parameters, "card");

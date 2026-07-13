@@ -58,7 +58,7 @@ function scopeLabel(scope: FinancialScope, cardName?: string): string {
 }
 
 function noDataMessage(plan: FinancialPlan, subject: string): string {
-  return `Nao encontrei dados de ${subject} em ${plan.period.label}.`;
+  return `Não encontrei dados de ${subject} em ${plan.period.label}.`;
 }
 
 function resultContext(

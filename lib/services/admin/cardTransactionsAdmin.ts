@@ -1,5 +1,6 @@
 import { db } from "@/lib/firebaseAdmin";
 import { buildInstallmentSchedule } from "@/lib/creditCards/installments";
+import { getBrasiliaDate } from "@/lib/whatsapp/utils/brasiliaDate";
 
 export type CardTransactionDto = {
   description: string;
@@ -120,14 +121,25 @@ export async function deleteCardTransaction(
     .delete();
 }
 
+export async function updateCardTransaction(
+  userId: string,
+  transactionId: string,
+  data: Partial<CardTransactionDto>,
+): Promise<void> {
+  await db
+    .collection(`users/${userId}/cardTransactions`)
+    .doc(transactionId)
+    .update(data);
+}
+
 export async function findCardTransactionByDescription(
   userId: string,
   description: string,
   daysBack: number = 30
 ): Promise<CardTransaction[]> {
-  const startDate = new Date();
+  const startDate = getBrasiliaDate();
   startDate.setDate(startDate.getDate() - daysBack);
-  const startDateStr = startDate.toISOString().split("T")[0];
+  const startDateStr = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, "0")}-${String(startDate.getDate()).padStart(2, "0")}`;
 
   const snapshot = await db
     .collection(`users/${userId}/cardTransactions`)

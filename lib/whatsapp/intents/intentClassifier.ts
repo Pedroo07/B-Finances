@@ -5,6 +5,7 @@ import {
   type Part,
 } from "@google/generative-ai";
 import { IntentType, IntentResult } from "./intentTypes";
+import { formatBrasiliaDate } from "../utils/brasiliaDate";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
@@ -51,7 +52,7 @@ export async function classifyIntent(
   message: string,
   conversationHistory: string,
 ): Promise<IntentResult> {
-  const todayStr = new Date().toISOString().split("T")[0];
+  const todayStr = formatBrasiliaDate();
 
   const systemInstruction = `Você é um classificador de intenções para um assistente financeiro do WhatsApp.
 Sua tarefa é analisar a mensagem do usuário e identificar qual é a intenção dele.
