@@ -239,12 +239,19 @@ function formatCreated(result: Extract<BFinanceCommandResult, { kind: "transacti
   const item = result.item;
   const typeLabel = item.type === "income" ? "Receita" : "Despesa";
   const origin = getOrigin(item);
+  const amount = item.installmentCount && item.installmentCount > 1 && item.totalAmount
+    ? item.totalAmount
+    : Math.abs(item.amount);
+  const installmentLine = item.installmentCount && item.installmentCount > 1
+    ? `📆 ${item.installmentCount}x de ${formatCurrency(Math.abs(item.amount))}`
+    : null;
   return [
     `✅ *${typeLabel} adicionada*`,
     `${formatCategoryWithEmoji(item.category)} · ${item.description}`,
-    `💰 ${formatCurrency(Math.abs(item.amount))} · ${formatDate(item.date)}`,
+    `💰 ${formatCurrency(amount)} · ${formatDate(item.date)}`,
+    installmentLine,
     origin,
-  ].join("\n");
+  ].filter(Boolean).join("\n");
 }
 
 export function formatBFinanceResponse(result: BFinanceCommandResult): string {

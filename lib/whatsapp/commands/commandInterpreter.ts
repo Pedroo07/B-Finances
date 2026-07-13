@@ -311,6 +311,7 @@ function normalizeParsedCommand(parsed: unknown): BFinanceCommand {
         nullableString(rawData.card) ??
         null,
       paymentMethod: nullableString(rawData.paymentMethod) ?? null,
+      installmentCount: nullableNumber(rawData.installmentCount) ?? null,
     };
   }
 
@@ -395,7 +396,8 @@ CONTRATO DE SAIDA:
     "category": string | null,
     "date": string | null,
     "cardName": string | null,
-    "paymentMethod": string | null
+    "paymentMethod": string | null,
+    "installmentCount": number | null
   },
   "clarification": {
     "question": string,
@@ -422,6 +424,8 @@ REGRAS:
 - Para "contas a pagar": action query, resource bill, operation list.
 - Para "investimentos": action query, resource investment, operation summary.
 - Para "gastei 50 conto no lanche": action create, resource transaction, transactionType expense, data preenchido.
+- Para "comprei um tenis de 1500 parcelado em 10x": action create, resource card_transaction, transactionType expense, data.amount 1500 e data.installmentCount 10. O valor informado e o total da compra.
+- Expressoes como "parcelado", "dividido", "em 5 vezes" ou "5x" indicam compra parcelada no cartao. Sem essas expressoes, installmentCount deve ser 1.
 - Para "recebi 300 do freela": action create, resource transaction, transactionType income, data preenchido.
 - Para cartao de credito, use resource card_transaction apenas quando for uma compra/transacao de cartao; use resource invoice para fatura.
 - Para "sem cartao", "ignore cartao", "tirando credito", marque escopo negativo. A normalizacao deterministica fara a correcao final.

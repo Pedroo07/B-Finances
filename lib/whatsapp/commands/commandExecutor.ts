@@ -1,5 +1,6 @@
 import { getCreditCardBankKey, getCreditCardName } from "@/lib/creditCards/catalog";
 import {
+  createCardInstallmentTransactions,
   createCardTransaction,
   getCardTransactions,
   type CardTransaction,
@@ -323,6 +324,8 @@ function cardTransactionToItem(transaction: CardTransaction): CommandTransaction
     type: "expense",
     paymentMethod: "credit_card",
     cardName: getCreditCardName(transaction.card),
+    installmentNumber: transaction.installmentNumber ?? null,
+    installmentCount: transaction.installmentCount ?? null,
   };
 }
 
@@ -637,17 +640,94 @@ async function executeCreateTransaction(
   const type = command.transactionType === "income" ? "income" : "expense";
   const normalizedAmount =
     type === "income" ? Math.abs(amountValue) : -Math.abs(amountValue);
+  const installmentRequested = Boolean(command.data?.installmentRequested);
+  const installmentCount = command.data?.installmentCount ?? 1;
 
-  if (paymentMethod === "credit_card" || command.resource === "card_transaction") {
-    const cardName = command.data?.cardName || command.scope?.cardName;
+  if (installmentRequested && installmentCount === 1) {
+    return {
+      success: false,
+      kind: "clarification",
+      command,
+      missingFields: ["installmentCount"],
+      message: "Em quantas vezes foi parcelada a compra? Escolha entre 2x e 12x.",
+    };
+  }
+
+  if (
+    installmentRequested
+    && (!Number.isInteger(installmentCount) || installmentCount < 2 || installmentCount > 12)
+  ) {
+    return {
+      success: false,
+      kind: "clarification",
+      command,
+      missingFields: ["installmentCount"],
+      message: "O parcelamento deve estar entre 2x e 12x.",
+    };
+  }
+
+  const isInstallmentPurchase = installmentRequested && installmentCount > 1;
+  const isCardPurchase =
+    paymentMethod === "credit_card"
+    || command.resource === "card_transaction"
+    || isInstallmentPurchase;
+
+  if (isCardPurchase) {
+    let cardName = command.data?.cardName || command.scope?.cardName;
+    let resolvedCommand = command;
 
     if (!cardName) {
+      const cards = await getUserCreditCards(userId);
+      const cardNames = cards.map(cardDisplayName);
+
+      if (cardNames.length === 0) {
+        return {
+          success: true,
+          kind: "ready_message",
+          command,
+          message: "Voce ainda nao tem cartoes cadastrados. Cadastre um cartao no aplicativo antes de adicionar esta compra.",
+        };
+      }
+
+      if (cardNames.length > 1) {
+        return {
+          success: true,
+          kind: "ready_message",
+          command,
+          message: [
+            "Qual cartao devo usar para essa compra?",
+            "",
+            ...cardNames.map((name, index) => `${index + 1}. ${name}`),
+          ].join("\n"),
+          pendingAction: {
+            type: "select_card_for_query",
+            command,
+            cards: cardNames.map((name, index) => ({ index: index + 1, cardName: name })),
+          },
+        };
+      }
+
+      cardName = cardNames[0];
+      resolvedCommand = withSelectedCard(command, cardName);
+    }
+
+    if (isInstallmentPurchase) {
+      const created = await createCardInstallmentTransactions(userId, {
+        description: descriptionText,
+        totalAmount: Math.abs(amountValue),
+        category,
+        purchaseDate: date,
+        card: getCreditCardName(cardName),
+        installmentCount,
+      });
+      const item = cardTransactionToItem(created[0]);
+      item.totalAmount = Math.abs(amountValue);
+
       return {
-        success: false,
-        kind: "clarification",
-        command,
-        missingFields: ["cardName"],
-        message: "Qual cartao devo usar para essa compra?",
+        success: true,
+        kind: "transaction_created",
+        command: resolvedCommand,
+        item,
       };
     }
 
@@ -662,7 +742,7 @@ async function executeCreateTransaction(
     return {
       success: true,
       kind: "transaction_created",
-      command,
+      command: resolvedCommand,
       item: cardTransactionToItem(created),
     };
   }

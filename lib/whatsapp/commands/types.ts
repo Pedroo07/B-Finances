@@ -88,6 +88,8 @@ export type BFinanceCommandData = {
   date?: string | null;
   cardName?: string | null;
   paymentMethod?: string | null;
+  installmentCount?: number | null;
+  installmentRequested?: boolean;
 };
 
 export type BFinanceClarification = {
@@ -122,6 +124,9 @@ export type CommandTransactionItem = {
   type: "expense" | "income";
   paymentMethod?: string | null;
   cardName?: string | null;
+  installmentNumber?: number | null;
+  installmentCount?: number | null;
+  totalAmount?: number | null;
 };
 
 export type CommandTotals = {

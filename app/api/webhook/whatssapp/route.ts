@@ -13,6 +13,7 @@ import { interpretBFinanceCommand } from "@/lib/whatsapp/commands/commandInterpr
 import { executeBFinanceCommand } from "@/lib/whatsapp/commands/commandExecutor";
 import { formatBFinanceResponse } from "@/lib/whatsapp/commands/responseFormatter";
 import { normalizeCommandFilters } from "@/lib/whatsapp/commands/normalizers/filterNormalizer";
+import { normalizeCommandInstallments } from "@/lib/whatsapp/commands/normalizers/installmentNormalizer";
 import { normalizeCommandPeriod } from "@/lib/whatsapp/commands/normalizers/periodNormalizer";
 import { normalizeCommandScope } from "@/lib/whatsapp/commands/normalizers/scopeNormalizer";
 import type { BFinanceCommand } from "@/lib/whatsapp/commands/types";
@@ -520,6 +521,7 @@ export async function POST(req: Request) {
       currentDate,
       normalizerContext,
     );
+    command = normalizeCommandInstallments(messageText, command);
 
     console.log("B-Finances command:", JSON.stringify(command));
 

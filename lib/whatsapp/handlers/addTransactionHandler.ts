@@ -3,11 +3,15 @@ import {
   type GenerateContentRequest,
   type Part,
 } from "@google/generative-ai";
-import { createCardTransaction } from "@/lib/services/admin/cardTransactionsAdmin";
+import {
+  createCardInstallmentTransactions,
+  createCardTransaction,
+} from "@/lib/services/admin/cardTransactionsAdmin";
 import { createTransaction } from "@/lib/services/admin/transactionsAdmin";
 import { CREDIT_CARD_NAMES, CREDIT_CARD_NAMES_TEXT } from "@/lib/creditCards/catalog";
 import { formatCategoryWithEmoji } from "@/lib/whatsapp/categories";
 import { formatCurrency } from "../formatters/responseFormatter";
+import { extractInstallmentMention } from "../commands/normalizers/installmentNormalizer";
 
 type PromptPayload = string | GenerateContentRequest | Array<string | Part>;
 
@@ -86,6 +90,7 @@ export async function handleAddTransaction(
         - "subscriptions" (Assinaturas, mensalidades, streaming, Netflix, Spotify)
         - "entertainment" (Lazer, cinema, festas, viagens, jogos)
         - "other" (Outros gastos que não se encaixam nos anteriores)
+    5. Se o usuário disser "parcelado", "dividido", "10x" ou "em 10 vezes", trate como compra no cartão e preencha installmentCount entre 2 e 12. O amount continua sendo o valor TOTAL da compra. Sem indicação de parcelamento, use installmentCount 1.
 
     ### REGRAS PARA RECEITAS (Lucros/Entradas):
     1. O valor (amount) deve ser sempre POSITIVO (ex: 800.00).
@@ -112,7 +117,8 @@ export async function handleAddTransaction(
             "category": "foods" | "fixes" | "housing" | "transport" | "delivery" | "shopping" | "subscriptions" | "entertainment" | "other" | "salary" | "extra",
             "type": "income" | "expense",
             "paymentMethod": "cash" | "pix" | "debit",
-            "card": ${creditCardNameUnion}
+            "card": ${creditCardNameUnion},
+            "installmentCount": number
         }
     }
 
@@ -137,11 +143,35 @@ export async function handleAddTransaction(
 
   if (parsed.status === "complete") {
     const transactionData = parsed.transaction;
-    const collectionName = parsed.isCardTransaction
+    const installment = extractInstallmentMention(messageText);
+    const installmentCount = installment.count ?? 1;
+
+    if (installment.requested && installment.count === null) {
+      return "Em quantas vezes foi parcelada a compra? Escolha entre 2x e 12x.";
+    }
+    if (installment.requested && (installmentCount < 2 || installmentCount > 12)) {
+      return "O parcelamento deve estar entre 2x e 12x.";
+    }
+
+    const isCardTransaction = parsed.isCardTransaction || installmentCount > 1;
+    const collectionName = isCardTransaction
       ? "cardTransactions"
       : "transactions";
 
-    if (parsed.isCardTransaction) {
+    if (isCardTransaction && !transactionData.card) {
+      return "Qual cartão devo usar para essa compra?";
+    }
+
+    if (isCardTransaction && installmentCount > 1) {
+      await createCardInstallmentTransactions(userId, {
+        description: transactionData.description,
+        category: transactionData.category,
+        purchaseDate: transactionData.date,
+        totalAmount: Math.abs(transactionData.amount),
+        card: transactionData.card,
+        installmentCount,
+      });
+    } else if (isCardTransaction) {
       await createCardTransaction(userId, transactionData);
     } else {
       await createTransaction(userId, transactionData);
@@ -156,6 +186,9 @@ export async function handleAddTransaction(
 
     if (collectionName === "cardTransactions" && transactionData.card) {
       messageLines.push(`💳 ${transactionData.card}`);
+    }
+    if (installmentCount > 1) {
+      messageLines.push(`📆 ${installmentCount}x de ${formatCurrency(Math.abs(transactionData.amount) / installmentCount)}`);
     }
 
     return messageLines.join("\n");
