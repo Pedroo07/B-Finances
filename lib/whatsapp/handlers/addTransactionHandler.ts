@@ -11,6 +11,7 @@ import { createTransaction } from "@/lib/services/admin/transactionsAdmin";
 import { CREDIT_CARD_NAMES, CREDIT_CARD_NAMES_TEXT } from "@/lib/creditCards/catalog";
 import { formatCategoryWithEmoji } from "@/lib/whatsapp/categories";
 import { formatCurrency } from "../formatters/responseFormatter";
+import { resolveTransactionCategory } from "../commands/normalizers/categoryNormalizer";
 import { extractInstallmentMention } from "../commands/normalizers/installmentNormalizer";
 import { formatBrasiliaDate } from "../utils/brasiliaDate";
 
@@ -144,6 +145,13 @@ export async function handleAddTransaction(
 
   if (parsed.status === "complete") {
     const transactionData = parsed.transaction;
+    transactionData.category = resolveTransactionCategory({
+      messageText,
+      description: transactionData.description,
+      transactionType:
+        transactionData.type === "income" ? "income" : "expense",
+      suggestedCategory: transactionData.category,
+    });
     const installment = extractInstallmentMention(messageText);
     const installmentCount = installment.count ?? 1;
 

@@ -455,6 +455,12 @@ REGRAS:
 - Ao preencher clarification.question, escreva em português do Brasil com acentuação correta.
 - Nao execute regras finais de data, calculo ou escopo. Apenas interprete a intencao.
 - Nao invente dados financeiros.
+- Em toda criacao de transacao, preencha data.category com UMA categoria canonica.
+- Categorias de despesa: fixes (contas fixas, luz, agua, internet e telefone), foods (mercado, restaurante, padaria, alimentos e lanches), housing (aluguel, condominio e moradia), transport (Uber, taxi, combustivel, estacionamento e transporte publico), delivery (iFood, Rappi e entrega de comida), shopping (roupas, calcados, eletronicos, farmacia e compras), subscriptions (assinaturas, mensalidades e streaming), entertainment (cinema, festas, viagens, shows e lazer) ou other.
+- Categorias de receita: salary (salario e pagamento do trabalho principal), extra (freela, bonus, comissao, venda e renda extra) ou other.
+- Use other somente quando a descricao nao der nenhuma pista util. O estabelecimento, produto ou servico citado deve ser usado para inferir a categoria.
+- Se o usuario indicar explicitamente uma categoria, respeite a escolha dele.
+- Exemplos de categoria: mercado/padaria/restaurante => foods; conta de luz/internet => fixes; tenis/roupa/Amazon => shopping; Uber/gasolina => transport; iFood => delivery; Netflix/academia => subscriptions; aluguel/condominio => housing; cinema/show => entertainment.
 - Cartoes aceitos para scope.cardName/data.cardName: ${CREDIT_CARD_NAMES_TEXT}. Use esses nomes canonicos.
 - Para "quanto gastei", "qnt foi de gasto", "quanto entrou": action query, resource transaction, operation total.
 - Para "liste", "ultimas", "mostre": action query, operation list.

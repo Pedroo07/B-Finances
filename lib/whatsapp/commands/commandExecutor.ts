@@ -22,6 +22,7 @@ import {
   type UpdateTransactionTarget,
 } from "../handlers/updateTransactionHandler";
 import { getBrasiliaDate } from "../utils/brasiliaDate";
+import { resolveTransactionCategory } from "./normalizers/categoryNormalizer";
 import { resolveCreationDate } from "./normalizers/creationDateResolver";
 import {
   compareCreatedAtDescending,
@@ -615,10 +616,18 @@ function toInvestmentItem(investment: Investment): CommandInvestmentItem {
   };
 }
 
-function normalizeCategory(command: BFinanceCommand): string {
-  if (command.data?.category) return command.data.category;
-  if (command.filters?.category) return command.filters.category;
-  return command.transactionType === "income" ? "extra" : "other";
+function normalizeCategory(
+  command: BFinanceCommand,
+  messageText: string,
+  description: string,
+): string {
+  return resolveTransactionCategory({
+    messageText,
+    description,
+    transactionType: command.transactionType,
+    suggestedCategory: command.data?.category,
+    filterCategory: command.filters?.category,
+  });
 }
 
 function normalizePaymentMethod(command: BFinanceCommand): BFinancePaymentMethod {
@@ -654,8 +663,8 @@ async function executeCreateTransaction(
   const amountValue = amount ?? 0;
   const paymentMethod = normalizePaymentMethod(command);
   const date = resolveCreationDate(messageText, command.data?.date);
-  const category = normalizeCategory(command);
   const type = command.transactionType === "income" ? "income" : "expense";
+  const category = normalizeCategory(command, messageText, descriptionText);
   const normalizedAmount =
     type === "income" ? Math.abs(amountValue) : -Math.abs(amountValue);
   const installmentRequested = Boolean(command.data?.installmentRequested);
