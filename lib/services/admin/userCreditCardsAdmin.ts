@@ -272,40 +272,41 @@ export async function payCardInvoice(
     options.month
   );
 
-  const transactionRef = await db
-    .collection(`users/${userId}/transactions`)
-    .add({
-      description: `Fatura do cartão ${cardName}`,
-      date: paymentDate,
-      amount: -Math.abs(amount),
-      category: "Credit Card",
-      type: "expense",
-      paymentMethod: "pix",
-    });
-
-  const cardRef = db.collection(`users/${userId}/creditCards`).doc(docId);
-  
-  await cardRef.set(
-    {
-      bankKey: card.bankKey ?? docId,
-      invoices: {
-        [periodKey]: {
-          amountPaid: Math.abs(amount),
-          paidAt: paymentDate,
-          transactionId: transactionRef.id,
-        },
-      },
-    },
-    { merge: true }
-  );
-
   const existingInvoiceBill = await findCreditCardInvoiceBill(userId, docId, periodKey);
+  const invoiceBillId = existingInvoiceBill?.id ?? getCreditCardInvoiceBillId(docId, periodKey);
+  const transactionRef = db
+    .collection(`users/${userId}/transactions`)
+    .doc();
+  const cardRef = db.collection(`users/${userId}/creditCards`).doc(docId);
   const billRef = db
     .collection(`users/${userId}/billAccounts`)
-    .doc(existingInvoiceBill?.id ?? getCreditCardInvoiceBillId(docId, periodKey));
+    .doc(invoiceBillId);
   const existingBillData = existingInvoiceBill?.data;
+  const batch = db.batch();
 
-  await billRef.set(
+  batch.set(transactionRef, {
+    description: `Fatura do cartão ${cardName}`,
+    date: paymentDate,
+    amount: -Math.abs(amount),
+    category: "Credit Card",
+    type: "expense",
+    paymentMethod: "pix",
+    billAccountId: invoiceBillId,
+  });
+
+  batch.set(cardRef, {
+    bankKey: card.bankKey ?? docId,
+    invoices: {
+      [periodKey]: {
+        amountPaid: Math.abs(amount),
+        paidAt: paymentDate,
+        transactionId: transactionRef.id,
+      },
+    },
+  }, { merge: true });
+
+  batch.set(
+    billRef,
     {
       description: existingBillData?.description ?? `Fatura do cartão ${getCreditCardName(card.bankKey ?? docId)}`,
       amount: Math.abs(amount),
@@ -316,10 +317,14 @@ export async function payCardInvoice(
       creditCardInvoicePeriodKey: periodKey,
       source: "credit_card_invoice",
       hiddenFromBills: existingBillData?.hiddenFromBills ?? false,
+      paymentTransactionId: transactionRef.id,
+      paidAt: paymentDate,
       createdAt: existingBillData?.createdAt ?? new Date().toISOString().split("T")[0],
     },
     { merge: true }
   );
+
+  await batch.commit();
 }
 
 export async function getAllCardInvoices(

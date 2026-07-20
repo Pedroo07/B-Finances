@@ -17,6 +17,8 @@ export type BillAccount = {
   creditCardInvoicePeriodKey?: string;
   source?: "manual" | "credit_card_invoice";
   hiddenFromBills?: boolean;
+  paymentTransactionId?: string;
+  paidAt?: string;
   createdAt: string;
 };
 
@@ -87,6 +89,7 @@ export async function payBillAccount(
   const batch = db.batch();
   const transactionRef = db.collection(`users/${userId}/transactions`).doc();
   let shouldCreateTransaction = true;
+  let paymentTransactionId = transactionRef.id;
 
   const transactionData = {
     description: billData.description,
@@ -95,6 +98,7 @@ export async function payBillAccount(
     category: "fixes",
     type: "expense",
     paymentMethod: "pix",
+    billAccountId: billId,
   };
 
   if (billData.creditCardId) {
@@ -112,6 +116,7 @@ export async function payBillAccount(
         : paymentDate.slice(0, 7));
     const invoicePayment = cardData?.invoices?.[periodKey];
     const transactionId = invoicePayment?.transactionId ?? transactionRef.id;
+    paymentTransactionId = transactionId;
 
     if (invoicePayment && invoicePayment.amountPaid >= Math.abs(billData.amount)) {
       shouldCreateTransaction = false;
@@ -133,7 +138,11 @@ export async function payBillAccount(
     batch.set(transactionRef, transactionData);
   }
 
-  batch.update(billRef, { status: "paid" });
+  batch.update(billRef, {
+    status: "paid",
+    paymentTransactionId,
+    paidAt: paymentDate,
+  });
   await batch.commit();
 }
 

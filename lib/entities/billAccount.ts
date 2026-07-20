@@ -14,5 +14,7 @@ export type BillAccount = {
   creditCardInvoicePeriodKey?: string
   source?: BillAccountSource
   hiddenFromBills?: boolean
+  paymentTransactionId?: string
+  paidAt?: string
   createdAt: string
 }

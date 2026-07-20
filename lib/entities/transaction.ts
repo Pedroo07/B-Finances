@@ -6,4 +6,5 @@ export type Transaction = {
     id: string
     category: string
     paymentMethod: string
+    billAccountId?: string
 }

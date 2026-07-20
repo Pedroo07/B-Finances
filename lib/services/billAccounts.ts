@@ -1,8 +1,9 @@
-import { collection, doc, addDoc, deleteDoc, getDocs, updateDoc, writeBatch, getDoc, query, where, setDoc } from 'firebase/firestore'
+import { collection, doc, addDoc, deleteDoc, deleteField, getDocs, updateDoc, writeBatch, getDoc, query, where, setDoc, runTransaction } from 'firebase/firestore'
 import { db } from '../firebase'
 import { BillAccount, BillAccountRecurrence, BillAccountSource } from '../entities/billAccount'
 import { getAuth } from 'firebase/auth'
 import { TransactionDto } from './transactions'
+import { Transaction } from '../entities/transaction'
 import { getInvoicePeriodKeyForDueDate, isValidBillingDay } from '../creditCards/billing'
 import { UserCreditCard } from '../entities/userCreditCard'
 
@@ -20,6 +21,8 @@ export type BillAccountDto = {
   creditCardInvoicePeriodKey?: string
   source?: BillAccountSource
   hiddenFromBills?: boolean
+  paymentTransactionId?: string
+  paidAt?: string
 }
 
 function getUserBillAccountsCollection() {
@@ -161,6 +164,57 @@ export async function hideBillAccountFromList(id: string): Promise<void> {
   await updateDoc(billRef, { hiddenFromBills: true })
 }
 
+const LEGACY_BILL_PAYMENT_CATEGORIES = new Set(['contas', 'fixes'])
+
+function isLegacyBillPaymentCandidate(
+  bill: BillAccount,
+  transaction: Transaction,
+): boolean {
+  const amountMatches = Math.round(transaction.amount * 100)
+    === -Math.abs(Math.round(bill.amount * 100))
+  const paymentMethod = transaction.paymentMethod ?? 'pix'
+  const belongsToAnotherBill = Boolean(
+    transaction.billAccountId && transaction.billAccountId !== bill.id,
+  )
+  const predatesBill = Boolean(
+    bill.createdAt && transaction.date && transaction.date < bill.createdAt,
+  )
+
+  return !bill.creditCardId
+    && !belongsToAnotherBill
+    && !predatesBill
+    && transaction.description === bill.description
+    && amountMatches
+    && transaction.type === 'expense'
+    && paymentMethod === 'pix'
+    && LEGACY_BILL_PAYMENT_CATEGORIES.has(transaction.category)
+}
+
+function dateDistanceInDays(date: string, referenceDate: string): number {
+  const timestamp = Date.parse(`${date}T00:00:00Z`)
+  const referenceTimestamp = Date.parse(`${referenceDate}T00:00:00Z`)
+  if (!Number.isFinite(timestamp) || !Number.isFinite(referenceTimestamp)) {
+    return Number.POSITIVE_INFINITY
+  }
+  return Math.abs(timestamp - referenceTimestamp) / (24 * 60 * 60 * 1000)
+}
+
+export function getLegacyBillPaymentCandidates(
+  bill: BillAccount,
+  transactions: Transaction[],
+): Transaction[] {
+  if (bill.creditCardId || bill.paymentTransactionId) return []
+
+  return transactions
+    .filter((transaction) => isLegacyBillPaymentCandidate(bill, transaction))
+    .sort((a, b) => {
+      const distanceDifference = dateDistanceInDays(a.date, bill.dueDate)
+        - dateDistanceInDays(b.date, bill.dueDate)
+      if (distanceDifference !== 0) return distanceDifference
+      return b.date.localeCompare(a.date)
+    })
+}
+
 export async function payBillAccount(id: string, paymentDate: string): Promise<BillAccount> {
   const user = auth.currentUser
   if (!user) throw new Error('User not authenticated')
@@ -181,6 +235,7 @@ export async function payBillAccount(id: string, paymentDate: string): Promise<B
     category: 'contas',
     type: 'expense',
     paymentMethod: 'pix',
+    billAccountId: id,
   }
 
   if (bill.creditCardId) {
@@ -216,12 +271,131 @@ export async function payBillAccount(id: string, paymentDate: string): Promise<B
     batch.set(transactionRef, transactionData)
   }
 
-  batch.update(billRef, { status: 'paid' })
+  const paymentTransactionId = existingInvoiceTransactionId ?? transactionRef.id
+
+  batch.update(billRef, {
+    status: 'paid',
+    paymentTransactionId,
+    paidAt: paymentDate,
+  })
 
   await batch.commit()
 
   return {
     ...bill,
     status: 'paid',
+    paymentTransactionId,
+    paidAt: paymentDate,
   }
+}
+
+export type UnpayBillAccountResult = {
+  bill: BillAccount
+  removedTransactionIds: string[]
+}
+
+export async function unpayBillAccount(
+  id: string,
+  legacyPaymentTransactionId?: string,
+): Promise<UnpayBillAccountResult> {
+  const user = auth.currentUser
+  if (!user) throw new Error('User not authenticated')
+
+  const billRef = doc(db, `users/${user.uid}/billAccounts`, id)
+  const linkedLegacyBills = legacyPaymentTransactionId
+    ? await getDocs(query(
+      getUserBillAccountsCollection(),
+      where('paymentTransactionId', '==', legacyPaymentTransactionId),
+    ))
+    : null
+  const isLegacyPaymentLinkedToAnotherBill = linkedLegacyBills?.docs.some(
+    (currentBillDoc) => currentBillDoc.id !== id,
+  ) ?? false
+  let result: UnpayBillAccountResult | null = null
+
+  await runTransaction(db, async (firestoreTransaction) => {
+    const billDoc = await firestoreTransaction.get(billRef)
+    if (!billDoc.exists()) throw new Error('Bill not found')
+
+    const bill = {
+      id: billDoc.id,
+      ...billDoc.data(),
+    } as BillAccount
+    let paymentTransactionId = bill.paymentTransactionId
+    let cardRef: ReturnType<typeof doc> | null = null
+    let invoicePeriodKey: string | undefined
+    let hasInvoicePayment = false
+
+    if (bill.creditCardId) {
+      cardRef = doc(db, `users/${user.uid}/creditCards`, bill.creditCardId)
+      const cardDoc = await firestoreTransaction.get(cardRef)
+      const cardData = cardDoc.exists() ? cardDoc.data() as UserCreditCard : null
+      invoicePeriodKey = bill.creditCardInvoicePeriodKey
+        ?? (cardData && isValidBillingDay(cardData.closingDay) && isValidBillingDay(cardData.dueDay)
+          ? getInvoicePeriodKeyForDueDate(bill.dueDate, cardData.closingDay, cardData.dueDay)
+          : bill.paidAt?.slice(0, 7))
+      const invoicePayment = invoicePeriodKey
+        ? cardData?.invoices?.[invoicePeriodKey]
+        : undefined
+
+      paymentTransactionId = invoicePayment?.transactionId ?? paymentTransactionId
+      hasInvoicePayment = cardDoc.exists() && Boolean(invoicePeriodKey && invoicePayment)
+    }
+
+    if (!bill.creditCardId && !paymentTransactionId && legacyPaymentTransactionId) {
+      const legacyTransactionRef = doc(
+        db,
+        `users/${user.uid}/transactions`,
+        legacyPaymentTransactionId,
+      )
+      const legacyTransactionDoc = await firestoreTransaction.get(legacyTransactionRef)
+      const legacyTransaction = legacyTransactionDoc.exists()
+        ? {
+          id: legacyTransactionDoc.id,
+          ...legacyTransactionDoc.data(),
+        } as Transaction
+        : null
+
+      if (
+        !legacyTransaction
+        || !isLegacyBillPaymentCandidate(bill, legacyTransaction)
+        || isLegacyPaymentLinkedToAnotherBill
+      ) {
+        throw new Error('Legacy bill payment transaction is no longer valid')
+      }
+
+      paymentTransactionId = legacyPaymentTransactionId
+    }
+
+    if (cardRef && invoicePeriodKey && hasInvoicePayment) {
+      firestoreTransaction.update(cardRef, {
+        [`invoices.${invoicePeriodKey}`]: deleteField(),
+      })
+    }
+
+    if (paymentTransactionId) {
+      firestoreTransaction.delete(
+        doc(db, `users/${user.uid}/transactions`, paymentTransactionId),
+      )
+    }
+
+    firestoreTransaction.update(billRef, {
+      status: 'pending',
+      paymentTransactionId: deleteField(),
+      paidAt: deleteField(),
+    })
+
+    result = {
+      bill: {
+        ...bill,
+        status: 'pending',
+        paymentTransactionId: undefined,
+        paidAt: undefined,
+      },
+      removedTransactionIds: paymentTransactionId ? [paymentTransactionId] : [],
+    }
+  })
+
+  if (!result) throw new Error('Unable to undo bill payment')
+  return result
 }

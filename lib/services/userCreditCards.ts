@@ -118,6 +118,7 @@ export async function payCreditCardInvoice(data: PayCreditCardInvoiceDto): Promi
     category: 'Credit Card',
     type: 'expense',
     paymentMethod: 'pix',
+    billAccountId: invoiceBillId,
   }
 
   const batch = writeBatch(db)
@@ -149,6 +150,8 @@ export async function payCreditCardInvoice(data: PayCreditCardInvoiceDto): Promi
     creditCardInvoicePeriodKey: data.periodKey,
     source: 'credit_card_invoice',
     hiddenFromBills: existingInvoiceBill?.hiddenFromBills ?? false,
+    paymentTransactionId: transactionRef.id,
+    paidAt: data.paidAt,
     createdAt: existingInvoiceBill?.createdAt ?? new Date().toISOString().split('T')[0],
   }, { merge: true })
 

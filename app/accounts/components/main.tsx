@@ -2,7 +2,7 @@
 import  { FC, useEffect, useState } from 'react'
 import { useAuthState } from 'react-firebase-hooks/auth'
 import { auth } from '@/lib/firebase'
-import { BillAccountDto, createBillAccount, getBillAccounts, payBillAccount, deleteBillAccount, updateBillAccount, syncCreditCardInvoiceBills, hideBillAccountFromList } from '@/lib/services/billAccounts'
+import { BillAccountDto, createBillAccount, getBillAccounts, payBillAccount, deleteBillAccount, updateBillAccount, syncCreditCardInvoiceBills, hideBillAccountFromList, unpayBillAccount, getLegacyBillPaymentCandidates } from '@/lib/services/billAccounts'
 import { BillAccount } from '@/lib/entities/billAccount'
 import { getTransaction } from '@/lib/services/transactions'
 import { getUserCreditCards } from '@/lib/services/userCreditCards'
@@ -469,14 +469,41 @@ export const Main: FC = () => {
   }
 
   const handleUnpayBill = async (billId: string) => {
+    const bill = bills.find((currentBill) => currentBill.id === billId)
+    const legacyPaymentCandidates = bill
+      ? getLegacyBillPaymentCandidates(bill, transactions)
+      : []
+    const legacyPayment = legacyPaymentCandidates[0]
+    let legacyPaymentTransactionId: string | undefined
+
+    if (legacyPayment) {
+      const transactionDate = new Date(`${legacyPayment.date}T12:00:00`)
+        .toLocaleDateString('pt-BR')
+      const similarTransactionsMessage = legacyPaymentCandidates.length > 1
+        ? ` Foram encontradas ${legacyPaymentCandidates.length} transações compatíveis; será usada a mais próxima do vencimento.`
+        : ''
+      const shouldRemoveLegacyPayment = confirm(
+        `Este pagamento foi registrado antes da atualização.${similarTransactionsMessage}\n\n`
+        + `A transação "${legacyPayment.description}", de ${formatCurrency(Math.abs(legacyPayment.amount))}, `
+        + `em ${transactionDate}, também será removida. Deseja continuar?`,
+      )
+
+      if (!shouldRemoveLegacyPayment) return
+      legacyPaymentTransactionId = legacyPayment.id
+    }
+
     setIsProcessing(true)
     try {
-      await updateBillAccount(billId, { status: 'pending' })
-      setBills((prev) =>
-        prev.map((bill) =>
-          bill.id === billId ? { ...bill, status: 'pending' } : bill
-        )
-      )
+      await unpayBillAccount(billId, legacyPaymentTransactionId)
+      const [updatedBills, updatedTransactions, updatedCards] = await Promise.all([
+        getBillAccounts(),
+        getTransaction(),
+        getUserCreditCards(),
+      ])
+
+      setBills(sortBillsByDate(updatedBills))
+      setTransactions(updatedTransactions)
+      setUserCards(updatedCards)
     } catch (error) {
       console.error('Error unpaying bill:', error)
     } finally {

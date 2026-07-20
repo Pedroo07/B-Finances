@@ -10,6 +10,7 @@ export type TransactionDto = {
     category: string
     type: string
     paymentMethod: string
+    billAccountId?: string
 }
 const auth = getAuth()
 
@@ -70,4 +71,4 @@ export async function updateTransaction(id: string, data: Transaction): Promise<
     ...data,
     id: docRef.id,
   };
-}
+}
