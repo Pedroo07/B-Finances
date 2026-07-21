@@ -43,6 +43,13 @@ export type CardInvoiceTransactionsResult = {
   transactions: CardTransaction[];
 };
 
+export type CardInvoiceSummary = {
+  cardName: string;
+  periodKey: string;
+  dueDate: string;
+  amount: number;
+};
+
 function getCreditCardInvoiceBillId(creditCardId: string, periodKey: string): string {
   return `credit-card-invoice_${creditCardId}_${periodKey}`;
 }
@@ -185,6 +192,15 @@ export async function getCardInvoiceAmount(
   year: number,
   month: number
 ): Promise<number> {
+  return (await getCardInvoiceSummary(userId, cardName, year, month)).amount;
+}
+
+export async function getCardInvoiceSummary(
+  userId: string,
+  cardName: string,
+  year: number,
+  month: number,
+): Promise<CardInvoiceSummary> {
   const { card, transactionCardName } = await resolveCreditCard(userId, cardName);
   assertCardBillingConfigured(card);
 
@@ -204,11 +220,14 @@ export async function getCardInvoiceAmount(
   );
 
   const payment = card.invoices?.[periodKey];
-  if (payment) {
-    return total - payment.amountPaid;
-  }
+  const amount = Math.max(total - (payment?.amountPaid || 0), 0);
 
-  return total;
+  return {
+    cardName: getCreditCardName(card.bankKey ?? card.id),
+    periodKey,
+    dueDate: getInvoiceDueDate(periodKey, card.closingDay, card.dueDay),
+    amount,
+  };
 }
 
 export async function getCurrentCardInvoiceTransactions(
@@ -331,21 +350,101 @@ export async function getAllCardInvoices(
   userId: string,
   year: number,
   month: number
-): Promise<{ cardName: string; amount: number }[]> {
+): Promise<CardInvoiceSummary[]> {
   const cards = await getUserCreditCards(userId);
-  const results: { cardName: string; amount: number }[] = [];
+  const results: CardInvoiceSummary[] = [];
 
   for (const card of cards) {
     if (!isValidBillingDay(card.closingDay) || !isValidBillingDay(card.dueDay)) {
       continue;
     }
 
-    const amount = await getCardInvoiceAmount(userId, card.bankKey ?? card.id, year, month);
-    if (amount > 0.01) {
-      results.push({ cardName: getCreditCardName(card.bankKey ?? card.id), amount });
+    const invoice = await getCardInvoiceSummary(
+      userId,
+      card.bankKey ?? card.id,
+      year,
+      month,
+    );
+    if (invoice.amount > 0.01) {
+      results.push(invoice);
     }
   }
 
-  return results;
+  return results.sort((a, b) => {
+    const dueDateComparison = a.dueDate.localeCompare(b.dueDate);
+    return dueDateComparison || a.cardName.localeCompare(b.cardName);
+  });
+}
+
+export async function getOpenCardInvoices(
+  userId: string,
+): Promise<CardInvoiceSummary[]> {
+  const [cards, transactions] = await Promise.all([
+    getUserCreditCards(userId),
+    getCardTransactions(userId),
+  ]);
+  return buildOpenCardInvoices(cards, transactions);
+}
+
+export function buildOpenCardInvoices(
+  cards: UserCreditCard[],
+  transactions: CardTransaction[],
+): CardInvoiceSummary[] {
+  const results: CardInvoiceSummary[] = [];
+
+  for (const card of cards) {
+    if (!isValidBillingDay(card.closingDay) || !isValidBillingDay(card.dueDay)) {
+      continue;
+    }
+
+    const closingDay = card.closingDay;
+    const dueDay = card.dueDay;
+    const cardIdentifier = card.bankKey ?? card.id;
+    const targetBankKey = getCreditCardBankKey(card.bankKey ?? card.id);
+    const totalsByPeriod = transactions.reduce<Record<string, number>>(
+      (totals, transaction) => {
+        const transactionBankKey = getCreditCardBankKey(transaction.card);
+        const cardMatches = targetBankKey
+          ? targetBankKey === transactionBankKey
+          : getCreditCardName(transaction.card) ===
+            getCreditCardName(cardIdentifier);
+        if (!cardMatches) return totals;
+
+        const periodKey = getInvoicePeriodKeyForDate(
+          transaction.date,
+          closingDay,
+          dueDay,
+        );
+        totals[periodKey] =
+          (totals[periodKey] || 0) + Math.abs(transaction.amount);
+        return totals;
+      },
+      {},
+    );
+
+    for (const [periodKey, total] of Object.entries(totalsByPeriod)) {
+      const paidAmount = card.invoices?.[periodKey]?.amountPaid || 0;
+      const amount = Math.max(total - paidAmount, 0);
+      if (amount <= 0.01) continue;
+
+      results.push({
+        cardName: getCreditCardName(card.bankKey ?? card.id),
+        periodKey,
+        dueDate: getInvoiceDueDate(
+          periodKey,
+          closingDay,
+          dueDay,
+        ),
+        amount,
+      });
+    }
+  }
+
+  return results.sort((a, b) => {
+    const dueDateComparison = a.dueDate.localeCompare(b.dueDate);
+    if (dueDateComparison !== 0) return dueDateComparison;
+    const cardComparison = a.cardName.localeCompare(b.cardName);
+    return cardComparison || a.periodKey.localeCompare(b.periodKey);
+  });
 }
 

@@ -29,6 +29,7 @@ import { normalizeCommandCategory } from "@/lib/whatsapp/commands/normalizers/ca
 import { normalizeCommandUpdate } from "@/lib/whatsapp/commands/normalizers/updateNormalizer";
 import { normalizeCommandPeriod } from "@/lib/whatsapp/commands/normalizers/periodNormalizer";
 import { normalizeCommandScope } from "@/lib/whatsapp/commands/normalizers/scopeNormalizer";
+import { normalizeCommandResource } from "@/lib/whatsapp/commands/normalizers/resourceNormalizer";
 import type { BFinanceCommand } from "@/lib/whatsapp/commands/types";
 import {
   getSession,
@@ -821,6 +822,8 @@ export async function POST(req: Request) {
       command.action === "update"
         ? command.update?.targetText ?? ""
         : messageText;
+
+    command = normalizeCommandResource(targetMessageText, command);
 
     command = normalizeCommandPeriod(
       targetMessageText,

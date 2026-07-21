@@ -146,26 +146,56 @@ function formatFinancialSummary(result: Extract<BFinanceCommandResult, { kind: "
     0,
   );
 
+  const cardTotal = result.cardBreakdown.reduce(
+    (sum, card) => sum + card.total,
+    0,
+  );
+  const periodLabel = formatPeriod(result.period);
   const lines = [
     `Resumo financeiro - ${formatPeriod(result.period)}`,
     `Receitas: ${formatCurrency(result.totals.income)}`,
-    `Despesas normais: ${formatCurrency(result.totals.normalExpense)}`,
-    `Despesas de cartão: ${formatCurrency(result.totals.cardExpense)}`,
-    `Saldo: ${formatCurrency(result.totals.balance)}`,
-    `Contas pendentes: ${formatCurrency(pendingBillsTotal)} (${result.pendingBills.length})`,
-    `Investimentos: ${formatCurrency(investmentTotal)}`,
+    `Gastos: ${formatCurrency(result.totals.normalExpense)}`,
+    "",
+    `Gastos por cartão: ${formatCurrency(cardTotal)}`,
   ];
 
-  if (result.pendingBills.length > 0) {
-    lines.push("");
-    lines.push("Próximas contas:");
-    lines.push(...result.pendingBills.slice(0, 5).map(formatBillLine));
+  if (result.cardBreakdown.length > 0) {
+    lines.push(
+      ...result.cardBreakdown.map(
+        (card) => `${card.cardName}: ${formatCurrency(card.total)}`,
+      ),
+    );
   }
 
+  lines.push("");
+  lines.push(`Investimentos (posição atual): ${formatCurrency(investmentTotal)}`);
   if (result.investments.length > 0) {
-    lines.push("");
-    lines.push("Investimentos:");
-    lines.push(...result.investments.slice(0, 5).map(formatInvestmentLine));
+    lines.push(...result.investments.map(formatInvestmentLine));
+  }
+
+  lines.push("");
+  lines.push(
+    `Contas a pagar de ${periodLabel}: ${formatCurrency(pendingBillsTotal)} (${result.pendingBills.length})`,
+  );
+  if (result.pendingBills.length > 0) {
+    lines.push(
+      ...[...result.pendingBills]
+        .sort((a, b) => a.dueDate.localeCompare(b.dueDate))
+        .map(formatBillLine),
+    );
+  }
+
+  lines.push("");
+  lines.push("Gastos por categoria:");
+  if (result.categoryBreakdown.length === 0) {
+    lines.push("Nenhum gasto no período.");
+  } else {
+    lines.push(
+      ...result.categoryBreakdown.map(
+        (category) =>
+          `${formatCategoryWithEmoji(category.label)}: ${formatCurrency(category.total)}`,
+      ),
+    );
   }
 
   return lines.join("\n");
@@ -173,21 +203,37 @@ function formatFinancialSummary(result: Extract<BFinanceCommandResult, { kind: "
 
 function formatInvoiceSummary(result: Extract<BFinanceCommandResult, { kind: "invoice_summary" }>): string {
   if (result.invoices.length === 0 || result.total <= 0.01) {
-    return `Não encontrei faturas em aberto para ${formatPeriod(result.period)}.`;
+    return result.mode === "open"
+      ? "Não encontrei faturas em aberto."
+      : `Não encontrei faturas em aberto para ${formatPeriod(result.period)}.`;
   }
 
-  if (result.invoices.length === 1) {
+  if (result.invoices.length === 1 && result.command.scope?.cardName) {
     const invoice = result.invoices[0];
-    return `Fatura do ${invoice.cardName} em ${formatPeriod(result.period)}: ${formatCurrency(invoice.amount)}.`;
+    const periodSuffix =
+      result.mode === "period" ? ` - ${formatPeriod(result.period)}` : "";
+    return [
+      `Fatura do cartão ${invoice.cardName}${periodSuffix}`,
+      `Valor: ${formatCurrency(invoice.amount)}`,
+      `Vencimento: ${formatDate(invoice.dueDate)}`,
+    ].join("\n");
   }
 
   const lines = [
-    `Faturas - ${formatPeriod(result.period)}`,
+    result.mode === "open"
+      ? "Faturas em aberto"
+      : `Faturas - ${formatPeriod(result.period)}`,
     `Total: ${formatCurrency(result.total)}`,
     "",
     ...result.invoices
-      .sort((a, b) => b.amount - a.amount)
-      .map((invoice) => `${invoice.cardName}: ${formatCurrency(invoice.amount)}`),
+      .sort((a, b) => {
+        const dueDateComparison = a.dueDate.localeCompare(b.dueDate);
+        return dueDateComparison || b.amount - a.amount;
+      })
+      .map(
+        (invoice) =>
+          `${invoice.cardName}: ${formatCurrency(invoice.amount)} - vence em ${formatDate(invoice.dueDate)}`,
+      ),
   ];
 
   return lines.join("\n");

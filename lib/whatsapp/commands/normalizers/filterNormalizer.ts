@@ -149,6 +149,19 @@ function extractDescription(normalized: string): string | null {
     return null;
   }
 
+  if (
+    /\b(?:meu|minhas?|este|esse|atual|passad[oa]|proxim[oa])?\s*(?:mes|ano|semana|dias?|hoje|ontem)\b/.test(
+      rawDescription,
+    ) ||
+    /\b(?:janeiro|jan|fevereiro|fev|marco|mar|abril|abr|maio|mai|junho|jun|julho|jul|agosto|ago|setembro|set|outubro|out|novembro|nov|dezembro|dez)\b/.test(
+      rawDescription,
+    ) ||
+    /\bate\s+(?:agora|o\s+momento|hoje)\b/.test(rawDescription) ||
+    /\b(?:19|20)\d{2}\b/.test(rawDescription)
+  ) {
+    return null;
+  }
+
   const description = rawDescription
     .replace(
       /\b(o|a|os|as|mes|passado|passada|este|esse|atual|hoje|ontem|ultimos?|dias?|ano|semana|cartao|credito|fatura|pix|debito|dinheiro)\b/g,
@@ -223,6 +236,17 @@ export function normalizeCommandFilters(
     ...command.filters,
     ...amountFilters,
   };
+
+  if (command.resource === "summary") {
+    return {
+      ...command,
+      transactionType: "all",
+      filters: {
+        orderBy: filters.orderBy ?? "date_desc",
+      },
+      operation: command.operation ?? "summary",
+    };
+  }
 
   if (limit !== null) {
     filters.limit = limit;

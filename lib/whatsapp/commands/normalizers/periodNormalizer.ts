@@ -130,6 +130,9 @@ function hasExplicitPeriod(normalized: string): boolean {
     /\b(fatura atual|fatura aberta|compras da fatura|gastos da fatura)\b/.test(normalized) ||
     /\b(todo o historico|historico completo|todo o periodo|periodo todo|desde o inicio|desde o comeco)\b/.test(normalized) ||
     /\bem\s+\d{4}\b/.test(normalized) ||
+    /\bmes\s+(?:de\s+)?(?:0?[1-9]|1[0-2])(?:\s*[/-]\s*(?:19|20)\d{2})?\b/.test(
+      normalized,
+    ) ||
     /\b\d{1,2}[/-]\d{1,2}(?:[/-]\d{2,4})?\b/.test(normalized) ||
     MONTHS.some(({ names }) =>
       names.some((name) => new RegExp(`\\b${name}\\b`).test(normalized)),
@@ -187,6 +190,19 @@ function extractMonth(normalized: string): number | undefined {
   return MONTHS.find(({ names }) =>
     names.some((name) => new RegExp(`\\b${name}\\b`).test(normalized)),
   )?.month;
+}
+
+function extractNumericMonth(
+  normalized: string,
+): { month: number; year?: number } | undefined {
+  const match = normalized.match(
+    /\bmes\s+(?:de\s+)?(0?[1-9]|1[0-2])(?:\s*[/-]\s*((?:19|20)\d{2}))?\b/,
+  );
+  if (!match) return undefined;
+
+  const month = Number(match[1]);
+  const year = match[2] ? Number(match[2]) : undefined;
+  return { month, year };
 }
 
 function parseExplicitDate(
@@ -339,6 +355,20 @@ function inferPeriodFromMessage(
       "current_year",
       currentDate.getFullYear(),
       currentDate,
+    );
+  }
+
+  const numericMonth = extractNumericMonth(normalized);
+  if (numericMonth) {
+    const year = numericMonth.year || currentDate.getFullYear();
+    const isCurrentMonth =
+      numericMonth.month === currentDate.getMonth() + 1 &&
+      year === currentDate.getFullYear();
+    return fullMonthPeriod(
+      `mes ${String(numericMonth.month).padStart(2, "0")}`,
+      isCurrentMonth ? "current_month" : "specific_month",
+      year,
+      numericMonth.month,
     );
   }
 
@@ -634,6 +664,13 @@ export function normalizeCommandPeriod(
     period = normalizeExistingPeriod(previousPeriod, currentDate);
   } else if (command.period?.isExplicit) {
     period = normalizeExistingPeriod(command.period, currentDate);
+  } else if (command.resource === "summary") {
+    period = fullMonthPeriod(
+      "mes atual",
+      "current_month",
+      currentDate.getFullYear(),
+      currentDate.getMonth() + 1,
+    );
   } else {
     period = allPeriod(command.period?.raw ?? null, false);
   }

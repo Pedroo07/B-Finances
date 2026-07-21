@@ -30,8 +30,9 @@ import {
 } from "../handlers/updateTransactionFlow";
 import {
   getAllCardInvoices,
-  getCardInvoiceAmount,
+  getCardInvoiceSummary,
   getCurrentCardInvoiceTransactions,
+  getOpenCardInvoices,
   getUserCreditCards,
   type CardInvoiceTransactionsResult,
   type UserCreditCard,
@@ -51,6 +52,7 @@ import type {
   BFinancePeriod,
   BFinanceScope,
   CommandBillItem,
+  CommandCardBreakdownItem,
   CommandInvestmentItem,
   CommandRankingItem,
   CommandTotals,
@@ -454,6 +456,26 @@ function buildCategoryRanking(
   );
 
   return Object.values(rankingsByCategory).sort((a, b) => b.total - a.total);
+}
+
+function buildCardBreakdown(
+  items: CommandTransactionItem[],
+): CommandCardBreakdownItem[] {
+  const totalsByCard = items
+    .filter((item) => item.source === "card_transaction")
+    .reduce<Record<string, CommandCardBreakdownItem>>((totals, item) => {
+      const cardName = item.cardName || "Cartão";
+      const current = totals[cardName] ?? { cardName, total: 0, count: 0 };
+      current.total += Math.abs(item.amount);
+      current.count += 1;
+      totals[cardName] = current;
+      return totals;
+    }, {});
+
+  return Object.values(totalsByCard).sort((a, b) => {
+    const totalComparison = b.total - a.total;
+    return totalComparison || a.cardName.localeCompare(b.cardName);
+  });
 }
 
 function buildTransactionTitle(command: BFinanceCommand): string {
@@ -1034,40 +1056,82 @@ async function executeInvoiceQuery(
   const month = period.month || today.getMonth() + 1;
   const year = period.year || today.getFullYear();
   const cardName = command.scope?.cardName || command.data?.cardName || null;
+  const hasExplicitInvoicePeriod = Boolean(
+    period.isExplicit && period.month && period.year,
+  );
 
-  if (cardName) {
-    const amount = await getCardInvoiceAmount(userId, cardName, year, month);
+  try {
+    if (cardName) {
+      const invoice = hasExplicitInvoicePeriod
+        ? await getCardInvoiceSummary(userId, cardName, year, month)
+        : await getCurrentCardInvoiceTransactions(
+            userId,
+            cardName,
+            `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`,
+          );
+      const item = {
+        cardName: invoice.cardName,
+        amount: invoice.amount,
+        dueDate: invoice.dueDate,
+        periodKey: invoice.periodKey,
+      };
+
+      return {
+        success: true,
+        kind: "invoice_summary",
+        command,
+        title: `Fatura do cartão ${invoice.cardName}`,
+        mode: hasExplicitInvoicePeriod ? "period" : "open",
+        period: {
+          ...period,
+          month: hasExplicitInvoicePeriod ? month : null,
+          year: hasExplicitInvoicePeriod ? year : null,
+        },
+        invoices: item.amount > 0.01 ? [item] : [],
+        total: item.amount,
+      };
+    }
+
+    const invoices = hasExplicitInvoicePeriod
+      ? await getAllCardInvoices(userId, year, month)
+      : await getOpenCardInvoices(userId);
+    const total = invoices.reduce((sum, invoice) => sum + invoice.amount, 0);
+
     return {
       success: true,
       kind: "invoice_summary",
       command,
-      title: `Fatura ${getCreditCardName(cardName)}`,
+      title: hasExplicitInvoicePeriod ? "Faturas" : "Faturas em aberto",
+      mode: hasExplicitInvoicePeriod ? "period" : "open",
       period: {
         ...period,
-        month,
-        year,
+        month: hasExplicitInvoicePeriod ? month : null,
+        year: hasExplicitInvoicePeriod ? year : null,
       },
-      invoices: [{ cardName: getCreditCardName(cardName), amount }],
-      total: amount,
+      invoices,
+      total,
     };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (message.includes("Credit card billing is not configured")) {
+      return {
+        success: true,
+        kind: "ready_message",
+        command,
+        message:
+          "A fatura desse cartão ainda não está configurada. Configure o dia de fechamento e vencimento no aplicativo.",
+      };
+    }
+    if (message.includes("Credit card not found")) {
+      return {
+        success: true,
+        kind: "ready_message",
+        command,
+        message: "Não encontrei esse cartão cadastrado.",
+      };
+    }
+    throw error;
   }
-
-  const invoices = await getAllCardInvoices(userId, year, month);
-  const total = invoices.reduce((sum, invoice) => sum + invoice.amount, 0);
-
-  return {
-    success: true,
-    kind: "invoice_summary",
-    command,
-    title: "Faturas",
-    period: {
-      ...period,
-      month,
-      year,
-    },
-    invoices,
-    total,
-  };
 }
 
 async function executeBillsQuery(
@@ -1126,27 +1190,31 @@ async function executeSummaryQuery(
   userId: string,
   command: BFinanceCommand,
 ): Promise<BFinanceCommandResult> {
-  const transactionResult = await queryTransactions(userId, {
-    ...command,
-    resource: "transaction",
-    transactionType: "all",
-    scope: {
-      includeNormalTransactions: true,
-      includeCardTransactions: true,
-      cardName: null,
-      excludeCardTransactions: false,
-      paymentMethod: null,
-      excludePaymentMethod: null,
-    },
-    filters: {
-      ...command.filters,
-      limit: null,
-    },
-  });
-  const [pendingBills, investments] = await Promise.all([
+  const period = getCommandPeriod(command);
+  const [transactionResult, allPendingBills, investments] = await Promise.all([
+    queryTransactions(userId, {
+      ...command,
+      resource: "transaction",
+      transactionType: "all",
+      scope: {
+        includeNormalTransactions: true,
+        includeCardTransactions: true,
+        cardName: null,
+        excludeCardTransactions: false,
+        paymentMethod: null,
+        excludePaymentMethod: null,
+      },
+      filters: {
+        orderBy: "date_desc",
+        limit: null,
+      },
+    }),
     getPendingBills(userId),
     getInvestments(userId),
   ]);
+  const pendingBills = allPendingBills.filter((bill) =>
+    withinPeriod(bill.dueDate, period),
+  );
   const totals = {
     ...transactionResult.totals,
     balance: transactionResult.totals.income - transactionResult.totals.normalExpense,
@@ -1157,8 +1225,12 @@ async function executeSummaryQuery(
     kind: "financial_summary",
     command,
     title: "Resumo financeiro",
-    period: getCommandPeriod(command),
+    period,
     totals,
+    cardBreakdown: buildCardBreakdown(transactionResult.items),
+    categoryBreakdown: buildCategoryRanking(
+      transactionResult.items.filter((item) => item.type === "expense"),
+    ),
     pendingBills: pendingBills.map(toBillItem),
     investments: investments.map(toInvestmentItem),
   };

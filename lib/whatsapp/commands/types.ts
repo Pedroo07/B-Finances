@@ -160,6 +160,14 @@ export type CommandTotals = {
 export type CommandInvoiceItem = {
   cardName: string;
   amount: number;
+  dueDate: string;
+  periodKey: string;
+};
+
+export type CommandCardBreakdownItem = {
+  cardName: string;
+  total: number;
+  count: number;
 };
 
 export type CommandBillItem = {
@@ -210,6 +218,8 @@ export type BFinanceCommandResult =
       title: string;
       period: BFinancePeriod;
       totals: CommandTotals;
+      cardBreakdown: CommandCardBreakdownItem[];
+      categoryBreakdown: CommandRankingItem[];
       pendingBills: CommandBillItem[];
       investments: CommandInvestmentItem[];
     }
@@ -227,6 +237,7 @@ export type BFinanceCommandResult =
       kind: "invoice_summary";
       command: BFinanceCommand;
       title: string;
+      mode: "open" | "period";
       period: BFinancePeriod;
       invoices: CommandInvoiceItem[];
       total: number;
