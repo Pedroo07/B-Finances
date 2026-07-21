@@ -378,12 +378,44 @@ export async function getAllCardInvoices(
 
 export async function getOpenCardInvoices(
   userId: string,
+  todayDate: string,
 ): Promise<CardInvoiceSummary[]> {
   const [cards, transactions] = await Promise.all([
     getUserCreditCards(userId),
     getCardTransactions(userId),
   ]);
-  return buildOpenCardInvoices(cards, transactions);
+  return selectCurrentOpenCardInvoices(
+    buildOpenCardInvoices(cards, transactions),
+    todayDate,
+  );
+}
+
+export function selectCurrentOpenCardInvoices(
+  invoices: CardInvoiceSummary[],
+  todayDate: string,
+): CardInvoiceSummary[] {
+  const invoicesByCard = invoices.reduce<Record<string, CardInvoiceSummary[]>>(
+    (groups, invoice) => {
+      (groups[invoice.cardName] ??= []).push(invoice);
+      return groups;
+    },
+    {},
+  );
+
+  return Object.values(invoicesByCard)
+    .map((cardInvoices) => {
+      const orderedInvoices = [...cardInvoices].sort((a, b) =>
+        a.dueDate.localeCompare(b.dueDate),
+      );
+      return (
+        orderedInvoices.find((invoice) => invoice.dueDate >= todayDate) ??
+        orderedInvoices.at(-1)!
+      );
+    })
+    .sort((a, b) => {
+      const dueDateComparison = a.dueDate.localeCompare(b.dueDate);
+      return dueDateComparison || a.cardName.localeCompare(b.cardName);
+    });
 }
 
 export function buildOpenCardInvoices(

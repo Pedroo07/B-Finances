@@ -223,7 +223,7 @@ function formatInvoiceSummary(result: Extract<BFinanceCommandResult, { kind: "in
     result.mode === "open"
       ? "Faturas em aberto"
       : `Faturas - ${formatPeriod(result.period)}`,
-    `Total: ${formatCurrency(result.total)}`,
+    `Total das faturas: ${formatCurrency(result.total)}`,
     "",
     ...result.invoices
       .sort((a, b) => {
@@ -232,7 +232,7 @@ function formatInvoiceSummary(result: Extract<BFinanceCommandResult, { kind: "in
       })
       .map(
         (invoice) =>
-          `${invoice.cardName}: ${formatCurrency(invoice.amount)} - vence em ${formatDate(invoice.dueDate)}`,
+          `Cartão ${invoice.cardName}: ${formatCurrency(invoice.amount)} - vence em ${formatDate(invoice.dueDate)}`,
       ),
   ];
 

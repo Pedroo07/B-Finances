@@ -94,11 +94,9 @@ function isSummaryRequest(normalized: string, command: BFinanceCommand): boolean
 }
 
 function isCardExpenseListRequest(normalized: string): boolean {
-  return hasAny(normalized, [
-    /\b(list[ae]?|listar|mostre|mostrar)\b/,
-    /\bquais\b/,
-    /\b(gastos?|despesas?|compras?|itens?|lancamentos?|transacoes?)\b/,
-  ]);
+  return /\b(gastos?|despesas?|compras?|itens?|lancamentos?|transacoes?)\b/.test(
+    normalized,
+  );
 }
 
 function messageLooksLikeContinuation(normalized: string): boolean {

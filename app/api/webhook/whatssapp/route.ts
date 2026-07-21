@@ -413,6 +413,11 @@ async function handleCardSelectionPendingAction(
   const selectedCard = resolveCardSelection(messageText, options);
 
   if (!selectedCard) {
+    if (clearlyStartsNewCommand(messageText) || /^\s*(quais?|faturas?)\b/i.test(messageText)) {
+      await clearPendingAction(fromPhoneNumber);
+      return false;
+    }
+
     const reply = [
       "Não encontrei esse cartão na lista. Responda com o número ou o nome do cartão:",
       "",

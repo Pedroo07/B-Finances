@@ -1,4 +1,8 @@
-import { getCreditCardBankKey, getCreditCardName } from "@/lib/creditCards/catalog";
+import {
+  findCreditCardNameInText,
+  getCreditCardBankKey,
+  getCreditCardName,
+} from "@/lib/creditCards/catalog";
 import {
   createCardInstallmentTransactions,
   createCardTransaction,
@@ -458,13 +462,37 @@ function buildCategoryRanking(
   return Object.values(rankingsByCategory).sort((a, b) => b.total - a.total);
 }
 
-function buildCardBreakdown(
+function buildPaidInvoiceCardBreakdown(
+  cards: UserCreditCard[],
   items: CommandTransactionItem[],
 ): CommandCardBreakdownItem[] {
+  const cardByPaymentTransaction = cards.reduce<Map<string, string>>(
+    (references, card) => {
+      for (const payment of Object.values(card.invoices ?? {})) {
+        if (payment.transactionId) {
+          references.set(payment.transactionId, cardDisplayName(card));
+        }
+      }
+      return references;
+    },
+    new Map(),
+  );
   const totalsByCard = items
-    .filter((item) => item.source === "card_transaction")
+    .filter(
+      (item) => item.source === "transaction" && item.type === "expense",
+    )
     .reduce<Record<string, CommandCardBreakdownItem>>((totals, item) => {
-      const cardName = item.cardName || "Cartão";
+      const referencedCard = cardByPaymentTransaction.get(item.id);
+      const descriptionCard = findCreditCardNameInText(item.description);
+      const normalizedCategory = normalizeText(item.category ?? "");
+      const looksLikeInvoicePayment =
+        referencedCard ||
+        (/\bfatura\b/.test(normalizeText(item.description)) && descriptionCard) ||
+        normalizedCategory === "credit card" ||
+        normalizedCategory === "credit_card";
+      if (!looksLikeInvoicePayment) return totals;
+
+      const cardName = referencedCard || descriptionCard || "Cartão";
       const current = totals[cardName] ?? { cardName, total: 0, count: 0 };
       current.total += Math.abs(item.amount);
       current.count += 1;
@@ -1094,7 +1122,10 @@ async function executeInvoiceQuery(
 
     const invoices = hasExplicitInvoicePeriod
       ? await getAllCardInvoices(userId, year, month)
-      : await getOpenCardInvoices(userId);
+      : await getOpenCardInvoices(
+          userId,
+          `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`,
+        );
     const total = invoices.reduce((sum, invoice) => sum + invoice.amount, 0);
 
     return {
@@ -1191,7 +1222,7 @@ async function executeSummaryQuery(
   command: BFinanceCommand,
 ): Promise<BFinanceCommandResult> {
   const period = getCommandPeriod(command);
-  const [transactionResult, allPendingBills, investments] = await Promise.all([
+  const [transactionResult, allPendingBills, investments, cards] = await Promise.all([
     queryTransactions(userId, {
       ...command,
       resource: "transaction",
@@ -1211,6 +1242,7 @@ async function executeSummaryQuery(
     }),
     getPendingBills(userId),
     getInvestments(userId),
+    getUserCreditCards(userId),
   ]);
   const pendingBills = allPendingBills.filter((bill) =>
     withinPeriod(bill.dueDate, period),
@@ -1227,7 +1259,10 @@ async function executeSummaryQuery(
     title: "Resumo financeiro",
     period,
     totals,
-    cardBreakdown: buildCardBreakdown(transactionResult.items),
+    cardBreakdown: buildPaidInvoiceCardBreakdown(
+      cards,
+      transactionResult.items,
+    ),
     categoryBreakdown: buildCategoryRanking(
       transactionResult.items.filter((item) => item.type === "expense"),
     ),
