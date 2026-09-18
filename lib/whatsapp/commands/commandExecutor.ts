@@ -235,7 +235,9 @@ async function prepareCardQueryCommand(
 
   if (cardNames.length === 1) {
     return {
-      command: withDefaultCurrentInvoice(withSelectedCard(command, cardNames[0])),
+      command: withDefaultCurrentInvoice(
+        withSelectedCard(command, cardNames[0]),
+      ),
     };
   }
 
@@ -263,7 +265,10 @@ function withinPeriod(date: string, period: BFinancePeriod): boolean {
   return true;
 }
 
-function cardMatches(itemCardName: string | undefined, filterCardName?: string | null): boolean {
+function cardMatches(
+  itemCardName: string | undefined,
+  filterCardName?: string | null,
+): boolean {
   if (!filterCardName) return true;
 
   const itemBankKey = getCreditCardBankKey(itemCardName ?? "");
@@ -291,7 +296,10 @@ function amountMatches(amount: number, filters: BFinanceFilters): boolean {
   return true;
 }
 
-function textMatches(item: CommandTransactionItem, filters: BFinanceFilters): boolean {
+function textMatches(
+  item: CommandTransactionItem,
+  filters: BFinanceFilters,
+): boolean {
   if (filters.category) {
     const normalizedCategory = normalizeText(filters.category);
     if (normalizeText(item.category ?? "") !== normalizedCategory) return false;
@@ -310,7 +318,9 @@ function textMatches(item: CommandTransactionItem, filters: BFinanceFilters): bo
   return amountMatches(item.amount, filters);
 }
 
-function normalTransactionToItem(transaction: Transaction): CommandTransactionItem {
+function normalTransactionToItem(
+  transaction: Transaction,
+): CommandTransactionItem {
   const type = transaction.type === "income" ? "income" : "expense";
   return {
     id: transaction.id,
@@ -318,7 +328,9 @@ function normalTransactionToItem(transaction: Transaction): CommandTransactionIt
     description: transaction.description,
     date: transaction.date,
     amount:
-      type === "income" ? Math.abs(transaction.amount) : -Math.abs(transaction.amount),
+      type === "income"
+        ? Math.abs(transaction.amount)
+        : -Math.abs(transaction.amount),
     category: transaction.category,
     type,
     paymentMethod: transaction.paymentMethod,
@@ -327,7 +339,9 @@ function normalTransactionToItem(transaction: Transaction): CommandTransactionIt
   };
 }
 
-function cardTransactionToItem(transaction: CardTransaction): CommandTransactionItem {
+function cardTransactionToItem(
+  transaction: CardTransaction,
+): CommandTransactionItem {
   return {
     id: transaction.id,
     source: "card_transaction",
@@ -354,8 +368,10 @@ function filterNormalTransaction(
 
   if (!scope.includeNormalTransactions) return false;
   if (!withinPeriod(item.date, period)) return false;
-  if (command.transactionType === "expense" && item.type !== "expense") return false;
-  if (command.transactionType === "income" && item.type !== "income") return false;
+  if (command.transactionType === "expense" && item.type !== "expense")
+    return false;
+  if (command.transactionType === "income" && item.type !== "income")
+    return false;
 
   if (scope.paymentMethod && scope.paymentMethod !== item.paymentMethod) {
     return false;
@@ -404,8 +420,10 @@ function sortItems(
       if (dateComparison !== 0) return dateComparison;
       return (a.createdAt ?? "").localeCompare(b.createdAt ?? "");
     }
-    if (orderBy === "amount_desc") return Math.abs(b.amount) - Math.abs(a.amount);
-    if (orderBy === "amount_asc") return Math.abs(a.amount) - Math.abs(b.amount);
+    if (orderBy === "amount_desc")
+      return Math.abs(b.amount) - Math.abs(a.amount);
+    if (orderBy === "amount_asc")
+      return Math.abs(a.amount) - Math.abs(b.amount);
 
     const dateComparison = b.date.localeCompare(a.date);
     if (dateComparison !== 0) return dateComparison;
@@ -478,16 +496,15 @@ function buildPaidInvoiceCardBreakdown(
     new Map(),
   );
   const totalsByCard = items
-    .filter(
-      (item) => item.source === "transaction" && item.type === "expense",
-    )
+    .filter((item) => item.source === "transaction" && item.type === "expense")
     .reduce<Record<string, CommandCardBreakdownItem>>((totals, item) => {
       const referencedCard = cardByPaymentTransaction.get(item.id);
       const descriptionCard = findCreditCardNameInText(item.description);
       const normalizedCategory = normalizeText(item.category ?? "");
       const looksLikeInvoicePayment =
         referencedCard ||
-        (/\bfatura\b/.test(normalizeText(item.description)) && descriptionCard) ||
+        (/\bfatura\b/.test(normalizeText(item.description)) &&
+          descriptionCard) ||
         normalizedCategory === "credit card" ||
         normalizedCategory === "credit_card";
       if (!looksLikeInvoicePayment) return totals;
@@ -516,7 +533,9 @@ function buildTransactionTitle(command: BFinanceCommand): string {
         : "Transações";
 
   if (scope.includeCardTransactions && !scope.includeNormalTransactions) {
-    return scope.cardName ? `${typeLabel} do cartão ${scope.cardName}` : `${typeLabel} do cartão`;
+    return scope.cardName
+      ? `${typeLabel} do cartão ${scope.cardName}`
+      : `${typeLabel} do cartão`;
   }
 
   if (scope.excludeCardTransactions) return `${typeLabel} sem cartão`;
@@ -529,7 +548,9 @@ async function queryTransactions(
 ): Promise<TransactionQueryResult> {
   const scope = getCommandScope(command);
   const [normalTransactions, cardTransactions] = await Promise.all([
-    scope.includeNormalTransactions ? getTransactions(userId) : Promise.resolve([]),
+    scope.includeNormalTransactions
+      ? getTransactions(userId)
+      : Promise.resolve([]),
     scope.includeCardTransactions && !scope.excludeCardTransactions
       ? getCardTransactions(userId)
       : Promise.resolve([]),
@@ -680,9 +701,12 @@ function normalizeCategory(
   });
 }
 
-function normalizePaymentMethod(command: BFinanceCommand): BFinancePaymentMethod {
+function normalizePaymentMethod(
+  command: BFinanceCommand,
+): BFinancePaymentMethod {
   const method = command.data?.paymentMethod ?? command.scope?.paymentMethod;
-  if (method === "cash" || method === "pix" || method === "debit") return method;
+  if (method === "cash" || method === "pix" || method === "debit")
+    return method;
   if (method === "credit_card") return "credit_card";
   return command.transactionType === "income" ? "pix" : "pix";
 }
@@ -726,13 +750,16 @@ async function executeCreateTransaction(
       kind: "clarification",
       command,
       missingFields: ["installmentCount"],
-      message: "Em quantas vezes foi parcelada a compra? Escolha entre 2x e 12x.",
+      message:
+        "Em quantas vezes foi parcelada a compra? Escolha entre 2x e 12x.",
     };
   }
 
   if (
-    installmentRequested
-    && (!Number.isInteger(installmentCount) || installmentCount < 2 || installmentCount > 12)
+    installmentRequested &&
+    (!Number.isInteger(installmentCount) ||
+      installmentCount < 2 ||
+      installmentCount > 12)
   ) {
     return {
       success: false,
@@ -745,9 +772,9 @@ async function executeCreateTransaction(
 
   const isInstallmentPurchase = installmentRequested && installmentCount > 1;
   const isCardPurchase =
-    paymentMethod === "credit_card"
-    || command.resource === "card_transaction"
-    || isInstallmentPurchase;
+    paymentMethod === "credit_card" ||
+    command.resource === "card_transaction" ||
+    isInstallmentPurchase;
 
   if (isCardPurchase) {
     let cardName = command.data?.cardName || command.scope?.cardName;
@@ -762,7 +789,8 @@ async function executeCreateTransaction(
           success: true,
           kind: "ready_message",
           command,
-          message: "Você ainda não tem cartões cadastrados. Cadastre um cartão no aplicativo antes de adicionar esta compra.",
+          message:
+            "Você ainda não tem cartões cadastrados. Cadastre um cartão no aplicativo antes de adicionar esta compra.",
         };
       }
 
@@ -780,7 +808,10 @@ async function executeCreateTransaction(
             type: "select_card_for_query",
             command,
             sourceMessageText: messageText,
-            cards: cardNames.map((name, index) => ({ index: index + 1, cardName: name })),
+            cards: cardNames.map((name, index) => ({
+              index: index + 1,
+              cardName: name,
+            })),
           },
         };
       }
@@ -855,12 +886,12 @@ async function executeUpdateTransaction(
     !isContextOnlyReference &&
     Boolean(
       filters.description ||
-        filters.category ||
-        (filters.amount !== null && filters.amount !== undefined) ||
-        (filters.minAmount !== null && filters.minAmount !== undefined) ||
-        (filters.maxAmount !== null && filters.maxAmount !== undefined) ||
-        command.period?.isExplicit ||
-        command.scope?.cardName,
+      filters.category ||
+      (filters.amount !== null && filters.amount !== undefined) ||
+      (filters.minAmount !== null && filters.minAmount !== undefined) ||
+      (filters.maxAmount !== null && filters.maxAmount !== undefined) ||
+      command.period?.isExplicit ||
+      command.scope?.cardName,
     );
 
   const recentMatchesType =
@@ -911,8 +942,7 @@ async function executeUpdateTransaction(
     ...command,
     filters: {
       ...filters,
-      orderBy:
-        update.reference === "latest" ? "created_desc" : "date_desc",
+      orderBy: update.reference === "latest" ? "created_desc" : "date_desc",
       ...(update.reference === "latest" ? { limit: 1 } : {}),
     },
     scope: command.scope ?? {
@@ -979,7 +1009,10 @@ async function executeDeleteTransaction(
 ): Promise<BFinanceCommandResult> {
   const description = command.data?.description || command.filters?.description;
 
-  if (!description || /\b(aquela|aquele|isso|essa|esse)\b/.test(normalizeText(description))) {
+  if (
+    !description ||
+    /\b(aquela|aquele|isso|essa|esse)\b/.test(normalizeText(description))
+  ) {
     return {
       success: false,
       kind: "clarification",
@@ -992,7 +1025,8 @@ async function executeDeleteTransaction(
 
   const source =
     command.resource === "card_transaction" ||
-    (command.scope?.includeCardTransactions && !command.scope.includeNormalTransactions)
+    (command.scope?.includeCardTransactions &&
+      !command.scope.includeNormalTransactions)
       ? "card"
       : "transaction";
   const result = await handleDelete(
@@ -1222,34 +1256,36 @@ async function executeSummaryQuery(
   command: BFinanceCommand,
 ): Promise<BFinanceCommandResult> {
   const period = getCommandPeriod(command);
-  const [transactionResult, allPendingBills, investments, cards] = await Promise.all([
-    queryTransactions(userId, {
-      ...command,
-      resource: "transaction",
-      transactionType: "all",
-      scope: {
-        includeNormalTransactions: true,
-        includeCardTransactions: true,
-        cardName: null,
-        excludeCardTransactions: false,
-        paymentMethod: null,
-        excludePaymentMethod: null,
-      },
-      filters: {
-        orderBy: "date_desc",
-        limit: null,
-      },
-    }),
-    getPendingBills(userId),
-    getInvestments(userId),
-    getUserCreditCards(userId),
-  ]);
+  const [transactionResult, allPendingBills, investments, cards] =
+    await Promise.all([
+      queryTransactions(userId, {
+        ...command,
+        resource: "transaction",
+        transactionType: "all",
+        scope: {
+          includeNormalTransactions: true,
+          includeCardTransactions: true,
+          cardName: null,
+          excludeCardTransactions: false,
+          paymentMethod: null,
+          excludePaymentMethod: null,
+        },
+        filters: {
+          orderBy: "date_desc",
+          limit: null,
+        },
+      }),
+      getPendingBills(userId),
+      getInvestments(userId),
+      getUserCreditCards(userId),
+    ]);
   const pendingBills = allPendingBills.filter((bill) =>
     withinPeriod(bill.dueDate, period),
   );
   const totals = {
     ...transactionResult.totals,
-    balance: transactionResult.totals.income - transactionResult.totals.normalExpense,
+    balance:
+      transactionResult.totals.income - transactionResult.totals.normalExpense,
   };
 
   return {
@@ -1395,11 +1431,7 @@ export async function executeBFinanceCommand({
       (command.resource === "transaction" ||
         command.resource === "card_transaction")
     ) {
-      return await executeUpdateTransaction(
-        userId,
-        command,
-        recentTransaction,
-      );
+      return await executeUpdateTransaction(userId, command, recentTransaction);
     }
 
     if (command.action === "pay") {

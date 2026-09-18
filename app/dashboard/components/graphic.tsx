@@ -1,122 +1,136 @@
-import dynamic from 'next/dynamic';
-const Chart = dynamic (() => import( "react-apexcharts"), {ssr: false} )
-import { FC, useEffect, useState } from "react"
-import { translateCategory } from '@/lib/utils';
-import { CategoryIconBadge } from './transactionIcons';
+import dynamic from "next/dynamic";
+const Chart = dynamic(() => import("react-apexcharts"), { ssr: false });
+import { FC, useEffect, useState } from "react";
+import { translateCategory } from "@/lib/utils";
+import { CategoryIconBadge } from "./transactionIcons";
 
- type Transaction = {
-    description: string
-    category: string
-    date: string
-    amount: number
-    type?: string
-}
+type Transaction = {
+  description: string;
+  category: string;
+  date: string;
+  amount: number;
+  type?: string;
+};
 
 type ChartData = {
-    category: string;
-    value: number;
+  category: string;
+  value: number;
 };
 
 type SeparateResults = {
-    chartData: ChartData[];
-    percentageData: ChartData[];
+  chartData: ChartData[];
+  percentageData: ChartData[];
 };
 
-export function separateAmountByCategory(items: Transaction[]): SeparateResults {
-    const totalExpenses = items.filter(item => item.amount < 0).reduce((acc, item) => acc + Math.abs(item.amount), 0)
-    const expensesByCategory: Record<string, number> = {}
-    items.forEach((item) => {
-        if (item.amount < 0) {
-            if (!expensesByCategory[item.category]) {
-                expensesByCategory[item.category] = 0
-            }
-            expensesByCategory[item.category] += item.amount
-        }
-    })
+export function separateAmountByCategory(
+  items: Transaction[],
+): SeparateResults {
+  const totalExpenses = items
+    .filter((item) => item.amount < 0)
+    .reduce((acc, item) => acc + Math.abs(item.amount), 0);
+  const expensesByCategory: Record<string, number> = {};
+  items.forEach((item) => {
+    if (item.amount < 0) {
+      if (!expensesByCategory[item.category]) {
+        expensesByCategory[item.category] = 0;
+      }
+      expensesByCategory[item.category] += item.amount;
+    }
+  });
 
-    const chartData = Object.entries(expensesByCategory).map(([category, value]) => ({
-        category,
-        value
-    }))
+  const chartData = Object.entries(expensesByCategory).map(
+    ([category, value]) => ({
+      category,
+      value,
+    }),
+  );
 
-    const percentageData = Object.entries(expensesByCategory).map(([category, value]) => ({
-        category,
-        value: (value / totalExpenses) * 100
-    }))
-    return { chartData, percentageData }
-
+  const percentageData = Object.entries(expensesByCategory).map(
+    ([category, value]) => ({
+      category,
+      value: (value / totalExpenses) * 100,
+    }),
+  );
+  return { chartData, percentageData };
 }
 
 type DonutChartProps = {
-    results: SeparateResults
-}
+  results: SeparateResults;
+};
 
 export const DonutChart: FC<DonutChartProps> = ({ results }) => {
-    const [customScale, setCustomScale] = useState(1.0)
+  const [customScale, setCustomScale] = useState(1.0);
 
-    useEffect(() => {
-        const handleResize = () => {
-            const isMobile = window.innerWidth <= 768
-            setCustomScale(isMobile ? 0.8 : 1.0)
-        }
+  useEffect(() => {
+    const handleResize = () => {
+      const isMobile = window.innerWidth <= 768;
+      setCustomScale(isMobile ? 0.8 : 1.0);
+    };
 
-        handleResize() 
-        window.addEventListener('resize', handleResize)
-        return () => window.removeEventListener('resize', handleResize)
-    }, [])
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
-    const chartData = {
-        options: {
-            chart: {
-                toolbar: {
-                    show: false
-                }
-            },
-            colors: ["#22C55E", "#94A3BB", "#334155", "#0F172A", "#16A34A"],
-            stroke: {
-                width: 0
-            },
-            plotOptions: {
-                pie: {
-                    customScale,
-                    donut: { size: '60%' }
-                }
-            },
-            labels: results.chartData.map((item) => item.category),
-            dataLabels: {
-                enabled: false
-            },
-            legend: {
-                show: false
-            }
+  const chartData = {
+    options: {
+      chart: {
+        toolbar: {
+          show: false,
         },
-        series: results.chartData.map((item) => Math.abs(item.value))
-    }
+      },
+      colors: ["#22C55E", "#94A3BB", "#334155", "#0F172A", "#16A34A"],
+      stroke: {
+        width: 0,
+      },
+      plotOptions: {
+        pie: {
+          customScale,
+          donut: { size: "60%" },
+        },
+      },
+      labels: results.chartData.map((item) => item.category),
+      dataLabels: {
+        enabled: false,
+      },
+      legend: {
+        show: false,
+      },
+    },
+    series: results.chartData.map((item) => Math.abs(item.value)),
+  };
 
-    return (
-        <div className='w-full max-w-[380px]'>
-            <Chart options={chartData.options} series={chartData.series} type='donut' width="100%" />
-        </div>
-    )
-}
+  return (
+    <div className="w-full max-w-[380px]">
+      <Chart
+        options={chartData.options}
+        series={chartData.series}
+        type="donut"
+        width="100%"
+      />
+    </div>
+  );
+};
 
 type GraphicListItemProps = {
-    results: SeparateResults
-}
+  results: SeparateResults;
+};
 
 export const GraphicListItem: FC<GraphicListItemProps> = ({ results }) => {
-    return (
-        <ul className="divide-y p-1">
-            {results.percentageData.map((item) => (
-                <li className='flex justify-between items-center p-2' key={item.category}>
-                    <p className='flex items-center gap-2 capitalize text-[#334155] dark:text-[#E2E8F0]' >
-                        <CategoryIconBadge category={item.category} />
-                        {translateCategory(item.category)}
-                    </p>
-                    <p>{(Math.abs(item.value)).toFixed(2)}%</p>
-                </li>
-            ))}
-        </ul>
-    )
-
-} 
+  return (
+    <ul className="divide-y p-1">
+      {results.percentageData.map((item) => (
+        <li
+          className="flex justify-between items-center p-2"
+          key={item.category}
+        >
+          <p className="flex items-center gap-2 capitalize text-[#334155] dark:text-[#E2E8F0]">
+            <CategoryIconBadge category={item.category} />
+            {translateCategory(item.category)}
+          </p>
+          <p>{Math.abs(item.value).toFixed(2)}%</p>
+        </li>
+      ))}
+    </ul>
+  );
+};

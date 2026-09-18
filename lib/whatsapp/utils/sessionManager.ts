@@ -52,13 +52,18 @@ export type RateLimitResult = {
   resetAt: Date;
 };
 
-export async function getSession(phoneNumber: string): Promise<WhatsappSession | null> {
+export async function getSession(
+  phoneNumber: string,
+): Promise<WhatsappSession | null> {
   const doc = await db.collection("whatsapp_sessions").doc(phoneNumber).get();
   if (!doc.exists) return null;
   return doc.data() as WhatsappSession;
 }
 
-export async function saveSession(phoneNumber: string, session: Partial<WhatsappSession>): Promise<void> {
+export async function saveSession(
+  phoneNumber: string,
+  session: Partial<WhatsappSession>,
+): Promise<void> {
   await db
     .collection("whatsapp_sessions")
     .doc(phoneNumber)
@@ -72,12 +77,12 @@ export async function clearSession(phoneNumber: string): Promise<void> {
 export async function updateSessionHistory(
   phoneNumber: string,
   role: "user" | "assistant",
-  text: string
+  text: string,
 ): Promise<void> {
   const session = (await getSession(phoneNumber)) || { history: [] };
   const history = session.history || [];
   history.push({ role, text, timestamp: new Date() });
-  
+
   if (history.length > 10) {
     history.shift();
   }
@@ -242,7 +247,9 @@ export async function clearLastTransactionReference(
   await saveSession(phoneNumber, { lastTransactionReference: null });
 }
 
-export async function checkRateLimit(phoneNumber: string): Promise<RateLimitResult> {
+export async function checkRateLimit(
+  phoneNumber: string,
+): Promise<RateLimitResult> {
   const session = await getSession(phoneNumber);
   const now = new Date();
   const newWindowResetAt = new Date(now.getTime() + LIMIT_WINDOW_MS);
@@ -308,10 +315,7 @@ export async function checkRateLimit(phoneNumber: string): Promise<RateLimitResu
   };
 }
 
-export type {
-  ConversationState,
-  ConversationStep,
-} from "./conversationState";
+export type { ConversationState, ConversationStep } from "./conversationState";
 export {
   ConversationAction,
   ConversationField,

@@ -1,4 +1,4 @@
-"use client"
+"use client";
 
 import {
   DropdownMenu,
@@ -7,71 +7,69 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { Skeleton } from "@/components/ui/skeleton"
-import { auth } from "@/lib/firebase"
+} from "@/components/ui/dropdown-menu";
+import { Skeleton } from "@/components/ui/skeleton";
+import { auth } from "@/lib/firebase";
 import {
   getDefaultProfileName,
   getProfileNameStorageKey,
   PROFILE_NAME_UPDATED_EVENT,
-} from "@/lib/profile"
-import { signOut } from "firebase/auth"
-import { LogOut, Settings2, UserRound } from "lucide-react"
-import Link from "next/link"
-import { useRouter } from "next/navigation"
-import { useEffect, useState } from "react"
-import { useAuthState } from "react-firebase-hooks/auth"
-import { toast } from "sonner"
+} from "@/lib/profile";
+import { signOut } from "firebase/auth";
+import { LogOut, Settings2, UserRound } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useAuthState } from "react-firebase-hooks/auth";
+import { toast } from "sonner";
 
 export const AccountMenu = () => {
-  const [user, loading] = useAuthState(auth)
+  const [user, loading] = useAuthState(auth);
   const [storedProfile, setStoredProfile] = useState<{
-    userId: string
-    name: string
-  } | null>(null)
-  const router = useRouter()
+    userId: string;
+    name: string;
+  } | null>(null);
+  const router = useRouter();
 
   useEffect(() => {
-    if (!user) return
+    if (!user) return;
 
-    const storageKey = getProfileNameStorageKey(user.uid)
+    const storageKey = getProfileNameStorageKey(user.uid);
     const syncProfileName = () => {
-      let name = getDefaultProfileName(user.email)
+      let name = getDefaultProfileName(user.email);
       try {
-        name = window.localStorage.getItem(storageKey)?.trim() || name
-      } catch {
-        // Browsers can disable local storage. The derived name remains usable.
-      }
-      setStoredProfile({ userId: user.uid, name })
-    }
+        name = window.localStorage.getItem(storageKey)?.trim() || name;
+      } catch {}
+      setStoredProfile({ userId: user.uid, name });
+    };
     const handleStorage = (event: StorageEvent) => {
-      if (event.key === storageKey) syncProfileName()
-    }
+      if (event.key === storageKey) syncProfileName();
+    };
 
-    const initialSync = window.setTimeout(syncProfileName, 0)
-    window.addEventListener(PROFILE_NAME_UPDATED_EVENT, syncProfileName)
-    window.addEventListener("storage", handleStorage)
+    const initialSync = window.setTimeout(syncProfileName, 0);
+    window.addEventListener(PROFILE_NAME_UPDATED_EVENT, syncProfileName);
+    window.addEventListener("storage", handleStorage);
 
     return () => {
-      window.clearTimeout(initialSync)
-      window.removeEventListener(PROFILE_NAME_UPDATED_EVENT, syncProfileName)
-      window.removeEventListener("storage", handleStorage)
-    }
-  }, [user])
+      window.clearTimeout(initialSync);
+      window.removeEventListener(PROFILE_NAME_UPDATED_EVENT, syncProfileName);
+      window.removeEventListener("storage", handleStorage);
+    };
+  }, [user]);
 
   const accountSignOut = async () => {
     try {
-      await signOut(auth)
-      router.push("/login")
+      await signOut(auth);
+      router.push("/login");
     } catch {
-      toast.error("Não foi possível sair da conta.")
+      toast.error("Não foi possível sair da conta.");
     }
-  }
+  };
 
   const profileName =
     storedProfile && user && storedProfile.userId === user.uid
       ? storedProfile.name
-      : getDefaultProfileName(user?.email)
+      : getDefaultProfileName(user?.email);
 
   return (
     <DropdownMenu>
@@ -118,5 +116,5 @@ export const AccountMenu = () => {
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
-  )
-}
+  );
+};

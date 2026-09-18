@@ -90,7 +90,10 @@ function yearPeriod(
   };
 }
 
-function allPeriod(raw: string | null = null, isExplicit = false): BFinancePeriod {
+function allPeriod(
+  raw: string | null = null,
+  isExplicit = false,
+): BFinancePeriod {
   return {
     raw,
     type: "all",
@@ -127,8 +130,12 @@ function hasExplicitPeriod(normalized: string): boolean {
     ) ||
     /\b(mes|ano)\s+(passad[oa]|atual)\b/.test(normalized) ||
     /\b(ano todo|este ano|esse ano)\b/.test(normalized) ||
-    /\b(fatura atual|fatura aberta|compras da fatura|gastos da fatura)\b/.test(normalized) ||
-    /\b(todo o historico|historico completo|todo o periodo|periodo todo|desde o inicio|desde o comeco)\b/.test(normalized) ||
+    /\b(fatura atual|fatura aberta|compras da fatura|gastos da fatura)\b/.test(
+      normalized,
+    ) ||
+    /\b(todo o historico|historico completo|todo o periodo|periodo todo|desde o inicio|desde o comeco)\b/.test(
+      normalized,
+    ) ||
     /\bem\s+\d{4}\b/.test(normalized) ||
     /\bmes\s+(?:de\s+)?(?:0?[1-9]|1[0-2])(?:\s*[/-]\s*(?:19|20)\d{2})?\b/.test(
       normalized,
@@ -150,8 +157,7 @@ function messageLooksLikeContinuation(normalized: string): boolean {
   return (
     /^(agora|so|somente|apenas|tambem|e|ordene|ordenar|filtra|filtre)\b/.test(
       normalized,
-    ) ||
-    /\b(acima de|maior que|menor que|do maior|do menor)\b/.test(normalized)
+    ) || /\b(acima de|maior que|menor que|do maior|do menor)\b/.test(normalized)
   );
 }
 
@@ -274,7 +280,9 @@ function explicitDatePeriod(
   normalized: string,
   currentDate: Date,
 ): BFinancePeriod | null {
-  const match = normalized.match(/\b(\d{1,2})[/-](\d{1,2})(?:[/-](\d{2,4}))?\b/);
+  const match = normalized.match(
+    /\b(\d{1,2})[/-](\d{1,2})(?:[/-](\d{2,4}))?\b/,
+  );
   if (!match) return null;
 
   const date = parseExplicitDate(match[1], match[2], match[3], currentDate);
@@ -302,7 +310,11 @@ function inferPeriodFromMessage(
     return allPeriod("todo o historico", true);
   }
 
-  if (/\b(fatura atual|fatura aberta|compras da fatura|gastos da fatura)\b/.test(normalized)) {
+  if (
+    /\b(fatura atual|fatura aberta|compras da fatura|gastos da fatura)\b/.test(
+      normalized,
+    )
+  ) {
     return currentInvoicePeriod();
   }
 
@@ -384,7 +396,11 @@ function inferPeriodFromMessage(
     );
   }
 
-  if (/\b(esse mes|este mes|mes atual|agora neste mes|agora esse mes)\b/.test(normalized)) {
+  if (
+    /\b(esse mes|este mes|mes atual|agora neste mes|agora esse mes)\b/.test(
+      normalized,
+    )
+  ) {
     return fullMonthPeriod(
       "mes atual",
       "current_month",
@@ -397,7 +413,8 @@ function inferPeriodFromMessage(
   if (month) {
     const year = specificYear || currentDate.getFullYear();
     const isCurrentMonth =
-      month === currentDate.getMonth() + 1 && year === currentDate.getFullYear();
+      month === currentDate.getMonth() + 1 &&
+      year === currentDate.getFullYear();
     return fullMonthPeriod(
       MONTHS[month - 1].names[0],
       isCurrentMonth ? "current_month" : "specific_month",
@@ -436,7 +453,11 @@ function inferPeriodFromMessage(
     };
   }
 
-  if (/\b(essa semana|esta semana|semana atual|dessa semana|da semana)\b/.test(normalized)) {
+  if (
+    /\b(essa semana|esta semana|semana atual|dessa semana|da semana)\b/.test(
+      normalized,
+    )
+  ) {
     const thisWeekStart = startOfWeek(currentDate);
     return {
       raw: "esta semana",
@@ -625,7 +646,10 @@ function normalizeExistingPeriod(
         isExplicit: Boolean(period.isExplicit),
       };
     case "current_invoice":
-      return currentInvoicePeriod(period.raw ?? "fatura atual", period.isExplicit);
+      return currentInvoicePeriod(
+        period.raw ?? "fatura atual",
+        period.isExplicit,
+      );
     case "all":
       return {
         ...period,

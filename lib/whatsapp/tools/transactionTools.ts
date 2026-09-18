@@ -1,9 +1,6 @@
 import { IntentType } from "../intents/intentTypes";
 import { handleAddTransaction } from "../handlers/addTransactionHandler";
-import {
-  confirmDelete,
-  handleDelete,
-} from "../handlers/deleteHandler";
+import { confirmDelete, handleDelete } from "../handlers/deleteHandler";
 import {
   handleFindTransaction,
   type FindTransactionToolResult,
@@ -11,7 +8,10 @@ import {
 import { handleFinancialAdvice } from "../handlers/financialAdvisorHandler";
 import { handleQuery } from "../handlers/queryHandler";
 import type { DeleteToolResult, Tool } from "./types";
-import { CREDIT_CARD_NAMES, CREDIT_CARD_NAMES_TEXT } from "@/lib/creditCards/catalog";
+import {
+  CREDIT_CARD_NAMES,
+  CREDIT_CARD_NAMES_TEXT,
+} from "@/lib/creditCards/catalog";
 
 export const addTransactionTool: Tool<string> = {
   name: "add_transaction",
@@ -59,12 +59,23 @@ export const queryTransactionsTool: Tool<string> = {
       description:
         "Categoria interna para filtrar: foods, fixes, housing, transport, delivery, shopping, subscriptions, entertainment, salary, extra ou other.",
       required: false,
-      enum: ["foods", "fixes", "housing", "transport", "delivery", "shopping", "subscriptions", "entertainment", "salary", "extra", "other"],
+      enum: [
+        "foods",
+        "fixes",
+        "housing",
+        "transport",
+        "delivery",
+        "shopping",
+        "subscriptions",
+        "entertainment",
+        "salary",
+        "extra",
+        "other",
+      ],
     },
     {
       name: "card_filter",
-      description:
-        `Nome do cartao para filtrar gastos no cartao: ${CREDIT_CARD_NAMES_TEXT}.`,
+      description: `Nome do cartao para filtrar gastos no cartao: ${CREDIT_CARD_NAMES_TEXT}.`,
       required: false,
       enum: CREDIT_CARD_NAMES,
     },
@@ -126,8 +137,7 @@ export const queryCardInvoiceTool: Tool<string> = {
   parameters: [
     {
       name: "card",
-      description:
-        `Nome do cartao especifico: ${CREDIT_CARD_NAMES_TEXT}.`,
+      description: `Nome do cartao especifico: ${CREDIT_CARD_NAMES_TEXT}.`,
       required: false,
       enum: CREDIT_CARD_NAMES,
     },

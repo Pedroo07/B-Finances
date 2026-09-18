@@ -98,9 +98,7 @@ function transactionToEntry(
   };
 }
 
-function cardTransactionToEntry(
-  transaction: CardTransaction,
-): FinancialEntry {
+function cardTransactionToEntry(transaction: CardTransaction): FinancialEntry {
   return {
     id: transaction.id,
     source: "card",
@@ -114,12 +112,14 @@ function cardTransactionToEntry(
 }
 
 export function incomeEntries(transactions: Transaction[]): FinancialEntry[] {
-  return transactions.filter(isIncome).map((transaction) =>
-    transactionToEntry(transaction, "income"),
-  );
+  return transactions
+    .filter(isIncome)
+    .map((transaction) => transactionToEntry(transaction, "income"));
 }
 
-export function cashExpenseEntries(transactions: Transaction[]): FinancialEntry[] {
+export function cashExpenseEntries(
+  transactions: Transaction[],
+): FinancialEntry[] {
   return transactions
     .filter(isExpense)
     .filter((transaction) => !isCreditCardPayment(transaction))
@@ -139,7 +139,8 @@ export function expenseEntriesForPlan(
   data: FinancialDataSet,
   plan: FinancialPlan,
 ): FinancialEntry[] {
-  const cashEntries = plan.scope === "card" ? [] : cashExpenseEntries(data.transactions);
+  const cashEntries =
+    plan.scope === "card" ? [] : cashExpenseEntries(data.transactions);
   const cardEntries =
     plan.scope === "cash"
       ? []
@@ -193,7 +194,9 @@ function isRecurringBill(bill: BillAccount): boolean {
     return bill.recurrence === "monthly" || bill.recurrence === "installments";
   }
 
-  return bill.recurrence.type === "monthly" || bill.recurrence.type === "yearly";
+  return (
+    bill.recurrence.type === "monthly" || bill.recurrence.type === "yearly"
+  );
 }
 
 function recurrenceLabel(bill: BillAccount): string {
@@ -240,7 +243,10 @@ export function recurringInsights(
     .filter((entry) => entry.type === "expense")
     .filter((entry) => isInLookback(entry, period))
     .reduce<
-      Record<string, { label: string; total: number; count: number; months: Set<string> }>
+      Record<
+        string,
+        { label: string; total: number; count: number; months: Set<string> }
+      >
     >((groups, entry) => {
       const key = `${normalizeDescription(entry.description)}|${entry.category}`;
       if (!key.trim()) return groups;
@@ -288,7 +294,9 @@ export function unusualCategoryInsights(
       const difference = item.amount - previousAmount;
       const grewEnough =
         (previousAmount === 0 && item.amount >= 100) ||
-        (previousAmount > 0 && difference >= 50 && item.amount >= previousAmount * 1.3);
+        (previousAmount > 0 &&
+          difference >= 50 &&
+          item.amount >= previousAmount * 1.3);
 
       if (!grewEnough) return null;
 
@@ -337,8 +345,10 @@ export function lifestyleTotal(
   const patterns: Record<typeof kind, RegExp> = {
     food: /\b(ifood|delivery|restaurante|lanche|pizza|mercado|supermercado|comida|alimentacao)\b/,
     leisure: /\b(lazer|cinema|show|bar|jogo|viagem|festa|ingresso)\b/,
-    transport: /\b(uber|99|taxi|posto|gasolina|combustivel|transporte|metro|onibus)\b/,
-    subscriptions: /\b(netflix|spotify|prime|assinatura|mensalidade|icloud|google|youtube|academia)\b/,
+    transport:
+      /\b(uber|99|taxi|posto|gasolina|combustivel|transporte|metro|onibus)\b/,
+    subscriptions:
+      /\b(netflix|spotify|prime|assinatura|mensalidade|icloud|google|youtube|academia)\b/,
   };
 
   return entries

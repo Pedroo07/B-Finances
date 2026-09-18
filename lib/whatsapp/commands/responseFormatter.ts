@@ -37,7 +37,8 @@ function formatDate(date: string): string {
 
 function formatPeriod(period: BFinancePeriod): string {
   if (period.type === "all") return "todo o período";
-  if (period.type === "current_invoice" && !period.startDate) return "fatura atual";
+  if (period.type === "current_invoice" && !period.startDate)
+    return "fatura atual";
   if (period.type === "today") return "hoje";
   if (period.type === "yesterday") return "ontem";
 
@@ -46,7 +47,8 @@ function formatPeriod(period: BFinancePeriod): string {
   }
 
   if (period.year && period.type === "current_year") return String(period.year);
-  if (period.year && period.type === "specific_year") return String(period.year);
+  if (period.year && period.type === "specific_year")
+    return String(period.year);
 
   if (period.startDate && period.endDate) {
     return `${formatDate(period.startDate)} a ${formatDate(period.endDate)}`;
@@ -71,7 +73,8 @@ function formatTransactionLine(
   item: CommandTransactionItem,
   index: number,
 ): string {
-  const amount = item.type === "income" ? Math.abs(item.amount) : -Math.abs(item.amount);
+  const amount =
+    item.type === "income" ? Math.abs(item.amount) : -Math.abs(item.amount);
   if (item.source === "card_transaction") {
     return `${index + 1}. ${formatDate(item.date)} - ${item.description} - ${formatCurrency(amount)} - ${formatCategoryWithEmoji(item.category)}`;
   }
@@ -83,7 +86,9 @@ function formatNoData(): string {
   return "Não encontrei dados para esse período.";
 }
 
-function formatTransactionList(result: Extract<BFinanceCommandResult, { kind: "transaction_list" }>): string {
+function formatTransactionList(
+  result: Extract<BFinanceCommandResult, { kind: "transaction_list" }>,
+): string {
   if (result.items.length === 0) return formatNoData();
 
   const lines = result.items.map(formatTransactionLine);
@@ -102,7 +107,9 @@ function formatTransactionList(result: Extract<BFinanceCommandResult, { kind: "t
   ].join("\n");
 }
 
-function formatTransactionTotal(result: Extract<BFinanceCommandResult, { kind: "transaction_total" }>): string {
+function formatTransactionTotal(
+  result: Extract<BFinanceCommandResult, { kind: "transaction_total" }>,
+): string {
   if (result.items.length === 0) return formatNoData();
 
   const period = formatPeriod(result.period);
@@ -136,7 +143,9 @@ function formatInvestmentLine(investment: CommandInvestmentItem): string {
   return `${investment.category}: ${formatCurrency(investment.balance)} (rendimentos ${formatCurrency(investment.totalYield)})`;
 }
 
-function formatFinancialSummary(result: Extract<BFinanceCommandResult, { kind: "financial_summary" }>): string {
+function formatFinancialSummary(
+  result: Extract<BFinanceCommandResult, { kind: "financial_summary" }>,
+): string {
   const pendingBillsTotal = result.pendingBills.reduce(
     (sum, bill) => sum + bill.amount,
     0,
@@ -168,7 +177,9 @@ function formatFinancialSummary(result: Extract<BFinanceCommandResult, { kind: "
   }
 
   lines.push("");
-  lines.push(`Investimentos (posição atual): ${formatCurrency(investmentTotal)}`);
+  lines.push(
+    `Investimentos (posição atual): ${formatCurrency(investmentTotal)}`,
+  );
   if (result.investments.length > 0) {
     lines.push(...result.investments.map(formatInvestmentLine));
   }
@@ -201,7 +212,9 @@ function formatFinancialSummary(result: Extract<BFinanceCommandResult, { kind: "
   return lines.join("\n");
 }
 
-function formatInvoiceSummary(result: Extract<BFinanceCommandResult, { kind: "invoice_summary" }>): string {
+function formatInvoiceSummary(
+  result: Extract<BFinanceCommandResult, { kind: "invoice_summary" }>,
+): string {
   if (result.invoices.length === 0 || result.total <= 0.01) {
     return result.mode === "open"
       ? "Não encontrei faturas em aberto."
@@ -239,7 +252,9 @@ function formatInvoiceSummary(result: Extract<BFinanceCommandResult, { kind: "in
   return lines.join("\n");
 }
 
-function formatCategoryRanking(result: Extract<BFinanceCommandResult, { kind: "category_ranking" }>): string {
+function formatCategoryRanking(
+  result: Extract<BFinanceCommandResult, { kind: "category_ranking" }>,
+): string {
   if (result.rankings.length === 0) return formatNoData();
 
   return [
@@ -248,13 +263,17 @@ function formatCategoryRanking(result: Extract<BFinanceCommandResult, { kind: "c
     "",
     ...result.rankings.map((item, index) => {
       const percentage =
-        result.total > 0 ? ` (${((item.total / result.total) * 100).toFixed(1)}%)` : "";
+        result.total > 0
+          ? ` (${((item.total / result.total) * 100).toFixed(1)}%)`
+          : "";
       return `${index + 1}. ${formatCategoryWithEmoji(item.label)} - ${formatCurrency(item.total)} - ${item.count} item(ns)${percentage}`;
     }),
   ].join("\n");
 }
 
-function formatBillList(result: Extract<BFinanceCommandResult, { kind: "bill_list" }>): string {
+function formatBillList(
+  result: Extract<BFinanceCommandResult, { kind: "bill_list" }>,
+): string {
   if (result.bills.length === 0) {
     return "Você não tem contas pendentes.";
   }
@@ -268,7 +287,9 @@ function formatBillList(result: Extract<BFinanceCommandResult, { kind: "bill_lis
   ].join("\n");
 }
 
-function formatInvestments(result: Extract<BFinanceCommandResult, { kind: "investment_summary" }>): string {
+function formatInvestments(
+  result: Extract<BFinanceCommandResult, { kind: "investment_summary" }>,
+): string {
   if (result.investments.length === 0) {
     return "Você ainda não tem investimentos cadastrados.";
   }
@@ -281,23 +302,29 @@ function formatInvestments(result: Extract<BFinanceCommandResult, { kind: "inves
   ].join("\n");
 }
 
-function formatCreated(result: Extract<BFinanceCommandResult, { kind: "transaction_created" }>): string {
+function formatCreated(
+  result: Extract<BFinanceCommandResult, { kind: "transaction_created" }>,
+): string {
   const item = result.item;
   const typeLabel = item.type === "income" ? "Receita" : "Despesa";
   const origin = getOrigin(item);
-  const amount = item.installmentCount && item.installmentCount > 1 && item.totalAmount
-    ? item.totalAmount
-    : Math.abs(item.amount);
-  const installmentLine = item.installmentCount && item.installmentCount > 1
-    ? `📆 ${item.installmentCount}x de ${formatCurrency(Math.abs(item.amount))}`
-    : null;
+  const amount =
+    item.installmentCount && item.installmentCount > 1 && item.totalAmount
+      ? item.totalAmount
+      : Math.abs(item.amount);
+  const installmentLine =
+    item.installmentCount && item.installmentCount > 1
+      ? `📆 ${item.installmentCount}x de ${formatCurrency(Math.abs(item.amount))}`
+      : null;
   return [
     `✅ *${typeLabel} adicionada*`,
     `${formatCategoryWithEmoji(item.category)} · ${item.description}`,
     `💰 ${formatCurrency(amount)} · ${formatDate(item.date)}`,
     installmentLine,
     origin,
-  ].filter(Boolean).join("\n");
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
 export function formatBFinanceResponse(result: BFinanceCommandResult): string {

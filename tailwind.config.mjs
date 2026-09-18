@@ -1,6 +1,5 @@
 import animate from "tailwindcss-animate";
 
-/** @type {import("tailwindcss").Config} */
 const config = {
   darkMode: ["class"],
   content: [
@@ -14,7 +13,7 @@ const config = {
         xxs: "0.5rem",
       },
       fontFamily: {
-        sans: ['var(--font-mont)'],
+        sans: ["var(--font-mont)"],
         Inter: ["Inter", "sans-serif"],
       },
       colors: {

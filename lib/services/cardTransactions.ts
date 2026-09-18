@@ -1,8 +1,15 @@
-import { collection, doc, addDoc, deleteDoc, getDocs, writeBatch } from 'firebase/firestore';
-import { db } from '../firebase';
-import { CardTransaction } from '../entities/cardTransaction';
-import { getAuth } from 'firebase/auth';
-import { buildInstallmentSchedule } from '../creditCards/installments';
+import {
+  collection,
+  doc,
+  addDoc,
+  deleteDoc,
+  getDocs,
+  writeBatch,
+} from "firebase/firestore";
+import { db } from "../firebase";
+import { CardTransaction } from "../entities/cardTransaction";
+import { getAuth } from "firebase/auth";
+import { buildInstallmentSchedule } from "../creditCards/installments";
 
 export type CardTransactionDto = {
   description: string;
@@ -32,7 +39,9 @@ function getUserCardCollection() {
   return collection(db, `users/${user.uid}/cardTransactions`);
 }
 
-export async function createCardTransaction(data: CardTransactionDto): Promise<CardTransaction> {
+export async function createCardTransaction(
+  data: CardTransactionDto,
+): Promise<CardTransaction> {
   const cardsRef = getUserCardCollection();
   const createdCard = await addDoc(cardsRef, data);
   return {
@@ -48,11 +57,13 @@ export async function createCardInstallmentTransactions(
   const cardsRef = getUserCardCollection();
   const batch = writeBatch(db);
   const firstRef = doc(cardsRef);
-  const transactionRefs = schedule.map((_, index) => index === 0 ? firstRef : doc(cardsRef));
+  const transactionRefs = schedule.map((_, index) =>
+    index === 0 ? firstRef : doc(cardsRef),
+  );
   const installmentGroupId = firstRef.id;
 
   const transactions = schedule.map((installment, index) => {
-    const transaction: Omit<CardTransaction, 'id'> = {
+    const transaction: Omit<CardTransaction, "id"> = {
       description: data.description,
       category: data.category,
       date: installment.date,
@@ -103,4 +114,3 @@ export async function getCardTransaction(): Promise<CardTransaction[]> {
     ...doc.data(),
   })) as CardTransaction[];
 }
-

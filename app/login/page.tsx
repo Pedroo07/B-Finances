@@ -1,7 +1,7 @@
-"use client"
-import React from 'react'
-import { Main } from './components/Main'
-import Header from './components/Header'
+"use client";
+import React from "react";
+import { Main } from "./components/Main";
+import Header from "./components/Header";
 
 const Login = () => {
   return (
@@ -9,7 +9,7 @@ const Login = () => {
       <Header />
       <Main />
     </div>
-  )
-}
+  );
+};
 
-export default Login
+export default Login;

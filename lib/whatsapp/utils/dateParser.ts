@@ -1,7 +1,10 @@
 import { resolveFinancialPeriod } from "../financial/periodResolver";
 import { getBrasiliaDate } from "./brasiliaDate";
 
-export function getPeriodDates(period: string): { startDate: string; endDate: string } {
+export function getPeriodDates(period: string): {
+  startDate: string;
+  endDate: string;
+} {
   const resolved = resolveFinancialPeriod({
     messageText: period,
     currentDate: getBrasiliaDate(),

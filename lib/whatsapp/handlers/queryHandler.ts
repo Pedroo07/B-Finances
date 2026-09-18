@@ -32,7 +32,7 @@ type QueryParameters = Record<string, unknown>;
 function getStringParameter(
   parameters: QueryParameters,
   key: string,
-  fallback: string = ""
+  fallback: string = "",
 ): string {
   const value = parameters[key];
   return typeof value === "string" ? value : fallback;
@@ -41,7 +41,7 @@ function getStringParameter(
 function getNumberParameter(
   parameters: QueryParameters,
   key: string,
-  fallback?: number
+  fallback?: number,
 ): number | undefined {
   const value = parameters[key];
   if (typeof value === "number" && Number.isFinite(value)) return value;
@@ -56,7 +56,7 @@ export async function handleQuery(
   userId: string,
   intent: IntentType,
   parameters: QueryParameters,
-  messageText: string = ""
+  messageText: string = "",
 ): Promise<string> {
   const enrichedParameters = {
     ...parameters,
@@ -92,15 +92,14 @@ export async function handleQuery(
   }
 }
 
-
-
 async function handleExpensesQuery(
   userId: string,
-  parameters: QueryParameters
+  parameters: QueryParameters,
 ): Promise<string> {
   const period = getStringParameter(parameters, "period", "month");
   const limit = getNumberParameter(parameters, "limit");
-  const categoryFilter = getStringParameter(parameters, "category_filter") || undefined;
+  const categoryFilter =
+    getStringParameter(parameters, "category_filter") || undefined;
   const cardFilter = getStringParameter(parameters, "card_filter") || undefined;
 
   if (limit) {
@@ -111,7 +110,7 @@ async function handleExpensesQuery(
       "expense",
       categoryFilter,
       startDate,
-      endDate
+      endDate,
     );
     const label = buildExpenseLabel(limit, categoryFilter, cardFilter);
     return formatTransactionList(transactions, "expense", label);
@@ -129,33 +128,39 @@ async function handleExpensesQuery(
       "expense",
       categoryFilter,
       startDate,
-      endDate
+      endDate,
     );
     return formatExpensesSummary(
       transactions,
-      `${getPeriodLabel(period)} - categoria: ${getCategoryLabel(categoryFilter)}`
+      `${getPeriodLabel(period)} - categoria: ${getCategoryLabel(categoryFilter)}`,
     );
   }
 
   const { startDate, endDate } = getPeriodDates(period);
-  const transactions = await getTransactionsByPeriod(userId, startDate, endDate);
+  const transactions = await getTransactionsByPeriod(
+    userId,
+    startDate,
+    endDate,
+  );
   return formatExpensesSummary(transactions, getPeriodLabel(period));
 }
 
 async function handleCardExpensesQuery(
   userId: string,
   cardFilter: string,
-  parameters: QueryParameters
+  parameters: QueryParameters,
 ): Promise<string> {
-  const { getCardTransactionsByCard } = await import(
-    "@/lib/services/admin/cardTransactionsAdmin"
-  );
+  const { getCardTransactionsByCard } =
+    await import("@/lib/services/admin/cardTransactionsAdmin");
   const period = getStringParameter(parameters, "period", "month");
   const messageText = getStringParameter(parameters, "__messageText");
 
   if (shouldUseInvoicePeriod(period, messageText)) {
     const invoice = await getCurrentCardInvoiceTransactions(userId, cardFilter);
-    const total = invoice.transactions.reduce((s, t) => s + Math.abs(t.amount), 0);
+    const total = invoice.transactions.reduce(
+      (s, t) => s + Math.abs(t.amount),
+      0,
+    );
     const { formatCurrency } = await import("../formatters/responseFormatter");
 
     if (invoice.transactions.length === 0) {
@@ -181,7 +186,7 @@ async function handleCardExpensesQuery(
     userId,
     cardFilter,
     startDate,
-    endDate
+    endDate,
   );
   if (transactions.length === 0) {
     return `Cartão: Nenhum gasto encontrado no cartão *${cardFilter}* em ${getPeriodLabel(period)}.`;
@@ -209,8 +214,10 @@ function shouldUseInvoicePeriod(period: string, messageText: string): boolean {
   const normalizedPeriod = normalizeText(String(period));
   const normalizedMessage = normalizeText(messageText);
 
-  return ["current_invoice", "invoice", "fatura"].includes(normalizedPeriod)
-    || /\bfatura\b/.test(normalizedMessage);
+  return (
+    ["current_invoice", "invoice", "fatura"].includes(normalizedPeriod) ||
+    /\bfatura\b/.test(normalizedMessage)
+  );
 }
 
 function formatDisplayDate(date: string): string {
@@ -218,10 +225,9 @@ function formatDisplayDate(date: string): string {
   return `${day}/${month}/${year}`;
 }
 
-
 async function handleIncomeQuery(
   userId: string,
-  parameters: QueryParameters
+  parameters: QueryParameters,
 ): Promise<string> {
   const period = getStringParameter(parameters, "period", "month");
   const limit = getNumberParameter(parameters, "limit");
@@ -234,66 +240,75 @@ async function handleIncomeQuery(
       "income",
       undefined,
       startDate,
-      endDate
+      endDate,
     );
     return formatTransactionList(
       transactions,
       "income",
-      `Últimos ${limit} recebimentos`
+      `Últimos ${limit} recebimentos`,
     );
   }
 
   const { startDate, endDate } = getPeriodDates(period);
-  const transactions = await getTransactionsByPeriod(userId, startDate, endDate);
+  const transactions = await getTransactionsByPeriod(
+    userId,
+    startDate,
+    endDate,
+  );
   return formatIncomeSummary(transactions, getPeriodLabel(period));
 }
 
 async function handleBalanceQuery(
   userId: string,
-  parameters: QueryParameters
+  parameters: QueryParameters,
 ): Promise<string> {
   const period = getStringParameter(parameters, "period", "month");
   const { startDate, endDate } = getPeriodDates(period);
 
-  const transactions = await getTransactionsByPeriod(userId, startDate, endDate);
+  const transactions = await getTransactionsByPeriod(
+    userId,
+    startDate,
+    endDate,
+  );
 
-  const { startDate: prevStart, endDate: prevEnd } = getPeriodDates("last_month");
-  const prevTransactions = await getTransactionsByPeriod(userId, prevStart, prevEnd);
+  const { startDate: prevStart, endDate: prevEnd } =
+    getPeriodDates("last_month");
+  const prevTransactions = await getTransactionsByPeriod(
+    userId,
+    prevStart,
+    prevEnd,
+  );
   const pendingBills = await getPendingBills(userId);
 
   return formatDetailedBalance(
     transactions,
     prevTransactions,
     pendingBills,
-    getPeriodLabel(period)
+    getPeriodLabel(period),
   );
 }
 
-
 async function handleCardInvoiceQuery(
   userId: string,
-  parameters: QueryParameters
+  parameters: QueryParameters,
 ): Promise<string> {
   const today = getBrasiliaDate();
   const month = getNumberParameter(parameters, "month", today.getMonth() + 1)!;
   const year = getNumberParameter(parameters, "year", today.getFullYear())!;
   const cardName = getStringParameter(parameters, "card");
 
-
   if (parameters.all_invoices === true || !cardName) {
     const invoices = await getAllCardInvoices(userId, year, month);
     return formatAllCardInvoices(invoices, month, year);
   }
 
-
   const amount = await getCardInvoiceAmount(userId, cardName, year, month);
   return formatCardInvoice(cardName, amount, month, year);
 }
 
-
 async function handleBillsQuery(
   userId: string,
-  parameters: QueryParameters
+  parameters: QueryParameters,
 ): Promise<string> {
   const days = getNumberParameter(parameters, "days", 30)!;
 
@@ -307,12 +322,10 @@ async function handleBillsQuery(
   return formatBillsList(bills);
 }
 
-
 async function handleInvestmentsQuery(userId: string): Promise<string> {
   const investments = await getInvestments(userId);
   return formatInvestmentsSummary(investments);
 }
-
 
 function getPeriodLabel(period: string): string {
   const labels: Record<string, string> = {
@@ -328,7 +341,7 @@ function getPeriodLabel(period: string): string {
 function buildExpenseLabel(
   limit: number,
   category?: string,
-  card?: string
+  card?: string,
 ): string {
   let label = `Últimos ${limit} gastos`;
   if (category) label += ` (${category})`;

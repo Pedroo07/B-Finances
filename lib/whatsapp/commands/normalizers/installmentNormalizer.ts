@@ -32,7 +32,9 @@ export type InstallmentMention = {
   count: number | null;
 };
 
-export function extractInstallmentMention(messageText: string): InstallmentMention {
+export function extractInstallmentMention(
+  messageText: string,
+): InstallmentMention {
   const normalized = normalizeText(messageText);
 
   if (/\b(?:a|à)\s*vista\b/.test(normalized)) {
@@ -44,9 +46,12 @@ export function extractInstallmentMention(messageText: string): InstallmentMenti
     return { requested: true, count: Number(compactMatch[1]) };
   }
 
-  const installmentWord = "(?:\\d{1,3}|dois|duas|tres|quatro|cinco|seis|sete|oito|nove|dez|onze|doze)";
+  const installmentWord =
+    "(?:\\d{1,3}|dois|duas|tres|quatro|cinco|seis|sete|oito|nove|dez|onze|doze)";
   const patterns = [
-    new RegExp(`\\b(?:parcelad[oa]|parcelamento|parcelei|dividid[oa]|dividi|recorrent[ea])\\s*(?:em\\s*)?(${installmentWord})\\s*(?:x|vezes|parcelas)?\\b`),
+    new RegExp(
+      `\\b(?:parcelad[oa]|parcelamento|parcelei|dividid[oa]|dividi|recorrent[ea])\\s*(?:em\\s*)?(${installmentWord})\\s*(?:x|vezes|parcelas)?\\b`,
+    ),
     new RegExp(`\\b(?:em\\s*)?(${installmentWord})\\s*(?:vezes|parcelas)\\b`),
   ];
 
@@ -55,8 +60,13 @@ export function extractInstallmentMention(messageText: string): InstallmentMenti
     if (match) return { requested: true, count: toInstallmentNumber(match[1]) };
   }
 
-  const requested = /\b(?:parcelad[oa]|parcelamento|parcelei|dividid[oa]|dividi|recorrent[ea]|parcelas)\b/.test(normalized);
-  return requested ? { requested: true, count: null } : { requested: false, count: 1 };
+  const requested =
+    /\b(?:parcelad[oa]|parcelamento|parcelei|dividid[oa]|dividi|recorrent[ea]|parcelas)\b/.test(
+      normalized,
+    );
+  return requested
+    ? { requested: true, count: null }
+    : { requested: false, count: 1 };
 }
 
 export function normalizeCommandInstallments(

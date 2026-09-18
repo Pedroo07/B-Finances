@@ -1,4 +1,7 @@
-import { findCreditCardNameInText, getCreditCardName } from "@/lib/creditCards/catalog";
+import {
+  findCreditCardNameInText,
+  getCreditCardName,
+} from "@/lib/creditCards/catalog";
 import type {
   BFinanceCommand,
   BFinancePaymentMethod,
@@ -37,7 +40,10 @@ function hasNegativeCardMention(normalized: string): boolean {
   ]);
 }
 
-function hasPositiveCardMention(normalized: string, cardName: string | null): boolean {
+function hasPositiveCardMention(
+  normalized: string,
+  cardName: string | null,
+): boolean {
   return (
     Boolean(cardName) ||
     hasAny(normalized, [
@@ -51,8 +57,13 @@ function hasPositiveCardMention(normalized: string, cardName: string | null): bo
   );
 }
 
-function extractPaymentMethod(normalized: string): BFinancePaymentMethod | null {
-  if (/\b(so|somente|apenas)\s+pix\b/.test(normalized) || /\bno\s+pix\b/.test(normalized)) {
+function extractPaymentMethod(
+  normalized: string,
+): BFinancePaymentMethod | null {
+  if (
+    /\b(so|somente|apenas)\s+pix\b/.test(normalized) ||
+    /\bno\s+pix\b/.test(normalized)
+  ) {
     return "pix";
   }
 
@@ -80,7 +91,10 @@ function extractPaymentMethod(normalized: string): BFinancePaymentMethod | null 
   return null;
 }
 
-function isSummaryRequest(normalized: string, command: BFinanceCommand): boolean {
+function isSummaryRequest(
+  normalized: string,
+  command: BFinanceCommand,
+): boolean {
   return (
     command.resource === "summary" ||
     hasAny(normalized, [
@@ -103,13 +117,15 @@ function messageLooksLikeContinuation(normalized: string): boolean {
   return (
     /^(agora|so|somente|apenas|tambem|e|ordene|ordenar|filtra|filtre)\b/.test(
       normalized,
-    ) ||
-    /\b(acima de|maior que|menor que|do maior|do menor)\b/.test(normalized)
+    ) || /\b(acima de|maior que|menor que|do maior|do menor)\b/.test(normalized)
   );
 }
 
 function defaultScope(command: BFinanceCommand): BFinanceScope {
-  if (command.resource === "invoice" || command.resource === "card_transaction") {
+  if (
+    command.resource === "invoice" ||
+    command.resource === "card_transaction"
+  ) {
     return {
       includeNormalTransactions: false,
       includeCardTransactions: true,
@@ -152,7 +168,8 @@ export function normalizeCommandScope(
   context: CommandNormalizerContext = {},
 ): BFinanceCommand {
   const normalized = normalizeText(messageText);
-  const commandCardName = command.scope?.cardName || command.data?.cardName || null;
+  const commandCardName =
+    command.scope?.cardName || command.data?.cardName || null;
   const currentCardName =
     extractCardName(messageText) ||
     (commandCardName ? getCreditCardName(commandCardName) : null);

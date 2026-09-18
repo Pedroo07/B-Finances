@@ -67,7 +67,7 @@ export function selectCandidateByNumber<T>(
   if (!/^\d+$/.test(normalized)) return null;
   const index = Number(normalized) - 1;
   return Number.isInteger(index) && index >= 0
-    ? candidates[index] ?? null
+    ? (candidates[index] ?? null)
     : null;
 }
 

@@ -251,7 +251,7 @@ function buildPendingUpdateCriteriaCommand(
       ...pendingAction.update,
       reference: latestReference
         ? "latest"
-        : pendingAction.update?.reference ?? null,
+        : (pendingAction.update?.reference ?? null),
       targetText: messageText.trim(),
     },
   };
@@ -264,19 +264,21 @@ function buildPendingUpdateCriteriaCommand(
   if (
     money &&
     !command.filters?.amount &&
-    normalizeFreeText(messageText).replace(/\b(r\$|rs|reais?)\b/g, "").match(/^[\d.,\s-]+$/)
+    normalizeFreeText(messageText)
+      .replace(/\b(r\$|rs|reais?)\b/g, "")
+      .match(/^[\d.,\s-]+$/)
   ) {
     command.filters = { ...command.filters, amount: Math.abs(money.value) };
   }
 
   const hasStructuredCriterion = Boolean(
     command.filters?.description ||
-      command.filters?.category ||
-      (command.filters?.amount !== null &&
-        command.filters?.amount !== undefined) ||
-      command.period?.isExplicit ||
-      command.scope?.cardName ||
-      command.scope?.paymentMethod,
+    command.filters?.category ||
+    (command.filters?.amount !== null &&
+      command.filters?.amount !== undefined) ||
+    command.period?.isExplicit ||
+    command.scope?.cardName ||
+    command.scope?.paymentMethod,
   );
 
   if (!hasStructuredCriterion && !latestReference) {
@@ -327,9 +329,10 @@ function getPreviousBFinanceCommand(
   return null;
 }
 
-function getCardSelectionOptions(
-  pendingAction: { type?: string; [key: string]: unknown },
-): Array<{ index: number; cardName: string }> {
+function getCardSelectionOptions(pendingAction: {
+  type?: string;
+  [key: string]: unknown;
+}): Array<{ index: number; cardName: string }> {
   if (pendingAction.type !== "select_card_for_query") return [];
   if (!Array.isArray(pendingAction.cards)) return [];
 
@@ -413,7 +416,10 @@ async function handleCardSelectionPendingAction(
   const selectedCard = resolveCardSelection(messageText, options);
 
   if (!selectedCard) {
-    if (clearlyStartsNewCommand(messageText) || /^\s*(quais?|faturas?)\b/i.test(messageText)) {
+    if (
+      clearlyStartsNewCommand(messageText) ||
+      /^\s*(quais?|faturas?)\b/i.test(messageText)
+    ) {
       await clearPendingAction(fromPhoneNumber);
       return false;
     }
@@ -459,10 +465,7 @@ async function handleCardSelectionPendingAction(
     await clearPendingAction(fromPhoneNumber);
   }
 
-  if (
-    commandResult.success &&
-    commandResult.kind === "transaction_created"
-  ) {
+  if (commandResult.success && commandResult.kind === "transaction_created") {
     await rememberTransactionTarget(fromPhoneNumber, commandResult.item);
   }
 
@@ -471,10 +474,7 @@ async function handleCardSelectionPendingAction(
     commandResult.kind === "ready_message" &&
     commandResult.updatedItem
   ) {
-    await rememberTransactionTarget(
-      fromPhoneNumber,
-      commandResult.updatedItem,
-    );
+    await rememberTransactionTarget(fromPhoneNumber, commandResult.updatedItem);
   } else if (
     commandResult.success &&
     commandResult.kind === "ready_message" &&
@@ -566,10 +566,7 @@ async function handlePendingActionIfApplicable(
     }
 
     await rememberTransactionTarget(fromPhoneNumber, selection.target);
-    const result = await beginUpdateForTarget(
-      userId,
-      selection.target,
-    );
+    const result = await beginUpdateForTarget(userId, selection.target);
     if (result.pendingAction) {
       await setPendingAction(fromPhoneNumber, result.pendingAction);
     } else {
@@ -666,10 +663,7 @@ async function handlePendingActionIfApplicable(
     const rememberedTarget =
       result.updatedTarget ?? result.pendingAction?.target;
     if (rememberedTarget) {
-      await rememberTransactionTarget(
-        fromPhoneNumber,
-        rememberedTarget,
-      );
+      await rememberTransactionTarget(fromPhoneNumber, rememberedTarget);
     }
 
     await sendWhatsAppMessage(fromPhoneNumber, result.message);
@@ -825,7 +819,7 @@ export async function POST(req: Request) {
     let command = normalizeCommandUpdate(messageText, interpretedCommand);
     const targetMessageText =
       command.action === "update"
-        ? command.update?.targetText ?? ""
+        ? (command.update?.targetText ?? "")
         : messageText;
 
     command = normalizeCommandResource(targetMessageText, command);
@@ -853,9 +847,8 @@ export async function POST(req: Request) {
 
     console.log("B-Finances command:", JSON.stringify(command));
 
-    const recentTransaction = await getLastTransactionReference(
-      fromPhoneNumber,
-    );
+    const recentTransaction =
+      await getLastTransactionReference(fromPhoneNumber);
     const commandResult = await executeBFinanceCommand({
       userId,
       command,
@@ -882,10 +875,7 @@ export async function POST(req: Request) {
       );
     }
 
-    if (
-      commandResult.success &&
-      commandResult.kind === "transaction_created"
-    ) {
+    if (commandResult.success && commandResult.kind === "transaction_created") {
       await rememberTransactionTarget(fromPhoneNumber, commandResult.item);
     }
 

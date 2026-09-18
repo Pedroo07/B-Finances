@@ -1,5 +1,8 @@
 import { db } from "@/lib/firebaseAdmin";
-import { getInvoicePeriodKeyForDueDate, isValidBillingDay } from "@/lib/creditCards/billing";
+import {
+  getInvoicePeriodKeyForDueDate,
+  isValidBillingDay,
+} from "@/lib/creditCards/billing";
 
 export type BillAccount = {
   id: string;
@@ -7,10 +10,14 @@ export type BillAccount = {
   amount: number;
   dueDate: string;
   status: "pending" | "paid";
-  recurrence: "unique" | "monthly" | "installments" | {
-    type: "none" | "monthly" | "yearly";
-    interval?: number;
-  };
+  recurrence:
+    | "unique"
+    | "monthly"
+    | "installments"
+    | {
+        type: "none" | "monthly" | "yearly";
+        interval?: number;
+      };
   installments?: number;
   currentInstallment?: number;
   creditCardId?: string;
@@ -23,9 +30,7 @@ export type BillAccount = {
 };
 
 export async function getBillAccounts(userId: string): Promise<BillAccount[]> {
-  const snapshot = await db
-    .collection(`users/${userId}/billAccounts`)
-    .get();
+  const snapshot = await db.collection(`users/${userId}/billAccounts`).get();
 
   return snapshot.docs.map((doc) => ({
     id: doc.id,
@@ -40,16 +45,19 @@ export async function getPendingBills(userId: string): Promise<BillAccount[]> {
     .get();
 
   return snapshot.docs
-    .map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    }) as BillAccount)
+    .map(
+      (doc) =>
+        ({
+          id: doc.id,
+          ...doc.data(),
+        }) as BillAccount,
+    )
     .filter((bill) => !bill.hiddenFromBills);
 }
 
 export async function getUpcomingBills(
   userId: string,
-  days: number = 7
+  days: number = 7,
 ): Promise<BillAccount[]> {
   const today = new Date();
   const futureDate = new Date();
@@ -66,17 +74,20 @@ export async function getUpcomingBills(
     .get();
 
   return snapshot.docs
-    .map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    }) as BillAccount)
+    .map(
+      (doc) =>
+        ({
+          id: doc.id,
+          ...doc.data(),
+        }) as BillAccount,
+    )
     .filter((bill) => !bill.hiddenFromBills);
 }
 
 export async function payBillAccount(
   userId: string,
   billId: string,
-  paymentDate: string
+  paymentDate: string,
 ): Promise<void> {
   const billRef = db.collection(`users/${userId}/billAccounts`).doc(billId);
   const billDoc = await billRef.get();
@@ -102,36 +113,57 @@ export async function payBillAccount(
   };
 
   if (billData.creditCardId) {
-    const cardRef = db.collection(`users/${userId}/creditCards`).doc(billData.creditCardId);
+    const cardRef = db
+      .collection(`users/${userId}/creditCards`)
+      .doc(billData.creditCardId);
     const cardDoc = await cardRef.get();
-    const cardData = cardDoc.exists ? cardDoc.data() as {
-      bankKey?: string;
-      closingDay?: number;
-      dueDay?: number;
-      invoices?: Record<string, { amountPaid: number; paidAt: string; transactionId: string }>;
-    } : null;
-    const periodKey = billData.creditCardInvoicePeriodKey
-      ?? (cardData && isValidBillingDay(cardData.closingDay) && isValidBillingDay(cardData.dueDay)
-        ? getInvoicePeriodKeyForDueDate(billData.dueDate, cardData.closingDay, cardData.dueDay)
+    const cardData = cardDoc.exists
+      ? (cardDoc.data() as {
+          bankKey?: string;
+          closingDay?: number;
+          dueDay?: number;
+          invoices?: Record<
+            string,
+            { amountPaid: number; paidAt: string; transactionId: string }
+          >;
+        })
+      : null;
+    const periodKey =
+      billData.creditCardInvoicePeriodKey ??
+      (cardData &&
+      isValidBillingDay(cardData.closingDay) &&
+      isValidBillingDay(cardData.dueDay)
+        ? getInvoicePeriodKeyForDueDate(
+            billData.dueDate,
+            cardData.closingDay,
+            cardData.dueDay,
+          )
         : paymentDate.slice(0, 7));
     const invoicePayment = cardData?.invoices?.[periodKey];
     const transactionId = invoicePayment?.transactionId ?? transactionRef.id;
     paymentTransactionId = transactionId;
 
-    if (invoicePayment && invoicePayment.amountPaid >= Math.abs(billData.amount)) {
+    if (
+      invoicePayment &&
+      invoicePayment.amountPaid >= Math.abs(billData.amount)
+    ) {
       shouldCreateTransaction = false;
     }
 
-    batch.set(cardRef, {
-      bankKey: cardData?.bankKey ?? billData.creditCardId,
-      invoices: {
-        [periodKey]: {
-          amountPaid: Math.abs(billData.amount),
-          paidAt: paymentDate,
-          transactionId,
+    batch.set(
+      cardRef,
+      {
+        bankKey: cardData?.bankKey ?? billData.creditCardId,
+        invoices: {
+          [periodKey]: {
+            amountPaid: Math.abs(billData.amount),
+            paidAt: paymentDate,
+            transactionId,
+          },
         },
       },
-    }, { merge: true });
+      { merge: true },
+    );
   }
 
   if (shouldCreateTransaction) {
@@ -148,7 +180,7 @@ export async function payBillAccount(
 
 export async function findBillByDescription(
   userId: string,
-  description: string
+  description: string,
 ): Promise<BillAccount[]> {
   const snapshot = await db
     .collection(`users/${userId}/billAccounts`)
@@ -160,7 +192,10 @@ export async function findBillByDescription(
   return snapshot.docs
     .filter((doc) => {
       const data = doc.data();
-      return !data.hiddenFromBills && data.description?.toLowerCase().includes(descLower);
+      return (
+        !data.hiddenFromBills &&
+        data.description?.toLowerCase().includes(descLower)
+      );
     })
     .map((doc) => ({
       id: doc.id,

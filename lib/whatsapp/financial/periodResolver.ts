@@ -95,7 +95,10 @@ function buildPeriod(
   };
 }
 
-function currentMonthPeriod(currentDate: Date, isExplicit: boolean): ResolvedPeriod {
+function currentMonthPeriod(
+  currentDate: Date,
+  isExplicit: boolean,
+): ResolvedPeriod {
   const today = localDate(currentDate);
   return buildPeriod(
     "current_month",
@@ -106,7 +109,10 @@ function currentMonthPeriod(currentDate: Date, isExplicit: boolean): ResolvedPer
   );
 }
 
-function currentYearPeriod(currentDate: Date, isExplicit: boolean): ResolvedPeriod {
+function currentYearPeriod(
+  currentDate: Date,
+  isExplicit: boolean,
+): ResolvedPeriod {
   const today = localDate(currentDate);
   return buildPeriod(
     "current_year",
@@ -155,7 +161,9 @@ function yearPeriod(
   );
 }
 
-export function previousComparablePeriod(period: ResolvedPeriod): ResolvedPeriod {
+export function previousComparablePeriod(
+  period: ResolvedPeriod,
+): ResolvedPeriod {
   const start = parseLocalDate(period.startDate);
   const end = parseLocalDate(period.endDate);
 
@@ -226,10 +234,7 @@ export function resolveFinancialPeriod({
   const today = localDate(currentDate);
   const sourceText = messageText;
 
-  if (
-    fallbackPeriod &&
-    /^(passad[oa]|anterior)$/.test(normalized)
-  ) {
+  if (fallbackPeriod && /^(passad[oa]|anterior)$/.test(normalized)) {
     return {
       ...previousComparablePeriod(fallbackPeriod),
       isExplicit: true,
@@ -249,9 +254,7 @@ export function resolveFinancialPeriod({
     };
   }
 
-  const lastDaysMatch = normalized.match(
-    /\bultim[oa]s?\s+(\d{1,3})\s+dias?\b/,
-  );
+  const lastDaysMatch = normalized.match(/\bultim[oa]s?\s+(\d{1,3})\s+dias?\b/);
   if (lastDaysMatch) {
     const days = Math.max(1, Number(lastDaysMatch[1]));
     return buildPeriod(
@@ -292,7 +295,9 @@ export function resolveFinancialPeriod({
     );
   }
 
-  if (/\b(essa semana|esta semana|semana atual|week|semana)\b/.test(normalized)) {
+  if (
+    /\b(essa semana|esta semana|semana atual|week|semana)\b/.test(normalized)
+  ) {
     const start = startOfWeek(today);
     return buildPeriod(
       "current_week",
@@ -335,7 +340,9 @@ export function resolveFinancialPeriod({
     );
   }
 
-  const explicitYearMatch = normalized.match(/\b(?:ano\s+de|em|de)\s+(\d{4})\b/);
+  const explicitYearMatch = normalized.match(
+    /\b(?:ano\s+de|em|de)\s+(\d{4})\b/,
+  );
   if (explicitYearMatch) {
     return {
       ...yearPeriod(Number(explicitYearMatch[1]), today, true),

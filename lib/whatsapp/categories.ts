@@ -28,7 +28,14 @@ const CATEGORY_DEFINITIONS: Record<string, CategoryDefinition> = {
 export const CATEGORY_ALIASES: Array<{ category: string; terms: string[] }> = [
   {
     category: "foods",
-    terms: ["alimentacao", "comida", "mercado", "supermercado", "restaurante", "lanche"],
+    terms: [
+      "alimentacao",
+      "comida",
+      "mercado",
+      "supermercado",
+      "restaurante",
+      "lanche",
+    ],
   },
   {
     category: "housing",
@@ -36,7 +43,16 @@ export const CATEGORY_ALIASES: Array<{ category: string; terms: string[] }> = [
   },
   {
     category: "transport",
-    terms: ["transporte", "uber", "taxi", "gasolina", "combustivel", "estacionamento", "onibus", "metro"],
+    terms: [
+      "transporte",
+      "uber",
+      "taxi",
+      "gasolina",
+      "combustivel",
+      "estacionamento",
+      "onibus",
+      "metro",
+    ],
   },
   {
     category: "delivery",
@@ -44,15 +60,41 @@ export const CATEGORY_ALIASES: Array<{ category: string; terms: string[] }> = [
   },
   {
     category: "shopping",
-    terms: ["compras", "shopping", "roupa", "roupas", "calcado", "calcados", "eletronicos"],
+    terms: [
+      "compras",
+      "shopping",
+      "roupa",
+      "roupas",
+      "calcado",
+      "calcados",
+      "eletronicos",
+    ],
   },
   {
     category: "subscriptions",
-    terms: ["assinatura", "assinaturas", "mensalidade", "streaming", "netflix", "spotify", "prime"],
+    terms: [
+      "assinatura",
+      "assinaturas",
+      "mensalidade",
+      "streaming",
+      "netflix",
+      "spotify",
+      "prime",
+    ],
   },
   {
     category: "fixes",
-    terms: ["fixas", "conta", "contas", "conta fixa", "contas fixas", "internet", "luz", "agua", "telefone"],
+    terms: [
+      "fixas",
+      "conta",
+      "contas",
+      "conta fixa",
+      "contas fixas",
+      "internet",
+      "luz",
+      "agua",
+      "telefone",
+    ],
   },
   {
     category: "entertainment",

@@ -1,7 +1,6 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap");
 @import "tailwindcss";
 @config "../tailwind.config.mjs";
-
 
 @layer utilities {
   .text-balance {
@@ -83,9 +82,21 @@
     font-family: "Inter", sans-serif;
     min-height: 100vh;
     background-image:
-      radial-gradient(circle at top, rgba(148, 163, 184, 0.28), transparent 34%),
-      radial-gradient(circle at right, rgba(34, 197, 94, 0.16), transparent 26%),
-      linear-gradient(180deg, rgba(248, 250, 252, 1) 0%, rgba(226, 232, 240, 0.9) 100%);
+      radial-gradient(
+        circle at top,
+        rgba(148, 163, 184, 0.28),
+        transparent 34%
+      ),
+      radial-gradient(
+        circle at right,
+        rgba(34, 197, 94, 0.16),
+        transparent 26%
+      ),
+      linear-gradient(
+        180deg,
+        rgba(248, 250, 252, 1) 0%,
+        rgba(226, 232, 240, 0.9) 100%
+      );
     background-attachment: fixed;
   }
 }
@@ -115,7 +126,12 @@
   }
 
   .brand-gradient {
-    background-image: linear-gradient(135deg, #f8fafc 0%, #94a3bb 38%, #22c55e 140%);
+    background-image: linear-gradient(
+      135deg,
+      #f8fafc 0%,
+      #94a3bb 38%,
+      #22c55e 140%
+    );
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;

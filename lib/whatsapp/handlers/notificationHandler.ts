@@ -5,17 +5,17 @@ import {
 
 export async function handleNotificationToggle(
   userId: string,
-  parameters: Record<string, unknown>
+  parameters: Record<string, unknown>,
 ): Promise<string> {
   try {
-    const enable = parameters.enable !== false; 
+    const enable = parameters.enable !== false;
 
     const settings = await toggleWhatsAppNotifications(userId, enable);
 
     if (settings.whatsappNotifications) {
-      return "🔔 Notificações do WhatsApp ativadas!\n\nVocê receberá alertas sobre:\n• Contas próximas do vencimento\n• Gastos elevados\n\n_Para desativar, diga: \"desativar alertas\"_";
+      return '🔔 Notificações do WhatsApp ativadas!\n\nVocê receberá alertas sobre:\n• Contas próximas do vencimento\n• Gastos elevados\n\n_Para desativar, diga: "desativar alertas"_';
     } else {
-      return "🔕 Notificações do WhatsApp desativadas.\n\n_Para reativar, diga: \"ativar notificações\"_";
+      return '🔕 Notificações do WhatsApp desativadas.\n\n_Para reativar, diga: "ativar notificações"_';
     }
   } catch (error) {
     console.error("Erro ao alternar notificações:", error);
@@ -23,7 +23,9 @@ export async function handleNotificationToggle(
   }
 }
 
-export async function checkNotificationSettings(userId: string): Promise<boolean> {
+export async function checkNotificationSettings(
+  userId: string,
+): Promise<boolean> {
   try {
     const settings = await getUserSettings(userId);
     return settings.whatsappNotifications;

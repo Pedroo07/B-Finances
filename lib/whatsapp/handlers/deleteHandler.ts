@@ -29,15 +29,29 @@ function isPendingDeleteAction(value: unknown): value is PendingDeleteAction {
   if (!value || typeof value !== "object" || !("type" in value)) return false;
 
   const action = value as Record<string, unknown>;
-  if (action.type === "delete_transaction" || action.type === "delete_card_transaction") {
-    return typeof action.transactionId === "string" && typeof action.description === "string";
+  if (
+    action.type === "delete_transaction" ||
+    action.type === "delete_card_transaction"
+  ) {
+    return (
+      typeof action.transactionId === "string" &&
+      typeof action.description === "string"
+    );
   }
 
-  if (action.type === "delete_transaction_multiple" || action.type === "delete_card_transaction_multiple") {
-    return Array.isArray(action.transactions) && action.transactions.every(
-      (item) => item && typeof item === "object"
-        && typeof (item as Record<string, unknown>).id === "string"
-        && typeof (item as Record<string, unknown>).description === "string"
+  if (
+    action.type === "delete_transaction_multiple" ||
+    action.type === "delete_card_transaction_multiple"
+  ) {
+    return (
+      Array.isArray(action.transactions) &&
+      action.transactions.every(
+        (item) =>
+          item &&
+          typeof item === "object" &&
+          typeof (item as Record<string, unknown>).id === "string" &&
+          typeof (item as Record<string, unknown>).description === "string",
+      )
     );
   }
 
@@ -47,26 +61,35 @@ function isPendingDeleteAction(value: unknown): value is PendingDeleteAction {
 export async function handleDelete(
   userId: string,
   intent: IntentType,
-  parameters: Record<string, unknown>
-): Promise<{ message: string; needsConfirmation: boolean; pendingAction?: PendingDeleteAction }> {
+  parameters: Record<string, unknown>,
+): Promise<{
+  message: string;
+  needsConfirmation: boolean;
+  pendingAction?: PendingDeleteAction;
+}> {
   try {
-    const description = typeof parameters.description === "string"
-      ? parameters.description
-      : "";
+    const description =
+      typeof parameters.description === "string" ? parameters.description : "";
 
     if (!description) {
       return {
-        message: "❌ Por favor, especifique qual transação você quer deletar (ex: 'deletar gasto com pizza').",
+        message:
+          "❌ Por favor, especifique qual transação você quer deletar (ex: 'deletar gasto com pizza').",
         needsConfirmation: false,
       };
     }
 
     if (intent === IntentType.DELETE_TRANSACTION) {
-      const transactions = await findTransactionByDescription(userId, description, 30);
-      
+      const transactions = await findTransactionByDescription(
+        userId,
+        description,
+        30,
+      );
+
       if (transactions.length === 0) {
         return {
-          message: "❌ Nenhuma transação encontrada com essa descrição nos últimos 30 dias.",
+          message:
+            "❌ Nenhuma transação encontrada com essa descrição nos últimos 30 dias.",
           needsConfirmation: false,
         };
       }
@@ -88,17 +111,25 @@ export async function handleDelete(
         needsConfirmation: true,
         pendingAction: {
           type: "delete_transaction_multiple",
-          transactions: transactions.map((t) => ({ id: t.id, description: t.description })),
+          transactions: transactions.map((t) => ({
+            id: t.id,
+            description: t.description,
+          })),
         },
       };
     }
 
     if (intent === IntentType.DELETE_CARD_TRANSACTION) {
-      const transactions = await findCardTransactionByDescription(userId, description, 30);
-      
+      const transactions = await findCardTransactionByDescription(
+        userId,
+        description,
+        30,
+      );
+
       if (transactions.length === 0) {
         return {
-          message: "❌ Nenhuma transação de cartão encontrada com essa descrição nos últimos 30 dias.",
+          message:
+            "❌ Nenhuma transação de cartão encontrada com essa descrição nos últimos 30 dias.",
           needsConfirmation: false,
         };
       }
@@ -120,7 +151,10 @@ export async function handleDelete(
         needsConfirmation: true,
         pendingAction: {
           type: "delete_card_transaction_multiple",
-          transactions: transactions.map((t) => ({ id: t.id, description: t.description })),
+          transactions: transactions.map((t) => ({
+            id: t.id,
+            description: t.description,
+          })),
         },
       };
     }
@@ -141,14 +175,17 @@ export async function handleDelete(
 export async function confirmDelete(
   userId: string,
   pendingAction: unknown,
-  confirmation: string
+  confirmation: string,
 ): Promise<string> {
   try {
     if (!isPendingDeleteAction(pendingAction)) {
       return "❌ Ação pendente não reconhecida.";
     }
 
-    if (pendingAction.type === "delete_transaction" || pendingAction.type === "delete_card_transaction") {
+    if (
+      pendingAction.type === "delete_transaction" ||
+      pendingAction.type === "delete_card_transaction"
+    ) {
       const isConfirmed = confirmation.toLowerCase().includes("sim");
 
       if (!isConfirmed) {
@@ -170,7 +207,11 @@ export async function confirmDelete(
     ) {
       const selectedIndex = parseInt(confirmation) - 1;
 
-      if (isNaN(selectedIndex) || selectedIndex < 0 || selectedIndex >= pendingAction.transactions.length) {
+      if (
+        isNaN(selectedIndex) ||
+        selectedIndex < 0 ||
+        selectedIndex >= pendingAction.transactions.length
+      ) {
         return "❌ Número inválido. Exclusão cancelada.";
       }
 

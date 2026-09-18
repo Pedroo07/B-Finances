@@ -40,11 +40,12 @@ function formatPercent(value: number): string {
 }
 
 function periodSuffix(plan: FinancialPlan): string {
-  const card = plan.scope === "card"
-    ? plan.cardName
-      ? ` no cartao ${plan.cardName}`
-      : " nos cartoes"
-    : "";
+  const card =
+    plan.scope === "card"
+      ? plan.cardName
+        ? ` no cartao ${plan.cardName}`
+        : " nos cartoes"
+      : "";
   return card ? `${card} em ${plan.period.label}` : `em ${plan.period.label}`;
 }
 
@@ -167,8 +168,14 @@ function formatEntryLine(entry: FinancialEntry, index: number): string {
   return `${index + 1}. ${entry.description}: ${sign}${formatCurrency(entry.amount)} - ${formatDate(entry.date)} - ${categoryLabel(entry.category)}${source}`;
 }
 
-function entriesForList(plan: FinancialPlan, data: FinancialDataSet): FinancialEntry[] {
-  if (plan.goal === "income_listing" || plan.filters?.transactionType === "income") {
+function entriesForList(
+  plan: FinancialPlan,
+  data: FinancialDataSet,
+): FinancialEntry[] {
+  if (
+    plan.goal === "income_listing" ||
+    plan.filters?.transactionType === "income"
+  ) {
     return incomeEntries(data.transactions);
   }
 
@@ -184,7 +191,8 @@ function entriesForList(plan: FinancialPlan, data: FinancialDataSet): FinancialE
 
 function composeList(plan: FinancialPlan, data: FinancialDataSet) {
   const entries = sortEntriesByDate(entriesForList(plan, data));
-  const limit = plan.filters?.limit || (plan.goal === "income_listing" ? 20 : 10);
+  const limit =
+    plan.filters?.limit || (plan.goal === "income_listing" ? 20 : 10);
   const visibleEntries = entries.slice(0, limit);
   const total = entriesTotal(entries);
 
@@ -213,14 +221,20 @@ function composeList(plan: FinancialPlan, data: FinancialDataSet) {
   ];
 
   if (entries.length > visibleEntries.length) {
-    lines.push(`... e mais ${entries.length - visibleEntries.length} item(ns).`);
+    lines.push(
+      `... e mais ${entries.length - visibleEntries.length} item(ns).`,
+    );
   }
 
   return {
     reply: lines.join("\n"),
     resultContext: resultContext(
       plan,
-      plan.goal === "income_listing" ? "income" : plan.scope === "card" ? "card_expense" : "expense",
+      plan.goal === "income_listing"
+        ? "income"
+        : plan.scope === "card"
+          ? "card_expense"
+          : "expense",
       total,
       entries.length,
     ),
@@ -228,7 +242,10 @@ function composeList(plan: FinancialPlan, data: FinancialDataSet) {
 }
 
 function billsTotal(data: FinancialDataSet): number {
-  return data.bills.reduce((total, bill) => total + Math.abs(safeAmount(bill.amount)), 0);
+  return data.bills.reduce(
+    (total, bill) => total + Math.abs(safeAmount(bill.amount)),
+    0,
+  );
 }
 
 function investmentsTotal(data: FinancialDataSet): number {
@@ -332,7 +349,9 @@ function composeYearSummary(plan: FinancialPlan, data: FinancialDataSet) {
   const highestExpenseMonth = [...monthly].sort(
     (a, b) => b.expenses - a.expenses,
   )[0];
-  const bestBalanceMonth = [...monthly].sort((a, b) => b.balance - a.balance)[0];
+  const bestBalanceMonth = [...monthly].sort(
+    (a, b) => b.balance - a.balance,
+  )[0];
   const extraLines = ["", "*Destaques do ano:*"];
 
   if (highestExpenseMonth) {
@@ -353,11 +372,7 @@ function composeYearSummary(plan: FinancialPlan, data: FinancialDataSet) {
 
   return {
     reply: `${summary.reply}${extraLines.join("\n")}`,
-    resultContext: resultContext(
-      plan,
-      "summary",
-      summary.resultContext.total,
-    ),
+    resultContext: resultContext(plan, "summary", summary.resultContext.total),
   };
 }
 
@@ -399,7 +414,10 @@ function composeSavingAdvice(plan: FinancialPlan, data: FinancialDataSet) {
   lines.push("", "Voce pode comecar revisando:");
 
   const suggestions: string[] = [];
-  const recurringTotal = recurring.reduce((total, item) => total + item.amount, 0);
+  const recurringTotal = recurring.reduce(
+    (total, item) => total + item.amount,
+    0,
+  );
   if (recurringTotal > 0) {
     const topRecurring = recurring
       .slice(0, 3)
@@ -411,7 +429,9 @@ function composeSavingAdvice(plan: FinancialPlan, data: FinancialDataSet) {
   }
 
   if (food > 0) {
-    suggestions.push(`Alimentacao/delivery: ${formatCurrency(food)} no periodo.`);
+    suggestions.push(
+      `Alimentacao/delivery: ${formatCurrency(food)} no periodo.`,
+    );
   }
 
   if (leisure > 0) {
@@ -423,7 +443,9 @@ function composeSavingAdvice(plan: FinancialPlan, data: FinancialDataSet) {
   }
 
   if (subscriptions > 0) {
-    suggestions.push(`Assinaturas/mensalidades: ${formatCurrency(subscriptions)} no periodo.`);
+    suggestions.push(
+      `Assinaturas/mensalidades: ${formatCurrency(subscriptions)} no periodo.`,
+    );
   }
 
   if (unusual.length > 0) {
@@ -459,7 +481,11 @@ function composeSavingAdvice(plan: FinancialPlan, data: FinancialDataSet) {
 
   return {
     reply: lines.join("\n"),
-    resultContext: resultContext(plan, "expense", entriesTotal(currentExpenses)),
+    resultContext: resultContext(
+      plan,
+      "expense",
+      entriesTotal(currentExpenses),
+    ),
   };
 }
 
@@ -478,7 +504,8 @@ export function composeFinancialResponse(
 
   if (plan.responseLevel === "direct") return composeDirect(plan, data);
   if (plan.responseLevel === "list") return composeList(plan, data);
-  if (plan.responseLevel === "consulting") return composeSavingAdvice(plan, data);
+  if (plan.responseLevel === "consulting")
+    return composeSavingAdvice(plan, data);
   if (plan.goal === "year_summary") return composeYearSummary(plan, data);
   if (plan.goal === "card_expenses") return composeCardSummary(plan, data);
   return composeFinancialSummary(plan, data);

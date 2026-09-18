@@ -1,7 +1,4 @@
-import {
-  formatBrasiliaDate,
-  getBrasiliaDate,
-} from "../../utils/brasiliaDate";
+import { formatBrasiliaDate, getBrasiliaDate } from "../../utils/brasiliaDate";
 
 function normalizeText(value: string): string {
   return value
@@ -64,10 +61,6 @@ function relativeDate(now: Date, offsetInDays: number): string {
   return formatLocalDate(brasiliaDate);
 }
 
-/**
- * Resolve a data de uma nova transação sem confiar no dia UTC inferido pelo
- * modelo. Na ausência de referência explícita, sempre usa o dia de Brasília.
- */
 export function resolveCreationDate(
   messageText: string,
   modelDate?: string | null,

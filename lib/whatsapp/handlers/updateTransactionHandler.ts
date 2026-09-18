@@ -230,7 +230,9 @@ function parseField(messageText: string): EditableTransactionField | null {
   if (/\b(valor|preco|quantia)\b/.test(normalized)) return "amount";
   if (/\b(data|dia)\b/.test(normalized)) return "date";
   if (/\b(categoria)\b/.test(normalized)) return "category";
-  if (/\b(metodo|pagamento|forma de pagar|forma de pagamento)\b/.test(normalized)) {
+  if (
+    /\b(metodo|pagamento|forma de pagar|forma de pagamento)\b/.test(normalized)
+  ) {
     return "paymentMethod";
   }
   return null;
@@ -263,14 +265,24 @@ function parseDate(messageText: string): string | null {
   }
 
   const isoMatch = messageText.match(/\b(\d{4})-(\d{1,2})-(\d{1,2})\b/);
-  const brMatch = messageText.match(/\b(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})\b/);
+  const brMatch = messageText.match(
+    /\b(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})\b/,
+  );
   const year = isoMatch
     ? Number(isoMatch[1])
     : brMatch
       ? Number(brMatch[3].length === 2 ? `20${brMatch[3]}` : brMatch[3])
       : NaN;
-  const month = isoMatch ? Number(isoMatch[2]) : brMatch ? Number(brMatch[2]) : NaN;
-  const day = isoMatch ? Number(isoMatch[3]) : brMatch ? Number(brMatch[1]) : NaN;
+  const month = isoMatch
+    ? Number(isoMatch[2])
+    : brMatch
+      ? Number(brMatch[2])
+      : NaN;
+  const day = isoMatch
+    ? Number(isoMatch[3])
+    : brMatch
+      ? Number(brMatch[1])
+      : NaN;
   const candidate = new Date(year, month - 1, day);
 
   if (
@@ -288,7 +300,10 @@ function parseDate(messageText: string): string | null {
 function parseCategory(messageText: string): string | null {
   const normalized = normalizeText(messageText);
   for (const alias of CATEGORY_ALIASES) {
-    if (alias.category === normalized || alias.terms.some((term) => normalized.includes(term))) {
+    if (
+      alias.category === normalized ||
+      alias.terms.some((term) => normalized.includes(term))
+    ) {
       return alias.category;
     }
   }
@@ -302,7 +317,8 @@ function parsePaymentMethod(messageText: string): {
   const normalized = normalizeText(messageText);
   if (/\bpix\b/.test(normalized)) return { method: "pix" };
   if (/\b(dinheiro|especie)\b/.test(normalized)) return { method: "cash" };
-  if (/\b(debito|cartao de debito)\b/.test(normalized)) return { method: "debit" };
+  if (/\b(debito|cartao de debito)\b/.test(normalized))
+    return { method: "debit" };
   if (/\b(credito|cartao|credit card)\b/.test(normalized)) {
     const cardName = findCreditCardNameInText(messageText) ?? undefined;
     return { method: "credit_card", cardName };
@@ -336,8 +352,12 @@ async function changePaymentMethod(
 
   const batch = db.batch();
   if (target.source === "transaction") {
-    const sourceRef = db.collection(`users/${userId}/transactions`).doc(target.id);
-    const destinationRef = db.collection(`users/${userId}/cardTransactions`).doc();
+    const sourceRef = db
+      .collection(`users/${userId}/transactions`)
+      .doc(target.id);
+    const destinationRef = db
+      .collection(`users/${userId}/cardTransactions`)
+      .doc();
     batch.set(destinationRef, {
       description: target.description,
       category: target.category ?? "other",
@@ -358,7 +378,9 @@ async function changePaymentMethod(
       createdAt: new Date().toISOString(),
     };
   } else {
-    const sourceRef = db.collection(`users/${userId}/cardTransactions`).doc(target.id);
+    const sourceRef = db
+      .collection(`users/${userId}/cardTransactions`)
+      .doc(target.id);
     const destinationRef = db.collection(`users/${userId}/transactions`).doc();
     batch.set(destinationRef, {
       description: target.description,
@@ -401,7 +423,8 @@ async function applyUpdate(
     if (!payment) {
       return {
         completed: false,
-        message: "Não reconheci esse método. Responda com Pix, dinheiro, débito ou cartão de crédito.",
+        message:
+          "Não reconheci esse método. Responda com Pix, dinheiro, débito ou cartão de crédito.",
         pendingAction: createPendingUpdateAction({
           step: "value",
           target,
@@ -423,7 +446,11 @@ async function applyUpdate(
       };
     }
 
-    if (payment.method === "credit_card" && target.source === "transaction" && !payment.cardName) {
+    if (
+      payment.method === "credit_card" &&
+      target.source === "transaction" &&
+      !payment.cardName
+    ) {
       return {
         completed: false,
         message: "Qual cartão de crédito devo usar? Informe o nome do cartão.",
@@ -450,11 +477,15 @@ async function applyUpdate(
   }
 
   if (value === null || value === "") {
-    const hints: Record<Exclude<EditableTransactionField, "paymentMethod">, string> = {
+    const hints: Record<
+      Exclude<EditableTransactionField, "paymentMethod">,
+      string
+    > = {
       description: "Informe uma descrição válida.",
       amount: "Informe um valor maior que zero, por exemplo: 25,90.",
       date: "Informe uma data válida, por exemplo: hoje ou 12/07/2026.",
-      category: "Informe uma categoria válida, por exemplo: alimentação ou transporte.",
+      category:
+        "Informe uma categoria válida, por exemplo: alimentação ou transporte.",
     };
     return {
       completed: false,
@@ -472,7 +503,10 @@ async function applyUpdate(
   if (field === "date") patch.date = String(value);
   if (field === "category") patch.category = String(value);
   if (field === "amount") {
-    patch.amount = target.type === "income" ? Math.abs(Number(value)) : -Math.abs(Number(value));
+    patch.amount =
+      target.type === "income"
+        ? Math.abs(Number(value))
+        : -Math.abs(Number(value));
   }
 
   if (target.source === "card_transaction") {
@@ -480,7 +514,6 @@ async function applyUpdate(
   } else {
     await updateTransaction(userId, target.id, patch);
   }
-
 
   const updatedTarget: UpdateTransactionTarget = {
     ...target,
@@ -573,10 +606,8 @@ export function resolveQueryTransactionSelection(
     return { expired: true, valid: false };
   }
 
-  const target = selectCandidateByNumber(
-    pendingAction.candidates,
-    messageText,
-  ) ?? undefined;
+  const target =
+    selectCandidateByNumber(pendingAction.candidates, messageText) ?? undefined;
   return { target, expired: false, valid: Boolean(target) };
 }
 
@@ -632,7 +663,8 @@ export async function handleUpdateTransactionPendingAction(
   if (!target) {
     return {
       completed: true,
-      message: "Não encontrei a transação que deveria ser alterada. Tente novamente.",
+      message:
+        "Não encontrei a transação que deveria ser alterada. Tente novamente.",
     };
   }
 
@@ -652,12 +684,7 @@ export async function handleUpdateTransactionPendingAction(
       extractInlineValue(messageText, field),
     );
     if (nextStep.kind === "apply") {
-      return applyUpdate(
-        userId,
-        target,
-        field,
-        valueAsMessage(nextStep.value),
-      );
+      return applyUpdate(userId, target, field, valueAsMessage(nextStep.value));
     }
 
     return {
@@ -677,7 +704,8 @@ export async function handleUpdateTransactionPendingAction(
     if (!cardName) {
       return {
         completed: false,
-        message: "Não reconheci esse cartão. Informe o nome do cartão cadastrado.",
+        message:
+          "Não reconheci esse cartão. Informe o nome do cartão cadastrado.",
         pendingAction,
       };
     }
@@ -698,7 +726,8 @@ export async function handleUpdateTransactionPendingAction(
   if (!isUpdateField(field)) {
     return {
       completed: true,
-      message: "Não encontrei o campo que deveria ser alterado. Tente novamente.",
+      message:
+        "Não encontrei o campo que deveria ser alterado. Tente novamente.",
     };
   }
 

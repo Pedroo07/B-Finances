@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
 import { AuthProvider } from "@/context/AuthContext";
-import {Montserrat} from '@next/font/google'
+import { Montserrat } from "@next/font/google";
 import Providers from "./providers";
 import "./globals.css";
 
 export const metadata: Metadata = {
   title: "B Finance | Sistema Financeiro",
-  description: "Gerencie receitas, despesas, transações e cartões em um único painel.",
+  description:
+    "Gerencie receitas, despesas, transações e cartões em um único painel.",
   icons: {
     icon: "/favicon.svg",
     shortcut: "/favicon.svg",
@@ -14,8 +15,8 @@ export const metadata: Metadata = {
 };
 
 const montserrat = Montserrat({
-  subsets: ['latin'],
-  variable: '--font-mont', 
+  subsets: ["latin"],
+  variable: "--font-mont",
 });
 
 export default function RootLayout({
@@ -25,11 +26,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pt-BR" suppressHydrationWarning>
-      <body className={`${montserrat.className} page-shell`} suppressHydrationWarning>
+      <body
+        className={`${montserrat.className} page-shell`}
+        suppressHydrationWarning
+      >
         <Providers>
-          <AuthProvider>
-            {children}
-          </AuthProvider>
+          <AuthProvider>{children}</AuthProvider>
         </Providers>
       </body>
     </html>

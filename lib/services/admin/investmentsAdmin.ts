@@ -21,9 +21,7 @@ export type Investment = InvestmentDto & {
 };
 
 export async function getInvestments(userId: string): Promise<Investment[]> {
-  const snapshot = await db
-    .collection(`users/${userId}/investments`)
-    .get();
+  const snapshot = await db.collection(`users/${userId}/investments`).get();
 
   return snapshot.docs.map((doc) => ({
     id: doc.id,
@@ -33,11 +31,9 @@ export async function getInvestments(userId: string): Promise<Investment[]> {
 
 export async function createInvestment(
   userId: string,
-  data: InvestmentDto
+  data: InvestmentDto,
 ): Promise<Investment> {
-  const docRef = await db
-    .collection(`users/${userId}/investments`)
-    .add(data);
+  const docRef = await db.collection(`users/${userId}/investments`).add(data);
 
   return {
     id: docRef.id,
@@ -48,9 +44,11 @@ export async function createInvestment(
 export async function redeemInvestmentBalance(
   userId: string,
   investmentId: string,
-  amount: number
+  amount: number,
 ): Promise<Investment> {
-  const investmentRef = db.collection(`users/${userId}/investments`).doc(investmentId);
+  const investmentRef = db
+    .collection(`users/${userId}/investments`)
+    .doc(investmentId);
   const investmentDoc = await investmentRef.get();
 
   if (!investmentDoc.exists) {
@@ -80,7 +78,7 @@ export async function redeemInvestmentBalance(
 
 export async function getInvestmentByCategory(
   userId: string,
-  category: string
+  category: string,
 ): Promise<Investment | null> {
   const snapshot = await db
     .collection(`users/${userId}/investments`)

@@ -8,12 +8,9 @@ import {
 } from "./conversationState";
 
 export async function getConversationState(
-  phoneNumber: string
+  phoneNumber: string,
 ): Promise<ConversationState | null> {
-  const doc = await db
-    .collection("whatsapp_sessions")
-    .doc(phoneNumber)
-    .get();
+  const doc = await db.collection("whatsapp_sessions").doc(phoneNumber).get();
 
   if (!doc.exists) return null;
 
@@ -24,7 +21,9 @@ export async function getConversationState(
 
   if (Date.now() > state.expiresAt) {
     await clearConversationState(phoneNumber);
-    console.log(`[ConversationState] Estado expirado para ${phoneNumber}. Limpo.`);
+    console.log(
+      `[ConversationState] Estado expirado para ${phoneNumber}. Limpo.`,
+    );
     return null;
   }
 
@@ -35,12 +34,14 @@ export async function createConversationState(
   phoneNumber: string,
   action: ConversationAction,
   initialData: Record<string, unknown> = {},
-  metadata: Record<string, unknown> = {}
+  metadata: Record<string, unknown> = {},
 ): Promise<{ state: ConversationState; question: string }> {
   const flow = CONVERSATION_FLOWS[action];
 
   if (!flow || flow.length === 0) {
-    throw new Error(`[ConversationState] Fluxo não definido para ação: ${action}`);
+    throw new Error(
+      `[ConversationState] Fluxo não definido para ação: ${action}`,
+    );
   }
 
   const nextStep = flow.find((step) => !(step.field in initialData));
@@ -63,14 +64,13 @@ export async function createConversationState(
     .set({ conversationState: state }, { merge: true });
 
   const question =
-    nextStep?.question ??
-    "✅ Dados coletados. Processando sua solicitação...";
+    nextStep?.question ?? "✅ Dados coletados. Processando sua solicitação...";
 
   console.log(
     `[ConversationState] Estado criado para ${phoneNumber}:`,
     action,
     "| Aguardando campo:",
-    state.awaitingField
+    state.awaitingField,
   );
 
   return { state, question };
@@ -79,7 +79,7 @@ export async function createConversationState(
 export async function advanceConversationState(
   phoneNumber: string,
   currentState: ConversationState,
-  userAnswer: string
+  userAnswer: string,
 ): Promise<{
   state: ConversationState;
   isComplete: boolean;
@@ -91,7 +91,7 @@ export async function advanceConversationState(
   if (currentState.awaitingField) {
     updatedData[currentState.awaitingField] = userAnswer;
   }
-  
+
   const nextStep = flow.find((step) => !(step.field in updatedData));
   const isComplete = !nextStep;
 
@@ -112,7 +112,7 @@ export async function advanceConversationState(
     `[ConversationState] Avançado para ${phoneNumber}:`,
     `campo "${currentState.awaitingField}" → "${userAnswer}"`,
     `| completo: ${isComplete}`,
-    isComplete ? "" : `| próximo: ${nextStep?.field}`
+    isComplete ? "" : `| próximo: ${nextStep?.field}`,
   );
 
   return {
@@ -123,7 +123,7 @@ export async function advanceConversationState(
 }
 
 export async function clearConversationState(
-  phoneNumber: string
+  phoneNumber: string,
 ): Promise<void> {
   await db
     .collection("whatsapp_sessions")
@@ -133,10 +133,9 @@ export async function clearConversationState(
   console.log(`[ConversationState] Estado limpo para ${phoneNumber}.`);
 }
 
-
 export async function updateConversationMetadata(
   phoneNumber: string,
-  metadata: Record<string, unknown>
+  metadata: Record<string, unknown>,
 ): Promise<void> {
   const current = await getConversationState(phoneNumber);
   if (!current) return;

@@ -300,7 +300,10 @@ function inferPeriodFromMessage(messageText: string): string | undefined {
 
   if (/\bfatura\b/.test(normalized)) return "current_invoice";
   if (/\bmes\s+passad[oa]\b/.test(normalized)) return "last_month";
-  if (/\bpassad[oa]\b/.test(normalized) && !/\b(semana|ano)\b/.test(normalized)) {
+  if (
+    /\bpassad[oa]\b/.test(normalized) &&
+    !/\b(semana|ano)\b/.test(normalized)
+  ) {
     return "last_month";
   }
   if (/\bhoje\b/.test(normalized)) return "today";
@@ -324,7 +327,11 @@ function inferTransactionTypeFromMessage(
     return "expense";
   }
 
-  if (/\b(receita|receitas|entrada|entradas|lucro|ganhei|recebi)\b/.test(normalized)) {
+  if (
+    /\b(receita|receitas|entrada|entradas|lucro|ganhei|recebi)\b/.test(
+      normalized,
+    )
+  ) {
     return "income";
   }
 
@@ -428,8 +435,7 @@ function applyShortTermMemoryToPlan(
   if (plan.action !== "execute") return plan;
 
   const toolName =
-    shouldKeepPreviousTool &&
-    plan.toolName !== latestContextualTurn.toolName
+    shouldKeepPreviousTool && plan.toolName !== latestContextualTurn.toolName
       ? latestContextualTurn.toolName
       : plan.toolName;
 

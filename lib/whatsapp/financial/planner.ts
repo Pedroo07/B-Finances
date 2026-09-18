@@ -169,13 +169,15 @@ function isContinuation(normalized: string): boolean {
 }
 
 function isFinancialCandidate(normalized: string): boolean {
-  return hasAny(normalized, [
-    /\b(resumo|balanco|financas|financeiro)\b/,
-    /\b(gastos?|despesas?|compras?|receitas?|ganhos?|saldo)\b/,
-    /\b(categoria|categorias|economizar|economia|consultoria|analise)\b/,
-    /\b(cartao|cartoes|credito)\b/,
-    /\b(transacoes|lancamentos)\b/,
-  ]) || findCreditCardNameInText(normalized) !== null;
+  return (
+    hasAny(normalized, [
+      /\b(resumo|balanco|financas|financeiro)\b/,
+      /\b(gastos?|despesas?|compras?|receitas?|ganhos?|saldo)\b/,
+      /\b(categoria|categorias|economizar|economia|consultoria|analise)\b/,
+      /\b(cartao|cartoes|credito)\b/,
+      /\b(transacoes|lancamentos)\b/,
+    ]) || findCreditCardNameInText(normalized) !== null
+  );
 }
 
 function detectScope(
@@ -184,14 +186,19 @@ function detectScope(
   goal: FinancialGoal,
   previousScope?: FinancialScope,
 ): FinancialScope {
-  if (/\b(nao do cartao|do geral|geral|financas|financeiro|tudo|todos)\b/.test(normalized)) {
+  if (
+    /\b(nao do cartao|do geral|geral|financas|financeiro|tudo|todos)\b/.test(
+      normalized,
+    )
+  ) {
     return "full_finances";
   }
 
   if (
     cardName ||
     /\b(cartao|cartoes|credito)\b/.test(normalized) ||
-    (previousScope === "card" && !/\b(geral|financas|financeiro)\b/.test(normalized))
+    (previousScope === "card" &&
+      !/\b(geral|financas|financeiro)\b/.test(normalized))
   ) {
     return "card";
   }
@@ -266,7 +273,11 @@ function classifyGoal(
     return "largest_expense";
   }
 
-  if (hasAny(normalized, [/\bquanto\b.*\b(ganhei|recebi|receita|receitas|entrada)\b/])) {
+  if (
+    hasAny(normalized, [
+      /\bquanto\b.*\b(ganhei|recebi|receita|receitas|entrada)\b/,
+    ])
+  ) {
     return "income_total";
   }
 
@@ -274,7 +285,10 @@ function classifyGoal(
     return "expense_total";
   }
 
-  if (scope === "card" && hasAny(normalized, [/\b(gastos?|compras?|despesas?)\b/])) {
+  if (
+    scope === "card" &&
+    hasAny(normalized, [/\b(gastos?|compras?|despesas?)\b/])
+  ) {
     return "card_expenses";
   }
 
@@ -282,7 +296,15 @@ function classifyGoal(
     return "balance";
   }
 
-  if (hasAny(normalized, [/\bresumo financeiro\b/, /\bcomo estao minhas financas\b/, /\bminhas financas\b/, /\bcomo foi meu mes\b/, /\bbalanco do mes\b/])) {
+  if (
+    hasAny(normalized, [
+      /\bresumo financeiro\b/,
+      /\bcomo estao minhas financas\b/,
+      /\bminhas financas\b/,
+      /\bcomo foi meu mes\b/,
+      /\bbalanco do mes\b/,
+    ])
+  ) {
     return period.type === "current_year" ||
       period.type === "specific_year" ||
       period.type === "last_year"
@@ -307,7 +329,8 @@ function responseLevelForGoal(
   normalized: string,
 ): ResponseLevel {
   if (goal === "saving_advice") return "consulting";
-  if (goal === "income_listing" || goal === "transaction_listing") return "list";
+  if (goal === "income_listing" || goal === "transaction_listing")
+    return "list";
   if (
     goal === "category_ranking" ||
     goal === "income_total" ||
@@ -470,7 +493,10 @@ export function planFinancialResponse(
     return null;
   }
 
-  if (/\bfatura\b/.test(normalized) && !/\b(gastos?|compras?|liste|listar|mostre)\b/.test(normalized)) {
+  if (
+    /\bfatura\b/.test(normalized) &&
+    !/\b(gastos?|compras?|liste|listar|mostre)\b/.test(normalized)
+  ) {
     return null;
   }
 

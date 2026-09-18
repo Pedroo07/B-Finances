@@ -30,7 +30,7 @@ export async function getUserSettings(userId: string): Promise<UserSettings> {
 
 export async function updateUserSettings(
   userId: string,
-  settings: Partial<UserSettings>
+  settings: Partial<UserSettings>,
 ): Promise<UserSettings> {
   const currentSettings = await getUserSettings(userId);
   const newSettings = { ...currentSettings, ...settings };
@@ -45,7 +45,7 @@ export async function updateUserSettings(
 
 export async function toggleWhatsAppNotifications(
   userId: string,
-  enabled: boolean
+  enabled: boolean,
 ): Promise<UserSettings> {
   return updateUserSettings(userId, { whatsappNotifications: enabled });
 }

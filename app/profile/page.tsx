@@ -1,24 +1,24 @@
-"use client"
+"use client";
 
-import Header from "@/app/dashboard/components/header"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Skeleton } from "@/components/ui/skeleton"
-import { AuthContext } from "@/context/AuthContext"
-import { auth, db } from "@/lib/firebase"
+import Header from "@/app/dashboard/components/header";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
+import { AuthContext } from "@/context/AuthContext";
+import { auth, db } from "@/lib/firebase";
 import {
   formatProfilePhone,
   getDefaultProfileName,
   getProfileNameStorageKey,
   PROFILE_NAME_UPDATED_EVENT,
-} from "@/lib/profile"
-import { FirebaseError } from "firebase/app"
+} from "@/lib/profile";
+import { FirebaseError } from "firebase/app";
 import {
   EmailAuthProvider,
   reauthenticateWithCredential,
   updatePassword,
-} from "firebase/auth"
-import { doc, getDoc } from "firebase/firestore"
+} from "firebase/auth";
+import { doc, getDoc } from "firebase/firestore";
 import {
   Check,
   Eye,
@@ -31,16 +31,10 @@ import {
   Save,
   ShieldCheck,
   UserRound,
-} from "lucide-react"
-import { useRouter } from "next/navigation"
-import {
-  FormEvent,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-} from "react"
-import { toast } from "sonner"
+} from "lucide-react";
+import { useRouter } from "next/navigation";
+import { FormEvent, useContext, useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 
 const passwordErrorMessages: Record<string, string> = {
   "auth/invalid-credential": "A senha atual está incorreta.",
@@ -52,174 +46,171 @@ const passwordErrorMessages: Record<string, string> = {
     "Não foi possível conectar. Verifique sua internet e tente novamente.",
   "auth/requires-recent-login":
     "Por segurança, entre novamente na sua conta antes de trocar a senha.",
-}
+};
 
 function getPasswordErrorMessage(error: unknown): string {
   if (error instanceof FirebaseError) {
     return (
-      passwordErrorMessages[error.code] ??
-      "Não foi possível alterar a senha."
-    )
+      passwordErrorMessages[error.code] ?? "Não foi possível alterar a senha."
+    );
   }
-  return "Não foi possível alterar a senha."
+  return "Não foi possível alterar a senha.";
 }
 
 export default function ProfilePage() {
-  const { user, loading } = useContext(AuthContext)
-  const router = useRouter()
-  const [profileName, setProfileName] = useState("")
-  const [savedProfileName, setSavedProfileName] = useState("")
-  const [phoneNumber, setPhoneNumber] = useState("Não informado")
-  const [phoneUserId, setPhoneUserId] = useState<string | null>(null)
-  const [phoneLoading, setPhoneLoading] = useState(true)
-  const [savingName, setSavingName] = useState(false)
-  const [currentPassword, setCurrentPassword] = useState("")
-  const [newPassword, setNewPassword] = useState("")
-  const [passwordConfirmation, setPasswordConfirmation] = useState("")
-  const [showPasswords, setShowPasswords] = useState(false)
-  const [changingPassword, setChangingPassword] = useState(false)
+  const { user, loading } = useContext(AuthContext);
+  const router = useRouter();
+  const [profileName, setProfileName] = useState("");
+  const [savedProfileName, setSavedProfileName] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("Não informado");
+  const [phoneUserId, setPhoneUserId] = useState<string | null>(null);
+  const [phoneLoading, setPhoneLoading] = useState(true);
+  const [savingName, setSavingName] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [passwordConfirmation, setPasswordConfirmation] = useState("");
+  const [showPasswords, setShowPasswords] = useState(false);
+  const [changingPassword, setChangingPassword] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) {
-      router.replace("/login")
+      router.replace("/login");
     }
-  }, [loading, router, user])
+  }, [loading, router, user]);
 
   useEffect(() => {
-    if (!user) return
+    if (!user) return;
 
     const initialSync = window.setTimeout(() => {
-      const defaultName = getDefaultProfileName(user.email)
-      let storedName: string | null = null
+      const defaultName = getDefaultProfileName(user.email);
+      let storedName: string | null = null;
       try {
         storedName = window.localStorage.getItem(
-          getProfileNameStorageKey(user.uid)
-        )
-      } catch {
-       
-      }
-      const nextName = storedName?.trim() || defaultName
-      setProfileName(nextName)
-      setSavedProfileName(nextName)
-    }, 0)
+          getProfileNameStorageKey(user.uid),
+        );
+      } catch {}
+      const nextName = storedName?.trim() || defaultName;
+      setProfileName(nextName);
+      setSavedProfileName(nextName);
+    }, 0);
 
-    return () => window.clearTimeout(initialSync)
-  }, [user])
+    return () => window.clearTimeout(initialSync);
+  }, [user]);
 
   useEffect(() => {
-    if (!user) return
+    if (!user) return;
 
-    let active = true
+    let active = true;
 
     const loadPhoneNumber = async () => {
       try {
-        const userDocument = await getDoc(doc(db, "users", user.uid))
-        if (!active) return
+        const userDocument = await getDoc(doc(db, "users", user.uid));
+        if (!active) return;
         setPhoneNumber(
           userDocument.exists()
             ? formatProfilePhone(userDocument.data().phoneNumber)
-            : "Não informado"
-        )
-        setPhoneUserId(user.uid)
+            : "Não informado",
+        );
+        setPhoneUserId(user.uid);
       } catch {
         if (active) {
-          setPhoneNumber("Não informado")
-          setPhoneUserId(user.uid)
+          setPhoneNumber("Não informado");
+          setPhoneUserId(user.uid);
         }
       } finally {
-        if (active) setPhoneLoading(false)
+        if (active) setPhoneLoading(false);
       }
-    }
+    };
 
-    void loadPhoneNumber()
+    void loadPhoneNumber();
     return () => {
-      active = false
-    }
-  }, [user])
+      active = false;
+    };
+  }, [user]);
 
   const initials = useMemo(() => {
-    const parts = profileName.trim().split(/\s+/).filter(Boolean)
-    if (!parts.length) return "U"
+    const parts = profileName.trim().split(/\s+/).filter(Boolean);
+    if (!parts.length) return "U";
     return parts
       .slice(0, 2)
       .map((part) => part[0]?.toUpperCase())
-      .join("")
-  }, [profileName])
+      .join("");
+  }, [profileName]);
 
   const handleSaveName = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    if (!user || savingName) return
+    event.preventDefault();
+    if (!user || savingName) return;
 
-    const normalizedName = profileName.trim()
+    const normalizedName = profileName.trim();
     if (!normalizedName) {
-      toast.error("Digite um nome para continuar.")
-      return
+      toast.error("Digite um nome para continuar.");
+      return;
     }
 
-    setSavingName(true)
+    setSavingName(true);
     try {
       window.localStorage.setItem(
         getProfileNameStorageKey(user.uid),
-        normalizedName
-      )
-      setProfileName(normalizedName)
-      setSavedProfileName(normalizedName)
-      window.dispatchEvent(new Event(PROFILE_NAME_UPDATED_EVENT))
-      toast.success("Nome atualizado neste navegador.")
+        normalizedName,
+      );
+      setProfileName(normalizedName);
+      setSavedProfileName(normalizedName);
+      window.dispatchEvent(new Event(PROFILE_NAME_UPDATED_EVENT));
+      toast.success("Nome atualizado neste navegador.");
     } catch {
       toast.error(
-        "O navegador bloqueou o armazenamento local. Não foi possível salvar o nome."
-      )
+        "O navegador bloqueou o armazenamento local. Não foi possível salvar o nome.",
+      );
     } finally {
-      setSavingName(false)
+      setSavingName(false);
     }
-  }
+  };
 
   const handleChangePassword = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    if (!user || changingPassword) return
+    event.preventDefault();
+    if (!user || changingPassword) return;
 
     if (!user.email) {
       toast.error(
-        "Sua conta não possui um e-mail disponível para confirmação."
-      )
-      return
+        "Sua conta não possui um e-mail disponível para confirmação.",
+      );
+      return;
     }
     if (!currentPassword || !newPassword || !passwordConfirmation) {
-      toast.error("Preencha todos os campos de senha.")
-      return
+      toast.error("Preencha todos os campos de senha.");
+      return;
     }
     if (newPassword.length < 6) {
-      toast.error("A nova senha deve ter pelo menos 6 caracteres.")
-      return
+      toast.error("A nova senha deve ter pelo menos 6 caracteres.");
+      return;
     }
     if (newPassword !== passwordConfirmation) {
-      toast.error("A confirmação não corresponde à nova senha.")
-      return
+      toast.error("A confirmação não corresponde à nova senha.");
+      return;
     }
     if (currentPassword === newPassword) {
-      toast.error("A nova senha deve ser diferente da senha atual.")
-      return
+      toast.error("A nova senha deve ser diferente da senha atual.");
+      return;
     }
 
-    setChangingPassword(true)
+    setChangingPassword(true);
     try {
       const credential = EmailAuthProvider.credential(
         user.email,
-        currentPassword
-      )
-      await reauthenticateWithCredential(user, credential)
-      await updatePassword(auth.currentUser ?? user, newPassword)
-      setCurrentPassword("")
-      setNewPassword("")
-      setPasswordConfirmation("")
-      toast.success("Senha alterada com sucesso.")
+        currentPassword,
+      );
+      await reauthenticateWithCredential(user, credential);
+      await updatePassword(auth.currentUser ?? user, newPassword);
+      setCurrentPassword("");
+      setNewPassword("");
+      setPasswordConfirmation("");
+      toast.success("Senha alterada com sucesso.");
     } catch (error) {
-      toast.error(getPasswordErrorMessage(error))
+      toast.error(getPasswordErrorMessage(error));
     } finally {
-      setChangingPassword(false)
+      setChangingPassword(false);
     }
-  }
+  };
 
   if (loading || !user) {
     return (
@@ -233,7 +224,7 @@ export default function ProfilePage() {
           </div>
         </main>
       </div>
-    )
+    );
   }
 
   return (
@@ -254,8 +245,8 @@ export default function ProfilePage() {
                 {savedProfileName}
               </h1>
               <p className="mt-2 text-sm leading-6 text-[#64748B] dark:text-[#94A3BB]">
-                Consulte seus dados, personalize como seu nome aparece e mantenha
-                sua conta protegida.
+                Consulte seus dados, personalize como seu nome aparece e
+                mantenha sua conta protegida.
               </p>
             </div>
           </div>
@@ -370,9 +361,7 @@ export default function ProfilePage() {
                     id="current-password"
                     type={showPasswords ? "text" : "password"}
                     value={currentPassword}
-                    onChange={(event) =>
-                      setCurrentPassword(event.target.value)
-                    }
+                    onChange={(event) => setCurrentPassword(event.target.value)}
                     autoComplete="current-password"
                     className="pr-12"
                   />
@@ -457,5 +446,5 @@ export default function ProfilePage() {
         </div>
       </main>
     </div>
-  )
+  );
 }

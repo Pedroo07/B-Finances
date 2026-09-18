@@ -156,14 +156,16 @@ A confiança (confidence) deve ser um número entre 0 e 1.`;
       throw new Error("Resposta do classificador não é um objeto JSON.");
     }
 
-    const parsedIntent = typeof parsed.intent === "string"
-      && Object.values(IntentType).includes(parsed.intent as IntentType)
-      ? parsed.intent as IntentType
-      : IntentType.UNKNOWN;
-    const parsedConfidence = typeof parsed.confidence === "number"
-      ? parsed.confidence
-      : 0.8;
-    const parsedParameters = isRecord(parsed.parameters) ? parsed.parameters : {};
+    const parsedIntent =
+      typeof parsed.intent === "string" &&
+      Object.values(IntentType).includes(parsed.intent as IntentType)
+        ? (parsed.intent as IntentType)
+        : IntentType.UNKNOWN;
+    const parsedConfidence =
+      typeof parsed.confidence === "number" ? parsed.confidence : 0.8;
+    const parsedParameters = isRecord(parsed.parameters)
+      ? parsed.parameters
+      : {};
 
     return {
       intent: parsedIntent,

@@ -16,9 +16,7 @@ import {
   getInvestments,
   type Investment,
 } from "@/lib/services/admin/investmentsAdmin";
-import {
-  previousComparablePeriod,
-} from "./periodResolver";
+import { previousComparablePeriod } from "./periodResolver";
 import type { FinancialPlan, ResolvedPeriod } from "./types";
 
 export type FinancialDataSet = {
@@ -146,32 +144,31 @@ export async function executeFinancialCapabilities(
       })
     : Promise.resolve([] as Investment[]);
 
-  const [
-    rawTransactions,
-    rawCardTransactions,
-    rawBills,
-    investments,
-  ] = await Promise.all([
-    transactionsPromise,
-    cardTransactionsPromise,
-    billsPromise,
-    investmentsPromise,
-  ]);
+  const [rawTransactions, rawCardTransactions, rawBills, investments] =
+    await Promise.all([
+      transactionsPromise,
+      cardTransactionsPromise,
+      billsPromise,
+      investmentsPromise,
+    ]);
 
   const periodTransactions = useHistoricalData
-    ? rawTransactions.filter((transaction) => isInPeriod(transaction.date, plan.period))
+    ? rawTransactions.filter((transaction) =>
+        isInPeriod(transaction.date, plan.period),
+      )
     : rawTransactions;
   const previousTransactions = rawTransactions.filter((transaction) =>
     isInPeriod(transaction.date, comparisonPeriod),
   );
 
-  const periodCardTransactions = useHistoricalData || !plan.cardName
-    ? rawCardTransactions.filter(
-        (transaction) =>
-          isInPeriod(transaction.date, plan.period) &&
-          (!plan.cardName || transaction.card === plan.cardName),
-      )
-    : rawCardTransactions;
+  const periodCardTransactions =
+    useHistoricalData || !plan.cardName
+      ? rawCardTransactions.filter(
+          (transaction) =>
+            isInPeriod(transaction.date, plan.period) &&
+            (!plan.cardName || transaction.card === plan.cardName),
+        )
+      : rawCardTransactions;
   const previousCardTransactions = rawCardTransactions.filter(
     (transaction) =>
       isInPeriod(transaction.date, comparisonPeriod) &&

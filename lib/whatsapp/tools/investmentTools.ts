@@ -18,7 +18,8 @@ export const addInvestmentTool: Tool<string> = {
   parameters: [
     {
       name: "category",
-      description: "Categoria ou nome do investimento, como CDB, Tesouro ou acoes.",
+      description:
+        "Categoria ou nome do investimento, como CDB, Tesouro ou acoes.",
       required: true,
     },
     {

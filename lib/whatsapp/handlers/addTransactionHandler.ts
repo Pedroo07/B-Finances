@@ -8,7 +8,10 @@ import {
   createCardTransaction,
 } from "@/lib/services/admin/cardTransactionsAdmin";
 import { createTransaction } from "@/lib/services/admin/transactionsAdmin";
-import { CREDIT_CARD_NAMES, CREDIT_CARD_NAMES_TEXT } from "@/lib/creditCards/catalog";
+import {
+  CREDIT_CARD_NAMES,
+  CREDIT_CARD_NAMES_TEXT,
+} from "@/lib/creditCards/catalog";
 import { formatCategoryWithEmoji } from "@/lib/whatsapp/categories";
 import { formatCurrency } from "../formatters/responseFormatter";
 import { resolveTransactionCategory } from "../commands/normalizers/categoryNormalizer";
@@ -24,19 +27,23 @@ const agentModels = [
   "gemini-3-flash",
 ];
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!); // Supondo que você já tenha o genAI configurado
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
-const creditCardNameUnion = CREDIT_CARD_NAMES.map((cardName) => `"${cardName}"`).join(" | ");
+const creditCardNameUnion = CREDIT_CARD_NAMES.map(
+  (cardName) => `"${cardName}"`,
+).join(" | ");
 
 async function generateContentWithFallback(
   promptPayload: PromptPayload,
-  systemInstruction?: string
+  systemInstruction?: string,
 ): Promise<string> {
   let ultimoErro: unknown = null;
 
   for (const agent of agentModels) {
     try {
-      const config: { model: string; systemInstruction?: string } = { model: agent };
+      const config: { model: string; systemInstruction?: string } = {
+        model: agent,
+      };
       if (systemInstruction) {
         config.systemInstruction = systemInstruction;
       }
@@ -45,21 +52,21 @@ async function generateContentWithFallback(
       return result.response.text();
     } catch (error) {
       console.warn(
-        `Falha ou limite atingido no modelo ${agent}. Tentando o próximo da lista...`
+        `Falha ou limite atingido no modelo ${agent}. Tentando o próximo da lista...`,
       );
       ultimoErro = error;
     }
   }
 
   throw new Error(
-    `Todos os modelos falharam. Último erro: ${ultimoErro instanceof Error ? ultimoErro.message : String(ultimoErro)}`
+    `Todos os modelos falharam. Último erro: ${ultimoErro instanceof Error ? ultimoErro.message : String(ultimoErro)}`,
   );
 }
 
 export async function handleAddTransaction(
   userId: string,
   messageText: string,
-  conversationHistory: string
+  conversationHistory: string,
 ): Promise<string> {
   const todayStr = formatBrasiliaDate();
 
@@ -133,7 +140,7 @@ export async function handleAddTransaction(
 
   const responseText = await generateContentWithFallback(
     messageText,
-    systemInstruction
+    systemInstruction,
   );
 
   const cleanJson = responseText
@@ -148,8 +155,7 @@ export async function handleAddTransaction(
     transactionData.category = resolveTransactionCategory({
       messageText,
       description: transactionData.description,
-      transactionType:
-        transactionData.type === "income" ? "income" : "expense",
+      transactionType: transactionData.type === "income" ? "income" : "expense",
       suggestedCategory: transactionData.category,
     });
     const installment = extractInstallmentMention(messageText);
@@ -158,7 +164,10 @@ export async function handleAddTransaction(
     if (installment.requested && installment.count === null) {
       return "Em quantas vezes foi parcelada a compra? Escolha entre 2x e 12x.";
     }
-    if (installment.requested && (installmentCount < 2 || installmentCount > 12)) {
+    if (
+      installment.requested &&
+      (installmentCount < 2 || installmentCount > 12)
+    ) {
       return "O parcelamento deve estar entre 2x e 12x.";
     }
 
@@ -197,7 +206,9 @@ export async function handleAddTransaction(
       messageLines.push(`💳 ${transactionData.card}`);
     }
     if (installmentCount > 1) {
-      messageLines.push(`📆 ${installmentCount}x de ${formatCurrency(Math.abs(transactionData.amount) / installmentCount)}`);
+      messageLines.push(
+        `📆 ${installmentCount}x de ${formatCurrency(Math.abs(transactionData.amount) / installmentCount)}`,
+      );
     }
 
     return messageLines.join("\n");

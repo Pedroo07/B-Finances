@@ -156,8 +156,13 @@ function getCurrentWeekStart(today: Date): Date {
   return addDays(today, diffToMonday);
 }
 
-function parseExplicitDate(normalizedQuery: string, today: Date): DateFilter | undefined {
-  const match = normalizedQuery.match(/\b(\d{1,2})[/-](\d{1,2})(?:[/-](\d{2,4}))?\b/);
+function parseExplicitDate(
+  normalizedQuery: string,
+  today: Date,
+): DateFilter | undefined {
+  const match = normalizedQuery.match(
+    /\b(\d{1,2})[/-](\d{1,2})(?:[/-](\d{2,4}))?\b/,
+  );
   if (!match) return undefined;
 
   const day = Number(match[1]);
@@ -178,7 +183,10 @@ function parseExplicitDate(normalizedQuery: string, today: Date): DateFilter | u
   return exactDateFilter(date);
 }
 
-function parseDateFilter(normalizedQuery: string, today = getBrasiliaDate()): DateFilter | undefined {
+function parseDateFilter(
+  normalizedQuery: string,
+  today = getBrasiliaDate(),
+): DateFilter | undefined {
   const explicitDate = parseExplicitDate(normalizedQuery, today);
   if (explicitDate) return explicitDate;
 
@@ -258,7 +266,10 @@ function parseDateFilter(normalizedQuery: string, today = getBrasiliaDate()): Da
   return undefined;
 }
 
-function parseAmount(rawQuery: string, normalizedQuery: string): number | undefined {
+function parseAmount(
+  rawQuery: string,
+  normalizedQuery: string,
+): number | undefined {
   const hasMoneySignal =
     /\br\$/.test(rawQuery.toLowerCase()) ||
     /\brs\b/.test(normalizedQuery) ||
@@ -363,7 +374,10 @@ function dateMatches(date: string, dateFilter: DateFilter): boolean {
   return date >= dateFilter.startDate && date <= dateFilter.endDate;
 }
 
-function textMatches(item: FindableTransaction, criteria: FindCriteria): boolean {
+function textMatches(
+  item: FindableTransaction,
+  criteria: FindCriteria,
+): boolean {
   if (criteria.tokens.length === 0) return true;
 
   const searchableParts = [
@@ -377,11 +391,16 @@ function textMatches(item: FindableTransaction, criteria: FindCriteria): boolean
     searchableParts.push(item.card);
   }
 
-  const searchableText = normalizeText(searchableParts.filter(Boolean).join(" "));
+  const searchableText = normalizeText(
+    searchableParts.filter(Boolean).join(" "),
+  );
   return criteria.tokens.every((token) => searchableText.includes(token));
 }
 
-function cardMatches(item: FindableTransaction, criteria: FindCriteria): boolean {
+function cardMatches(
+  item: FindableTransaction,
+  criteria: FindCriteria,
+): boolean {
   if (criteria.card) {
     const itemBankKey = getCreditCardBankKey(item.card ?? "");
     const criteriaBankKey = getCreditCardBankKey(criteria.card);
@@ -408,7 +427,10 @@ function matchesCriteria(
     return false;
   }
 
-  if (criteria.amount !== undefined && !amountMatches(item.amount, criteria.amount)) {
+  if (
+    criteria.amount !== undefined &&
+    !amountMatches(item.amount, criteria.amount)
+  ) {
     return false;
   }
 
@@ -507,10 +529,12 @@ export async function handleFindTransaction(
     getCardTransactions(userId),
   ]);
 
-  const matches = sortTransactions([
-    ...transactions.map(toFindableTransaction),
-    ...cardTransactions.map(toFindableCardTransaction),
-  ].filter((transaction) => matchesCriteria(transaction, criteria)));
+  const matches = sortTransactions(
+    [
+      ...transactions.map(toFindableTransaction),
+      ...cardTransactions.map(toFindableCardTransaction),
+    ].filter((transaction) => matchesCriteria(transaction, criteria)),
+  );
 
   if (matches.length === 0) {
     return {

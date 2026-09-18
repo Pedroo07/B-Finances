@@ -241,10 +241,7 @@ function descriptionFromTarget(targetText: string): string | null {
   normalized = normalized
     .replace(/\b\d{4}-\d{1,2}-\d{1,2}\b/g, " ")
     .replace(/\b\d{1,2}[/-]\d{1,2}(?:[/-]\d{2,4})?\b/g, " ")
-    .replace(
-      new RegExp(`(?:r\\$|rs)?\\s*${MONEY_VALUE_PATTERN}`, "g"),
-      " ",
-    )
+    .replace(new RegExp(`(?:r\\$|rs)?\\s*${MONEY_VALUE_PATTERN}`, "g"), " ")
     .replace(/\b(?:cartao(?:\s+de\s+credito)?|credito|fatura)\b/g, " ")
     .replace(/\s+/g, " ")
     .trim();

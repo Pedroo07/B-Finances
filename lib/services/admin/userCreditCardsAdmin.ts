@@ -11,7 +11,10 @@ import {
   getInvoicePeriodKeyForDueDate,
   isValidBillingDay,
 } from "@/lib/creditCards/billing";
-import { getCreditCardBankKey, getCreditCardName } from "@/lib/creditCards/catalog";
+import {
+  getCreditCardBankKey,
+  getCreditCardName,
+} from "@/lib/creditCards/catalog";
 
 export type CreditCardInvoicePayment = {
   amountPaid: number;
@@ -50,14 +53,17 @@ export type CardInvoiceSummary = {
   amount: number;
 };
 
-function getCreditCardInvoiceBillId(creditCardId: string, periodKey: string): string {
+function getCreditCardInvoiceBillId(
+  creditCardId: string,
+  periodKey: string,
+): string {
   return `credit-card-invoice_${creditCardId}_${periodKey}`;
 }
 
 async function findCreditCardInvoiceBill(
   userId: string,
   creditCardId: string,
-  periodKey: string
+  periodKey: string,
 ) {
   const snapshot = await db
     .collection(`users/${userId}/billAccounts`)
@@ -73,18 +79,26 @@ async function findCreditCardInvoiceBill(
       data: doc.data(),
     }))
     .sort((a, b) => {
-      if (a.data.source === "credit_card_invoice" && b.data.source !== "credit_card_invoice") return -1;
-      if (a.data.source !== "credit_card_invoice" && b.data.source === "credit_card_invoice") return 1;
-      return String(a.data.createdAt ?? "").localeCompare(String(b.data.createdAt ?? ""));
+      if (
+        a.data.source === "credit_card_invoice" &&
+        b.data.source !== "credit_card_invoice"
+      )
+        return -1;
+      if (
+        a.data.source !== "credit_card_invoice" &&
+        b.data.source === "credit_card_invoice"
+      )
+        return 1;
+      return String(a.data.createdAt ?? "").localeCompare(
+        String(b.data.createdAt ?? ""),
+      );
     })[0];
 }
 
 export async function getUserCreditCards(
-  userId: string
+  userId: string,
 ): Promise<UserCreditCard[]> {
-  const snapshot = await db
-    .collection(`users/${userId}/creditCards`)
-    .get();
+  const snapshot = await db.collection(`users/${userId}/creditCards`).get();
 
   return snapshot.docs.map((doc) => ({
     id: doc.id,
@@ -92,7 +106,10 @@ export async function getUserCreditCards(
   })) as UserCreditCard[];
 }
 
-async function resolveCreditCard(userId: string, cardName: string): Promise<ResolvedCreditCard> {
+async function resolveCreditCard(
+  userId: string,
+  cardName: string,
+): Promise<ResolvedCreditCard> {
   const bankKey = getCreditCardBankKey(cardName);
   const docId = bankKey ?? cardName;
   const transactionCardName = getCreditCardName(cardName);
@@ -115,7 +132,9 @@ async function resolveCreditCard(userId: string, cardName: string): Promise<Reso
   };
 }
 
-function assertCardBillingConfigured(card: UserCreditCard): asserts card is UserCreditCard & {
+function assertCardBillingConfigured(
+  card: UserCreditCard,
+): asserts card is UserCreditCard & {
   closingDay: number;
   dueDay: number;
 } {
@@ -128,7 +147,7 @@ async function getTransactionsForResolvedCard(
   userId: string,
   transactionCardName: string,
   startDate?: string,
-  endDate?: string
+  endDate?: string,
 ): Promise<CardTransaction[]> {
   const targetBankKey = getCreditCardBankKey(transactionCardName);
   const transactions = await getCardTransactions(userId);
@@ -151,18 +170,29 @@ async function resolvePaymentPeriodKey(
   card: UserCreditCard & { closingDay: number; dueDay: number },
   paymentDate: string,
   year?: number,
-  month?: number
+  month?: number,
 ): Promise<string> {
   if (year && month) {
     return getInvoicePeriodKey(year, month);
   }
 
-  const transactions = await getTransactionsForResolvedCard(userId, transactionCardName);
-  const totalsByPeriod = transactions.reduce<Record<string, number>>((totals, transaction) => {
-    const periodKey = getInvoicePeriodKeyForDate(transaction.date, card.closingDay, card.dueDay);
-    totals[periodKey] = (totals[periodKey] || 0) + Math.abs(transaction.amount);
-    return totals;
-  }, {});
+  const transactions = await getTransactionsForResolvedCard(
+    userId,
+    transactionCardName,
+  );
+  const totalsByPeriod = transactions.reduce<Record<string, number>>(
+    (totals, transaction) => {
+      const periodKey = getInvoicePeriodKeyForDate(
+        transaction.date,
+        card.closingDay,
+        card.dueDay,
+      );
+      totals[periodKey] =
+        (totals[periodKey] || 0) + Math.abs(transaction.amount);
+      return totals;
+    },
+    {},
+  );
 
   const openPeriods = Object.entries(totalsByPeriod)
     .map(([periodKey, total]) => ({
@@ -173,7 +203,9 @@ async function resolvePaymentPeriodKey(
     .filter(({ amount }) => amount > 0.01)
     .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
 
-  const nextDuePeriod = openPeriods.find(({ dueDate }) => dueDate >= paymentDate);
+  const nextDuePeriod = openPeriods.find(
+    ({ dueDate }) => dueDate >= paymentDate,
+  );
   if (nextDuePeriod) {
     return nextDuePeriod.periodKey;
   }
@@ -183,14 +215,18 @@ async function resolvePaymentPeriodKey(
     return latestOpenPeriod.periodKey;
   }
 
-  return getInvoicePeriodKeyForDueDate(paymentDate, card.closingDay, card.dueDay);
+  return getInvoicePeriodKeyForDueDate(
+    paymentDate,
+    card.closingDay,
+    card.dueDay,
+  );
 }
 
 export async function getCardInvoiceAmount(
   userId: string,
   cardName: string,
   year: number,
-  month: number
+  month: number,
 ): Promise<number> {
   return (await getCardInvoiceSummary(userId, cardName, year, month)).amount;
 }
@@ -201,22 +237,29 @@ export async function getCardInvoiceSummary(
   year: number,
   month: number,
 ): Promise<CardInvoiceSummary> {
-  const { card, transactionCardName } = await resolveCreditCard(userId, cardName);
+  const { card, transactionCardName } = await resolveCreditCard(
+    userId,
+    cardName,
+  );
   assertCardBillingConfigured(card);
 
   const periodKey = getInvoicePeriodKey(year, month);
-  const { startDate, endDate } = getInvoiceDateRange(periodKey, card.closingDay, card.dueDay);
+  const { startDate, endDate } = getInvoiceDateRange(
+    periodKey,
+    card.closingDay,
+    card.dueDay,
+  );
 
   const transactions = await getTransactionsForResolvedCard(
     userId,
     transactionCardName,
     startDate,
-    endDate
+    endDate,
   );
 
   const total = transactions.reduce(
     (sum, transaction) => sum + Math.abs(transaction.amount),
-    0
+    0,
   );
 
   const payment = card.invoices?.[periodKey];
@@ -233,31 +276,34 @@ export async function getCardInvoiceSummary(
 export async function getCurrentCardInvoiceTransactions(
   userId: string,
   cardName: string,
-  todayDate: string = new Date().toISOString().split("T")[0]
+  todayDate: string = new Date().toISOString().split("T")[0],
 ): Promise<CardInvoiceTransactionsResult> {
-  const { card, transactionCardName } = await resolveCreditCard(userId, cardName);
+  const { card, transactionCardName } = await resolveCreditCard(
+    userId,
+    cardName,
+  );
   assertCardBillingConfigured(card);
 
   const periodKey = await resolvePaymentPeriodKey(
     userId,
     transactionCardName,
     card,
-    todayDate
+    todayDate,
   );
   const { startDate, endDate } = getInvoiceDateRange(
     periodKey,
     card.closingDay,
-    card.dueDay
+    card.dueDay,
   );
   const transactions = await getTransactionsForResolvedCard(
     userId,
     transactionCardName,
     startDate,
-    endDate
+    endDate,
   );
   const total = transactions.reduce(
     (sum, transaction) => sum + Math.abs(transaction.amount),
-    0
+    0,
   );
   const paidAmount = card.invoices?.[periodKey]?.amountPaid || 0;
 
@@ -277,9 +323,12 @@ export async function payCardInvoice(
   cardName: string,
   amount: number,
   paymentDate: string,
-  options: { year?: number; month?: number } = {}
+  options: { year?: number; month?: number } = {},
 ): Promise<void> {
-  const { docId, transactionCardName, card } = await resolveCreditCard(userId, cardName);
+  const { docId, transactionCardName, card } = await resolveCreditCard(
+    userId,
+    cardName,
+  );
   assertCardBillingConfigured(card);
 
   const periodKey = await resolvePaymentPeriodKey(
@@ -288,14 +337,17 @@ export async function payCardInvoice(
     card,
     paymentDate,
     options.year,
-    options.month
+    options.month,
   );
 
-  const existingInvoiceBill = await findCreditCardInvoiceBill(userId, docId, periodKey);
-  const invoiceBillId = existingInvoiceBill?.id ?? getCreditCardInvoiceBillId(docId, periodKey);
-  const transactionRef = db
-    .collection(`users/${userId}/transactions`)
-    .doc();
+  const existingInvoiceBill = await findCreditCardInvoiceBill(
+    userId,
+    docId,
+    periodKey,
+  );
+  const invoiceBillId =
+    existingInvoiceBill?.id ?? getCreditCardInvoiceBillId(docId, periodKey);
+  const transactionRef = db.collection(`users/${userId}/transactions`).doc();
   const cardRef = db.collection(`users/${userId}/creditCards`).doc(docId);
   const billRef = db
     .collection(`users/${userId}/billAccounts`)
@@ -313,23 +365,31 @@ export async function payCardInvoice(
     billAccountId: invoiceBillId,
   });
 
-  batch.set(cardRef, {
-    bankKey: card.bankKey ?? docId,
-    invoices: {
-      [periodKey]: {
-        amountPaid: Math.abs(amount),
-        paidAt: paymentDate,
-        transactionId: transactionRef.id,
+  batch.set(
+    cardRef,
+    {
+      bankKey: card.bankKey ?? docId,
+      invoices: {
+        [periodKey]: {
+          amountPaid: Math.abs(amount),
+          paidAt: paymentDate,
+          transactionId: transactionRef.id,
+        },
       },
     },
-  }, { merge: true });
+    { merge: true },
+  );
 
   batch.set(
     billRef,
     {
-      description: existingBillData?.description ?? `Fatura do cartão ${getCreditCardName(card.bankKey ?? docId)}`,
+      description:
+        existingBillData?.description ??
+        `Fatura do cartão ${getCreditCardName(card.bankKey ?? docId)}`,
       amount: Math.abs(amount),
-      dueDate: existingBillData?.dueDate ?? getInvoiceDueDate(periodKey, card.closingDay, card.dueDay),
+      dueDate:
+        existingBillData?.dueDate ??
+        getInvoiceDueDate(periodKey, card.closingDay, card.dueDay),
       status: "paid",
       recurrence: "unique",
       creditCardId: docId,
@@ -338,9 +398,10 @@ export async function payCardInvoice(
       hiddenFromBills: existingBillData?.hiddenFromBills ?? false,
       paymentTransactionId: transactionRef.id,
       paidAt: paymentDate,
-      createdAt: existingBillData?.createdAt ?? new Date().toISOString().split("T")[0],
+      createdAt:
+        existingBillData?.createdAt ?? new Date().toISOString().split("T")[0],
     },
-    { merge: true }
+    { merge: true },
   );
 
   await batch.commit();
@@ -349,13 +410,16 @@ export async function payCardInvoice(
 export async function getAllCardInvoices(
   userId: string,
   year: number,
-  month: number
+  month: number,
 ): Promise<CardInvoiceSummary[]> {
   const cards = await getUserCreditCards(userId);
   const results: CardInvoiceSummary[] = [];
 
   for (const card of cards) {
-    if (!isValidBillingDay(card.closingDay) || !isValidBillingDay(card.dueDay)) {
+    if (
+      !isValidBillingDay(card.closingDay) ||
+      !isValidBillingDay(card.dueDay)
+    ) {
       continue;
     }
 
@@ -425,7 +489,10 @@ export function buildOpenCardInvoices(
   const results: CardInvoiceSummary[] = [];
 
   for (const card of cards) {
-    if (!isValidBillingDay(card.closingDay) || !isValidBillingDay(card.dueDay)) {
+    if (
+      !isValidBillingDay(card.closingDay) ||
+      !isValidBillingDay(card.dueDay)
+    ) {
       continue;
     }
 
@@ -462,11 +529,7 @@ export function buildOpenCardInvoices(
       results.push({
         cardName: getCreditCardName(card.bankKey ?? card.id),
         periodKey,
-        dueDate: getInvoiceDueDate(
-          periodKey,
-          closingDay,
-          dueDay,
-        ),
+        dueDate: getInvoiceDueDate(periodKey, closingDay, dueDay),
         amount,
       });
     }
@@ -479,4 +542,3 @@ export function buildOpenCardInvoices(
     return cardComparison || a.periodKey.localeCompare(b.periodKey);
   });
 }
-

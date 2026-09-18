@@ -161,7 +161,9 @@ function cleanJsonResponse(responseText: string): string {
 }
 
 function truncate(value: string, maxLength: number): string {
-  return value.length > maxLength ? `${value.slice(0, maxLength - 3)}...` : value;
+  return value.length > maxLength
+    ? `${value.slice(0, maxLength - 3)}...`
+    : value;
 }
 
 function buildMemoryPrompt(
@@ -257,7 +259,8 @@ function normalizeParsedCommand(parsed: unknown): BFinanceCommand {
     action,
     resource,
     confidence:
-      typeof parsed.confidence === "number" && Number.isFinite(parsed.confidence)
+      typeof parsed.confidence === "number" &&
+      Number.isFinite(parsed.confidence)
         ? Math.max(0, Math.min(parsed.confidence, 1))
         : 0.75,
   };
@@ -294,7 +297,9 @@ function normalizeParsedCommand(parsed: unknown): BFinanceCommand {
           : null,
       excludePaymentMethod:
         typeof rawScope.excludePaymentMethod === "string" &&
-        PAYMENT_METHODS.has(rawScope.excludePaymentMethod as BFinancePaymentMethod)
+        PAYMENT_METHODS.has(
+          rawScope.excludePaymentMethod as BFinancePaymentMethod,
+        )
           ? (rawScope.excludePaymentMethod as BFinancePaymentMethod)
           : null,
     };
@@ -343,7 +348,7 @@ function normalizeParsedCommand(parsed: unknown): BFinanceCommand {
       value:
         typeof rawValue === "number" && Number.isFinite(rawValue)
           ? rawValue
-          : nullableString(rawValue) ?? null,
+          : (nullableString(rawValue) ?? null),
       reference:
         typeof rawUpdate.reference === "string" &&
         UPDATE_REFERENCES.has(rawUpdate.reference as BFinanceUpdateReference)

@@ -9,7 +9,6 @@ import {
   getCategoryLabel,
 } from "@/lib/whatsapp/categories";
 
-
 export function formatCurrency(value: number): string {
   return new Intl.NumberFormat("pt-BR", {
     style: "currency",
@@ -17,11 +16,10 @@ export function formatCurrency(value: number): string {
   }).format(value);
 }
 
-
 export function formatTransactionList(
   transactions: Transaction[],
   type: "expense" | "income",
-  label: string
+  label: string,
 ): string {
   if (transactions.length === 0) {
     return type === "expense"
@@ -46,10 +44,9 @@ export function formatTransactionList(
   return response.trimEnd();
 }
 
-
 export function formatExpensesSummary(
   transactions: Transaction[],
-  period: string
+  period: string,
 ): string {
   const expenses = transactions.filter((t) => t.type === "expense");
   const total = expenses.reduce((sum, t) => sum + Math.abs(t.amount), 0);
@@ -80,7 +77,7 @@ export function formatExpensesSummary(
 
 export function formatIncomeSummary(
   transactions: Transaction[],
-  period: string
+  period: string,
 ): string {
   const incomes = transactions.filter((t) => t.type === "income");
   const total = incomes.reduce((sum, t) => sum + Math.abs(t.amount), 0);
@@ -112,7 +109,7 @@ export function formatDetailedBalance(
   transactions: Transaction[],
   prevTransactions: Transaction[],
   pendingBills: BillAccount[],
-  period: string
+  period: string,
 ): string {
   const incomes = transactions.filter((t) => t.type === "income");
   const expenses = transactions.filter((t) => t.type === "expense");
@@ -131,9 +128,7 @@ export function formatDetailedBalance(
   const incomeChange =
     prevIncome > 0 ? ((totalIncome - prevIncome) / prevIncome) * 100 : null;
   const expenseChange =
-    prevExpense > 0
-      ? ((totalExpense - prevExpense) / prevExpense) * 100
-      : null;
+    prevExpense > 0 ? ((totalExpense - prevExpense) / prevExpense) * 100 : null;
 
   const balanceEmoji = balance >= 0 ? "✅" : "⚠️";
   const incomeArrow =
@@ -161,7 +156,8 @@ export function formatDetailedBalance(
   Object.entries(incomeByCategory)
     .sort(([, a], [, b]) => b - a)
     .forEach(([cat, amount]) => {
-      const pct = totalIncome > 0 ? ((amount / totalIncome) * 100).toFixed(0) : 0;
+      const pct =
+        totalIncome > 0 ? ((amount / totalIncome) * 100).toFixed(0) : 0;
       response += `  • ${formatCategoryWithEmoji(cat)}: ${formatCurrency(amount)} (${pct}%)\n`;
     });
 
@@ -176,16 +172,13 @@ export function formatDetailedBalance(
   const expenseByCategory: Record<string, number> = {};
   expenses.forEach((t) => {
     const cat = t.category || "other";
-    expenseByCategory[cat] =
-      (expenseByCategory[cat] || 0) + Math.abs(t.amount);
+    expenseByCategory[cat] = (expenseByCategory[cat] || 0) + Math.abs(t.amount);
   });
   Object.entries(expenseByCategory)
     .sort(([, a], [, b]) => b - a)
     .forEach(([cat, amount]) => {
       const pct =
-        totalExpense > 0
-          ? ((amount / totalExpense) * 100).toFixed(0)
-          : 0;
+        totalExpense > 0 ? ((amount / totalExpense) * 100).toFixed(0) : 0;
       response += `  • ${formatCategoryWithEmoji(cat)}: ${formatCurrency(amount)} (${pct}%)\n`;
     });
 
@@ -199,7 +192,7 @@ export function formatDetailedBalance(
       .slice(0, 5)
       .forEach((b) => {
         const daysUntil = Math.ceil(
-          (new Date(b.dueDate).getTime() - Date.now()) / 86400000
+          (new Date(b.dueDate).getTime() - Date.now()) / 86400000,
         );
         const urgency = daysUntil <= 3 ? "🔴" : daysUntil <= 7 ? "🟡" : "🟢";
         response += `  ${urgency} ${b.description}: ${formatCurrency(b.amount)} (${formatDate(b.dueDate)})\n`;
@@ -214,10 +207,9 @@ export function formatDetailedBalance(
   return response;
 }
 
-
 export function formatBalanceSummary(
   transactions: Transaction[],
-  period: string
+  period: string,
 ): string {
   const incomes = transactions.filter((t) => t.type === "income");
   const expenses = transactions.filter((t) => t.type === "expense");
@@ -241,11 +233,21 @@ export function formatCardInvoice(
   cardName: string,
   amount: number,
   month: number,
-  year: number
+  year: number,
 ): string {
   const monthNames = [
-    "Janeiro","Fevereiro","Março","Abril","Maio","Junho",
-    "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro",
+    "Janeiro",
+    "Fevereiro",
+    "Março",
+    "Abril",
+    "Maio",
+    "Junho",
+    "Julho",
+    "Agosto",
+    "Setembro",
+    "Outubro",
+    "Novembro",
+    "Dezembro",
   ];
 
   const emoji = amount > 0 ? "💳" : "✅";
@@ -257,11 +259,21 @@ export function formatCardInvoice(
 export function formatAllCardInvoices(
   invoices: { cardName: string; amount: number }[],
   month: number,
-  year: number
+  year: number,
 ): string {
   const monthNames = [
-    "Janeiro","Fevereiro","Março","Abril","Maio","Junho",
-    "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro",
+    "Janeiro",
+    "Fevereiro",
+    "Março",
+    "Abril",
+    "Maio",
+    "Junho",
+    "Julho",
+    "Agosto",
+    "Setembro",
+    "Outubro",
+    "Novembro",
+    "Dezembro",
   ];
 
   if (invoices.length === 0) {
@@ -282,8 +294,6 @@ export function formatAllCardInvoices(
   return response;
 }
 
-// ─── Bills ────────────────────────────────────────────────────────────────────
-
 export function formatBillsList(bills: BillAccount[]): string {
   if (bills.length === 0) {
     return "✅ Você não tem contas pendentes!";
@@ -299,8 +309,7 @@ export function formatBillsList(bills: BillAccount[]): string {
       const today = getBrasiliaDate();
       today.setHours(0, 0, 0, 0);
       const daysUntil = Math.ceil(
-        (dueDate.getTime() - today.getTime()) /
-          (1000 * 60 * 60 * 24)
+        (dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24),
       );
       const urgency = daysUntil <= 3 ? "🔴" : daysUntil <= 7 ? "🟡" : "🟢";
 
@@ -324,8 +333,6 @@ export function formatBillsList(bills: BillAccount[]): string {
   return response;
 }
 
-// ─── Investments ──────────────────────────────────────────────────────────────
-
 export function formatInvestmentsSummary(investments: Investment[]): string {
   if (investments.length === 0) {
     return "📊 Você ainda não tem investimentos cadastrados.";
@@ -334,7 +341,7 @@ export function formatInvestmentsSummary(investments: Investment[]): string {
   const totalBalance = investments.reduce((sum, inv) => sum + inv.balance, 0);
   const totalYield = investments.reduce(
     (sum, inv) => sum + (inv.total_yield || 0),
-    0
+    0,
   );
 
   let response = `💎 *Seus Investimentos*\n\n`;
@@ -344,7 +351,9 @@ export function formatInvestmentsSummary(investments: Investment[]): string {
 
   investments.forEach((inv) => {
     const yieldPercentage =
-      inv.balance > 0 ? ((inv.total_yield / inv.balance) * 100).toFixed(2) : "0";
+      inv.balance > 0
+        ? ((inv.total_yield / inv.balance) * 100).toFixed(2)
+        : "0";
     response += `• *${formatCategoryWithEmoji(inv.category)}*\n`;
     response += `  Saldo: ${formatCurrency(inv.balance)}\n`;
     response += `  Rendimento: ${formatCurrency(inv.total_yield || 0)} (+${yieldPercentage}%)\n`;
@@ -354,10 +363,8 @@ export function formatInvestmentsSummary(investments: Investment[]): string {
   return response;
 }
 
-// ─── Delete Confirmation ──────────────────────────────────────────────────────
-
 export function formatDeleteConfirmation(
-  items: (Transaction | CardTransaction)[]
+  items: (Transaction | CardTransaction)[],
 ): string {
   if (items.length === 0) {
     return "❌ Nenhuma transação encontrada com essa descrição nos últimos 30 dias.";
@@ -376,7 +383,6 @@ export function formatDeleteConfirmation(
 
   return response;
 }
-
 
 export function formatHelpMessage(): string {
   return `🤖 *Assistente Financeiro B-Finances*
@@ -424,7 +430,7 @@ _Fale naturalmente comigo! 😊_`;
 
 export function formatTransactionsList(
   transactions: Transaction[],
-  limit?: number
+  limit?: number,
 ): string {
   const items = limit ? transactions.slice(0, limit) : transactions;
   if (items.length === 0) return "Nenhuma transação encontrada.";

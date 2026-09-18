@@ -1,10 +1,7 @@
 import { db } from "@/lib/firebaseAdmin";
 import { buildInstallmentSchedule } from "@/lib/creditCards/installments";
 import { getBrasiliaDate } from "@/lib/whatsapp/utils/brasiliaDate";
-import type {
-  DocumentData,
-  DocumentSnapshot,
-} from "firebase-admin/firestore";
+import type { DocumentData, DocumentSnapshot } from "firebase-admin/firestore";
 
 export type CardTransactionDto = {
   description: string;
@@ -48,7 +45,7 @@ export type CardInstallmentTransactionDto = {
 
 export async function createCardTransaction(
   userId: string,
-  data: CardTransactionDto
+  data: CardTransactionDto,
 ): Promise<CardTransaction> {
   const docRef = await db
     .collection(`users/${userId}/cardTransactions`)
@@ -66,7 +63,7 @@ export async function createCardInstallmentTransactions(
   const batch = db.batch();
   const firstRef = collection.doc();
   const transactionRefs = schedule.map((_, index) =>
-    index === 0 ? firstRef : collection.doc()
+    index === 0 ? firstRef : collection.doc(),
   );
   const installmentGroupId = firstRef.id;
 
@@ -91,7 +88,7 @@ export async function createCardInstallmentTransactions(
 }
 
 export async function getCardTransactions(
-  userId: string
+  userId: string,
 ): Promise<CardTransaction[]> {
   const snapshot = await db
     .collection(`users/${userId}/cardTransactions`)
@@ -104,7 +101,7 @@ export async function getCardTransactionsByCard(
   userId: string,
   card: string,
   startDate?: string,
-  endDate?: string
+  endDate?: string,
 ): Promise<CardTransaction[]> {
   let query = db
     .collection(`users/${userId}/cardTransactions`)
@@ -124,7 +121,7 @@ export async function getCardTransactionsByCard(
 
 export async function deleteCardTransaction(
   userId: string,
-  transactionId: string
+  transactionId: string,
 ): Promise<void> {
   await db
     .collection(`users/${userId}/cardTransactions`)
@@ -146,7 +143,7 @@ export async function updateCardTransaction(
 export async function findCardTransactionByDescription(
   userId: string,
   description: string,
-  daysBack: number = 30
+  daysBack: number = 30,
 ): Promise<CardTransaction[]> {
   const startDate = getBrasiliaDate();
   startDate.setDate(startDate.getDate() - daysBack);

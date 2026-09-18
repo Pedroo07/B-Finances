@@ -1,33 +1,42 @@
-import { collection, doc, addDoc, getDoc, deleteDoc, getDocs, updateDoc } from 'firebase/firestore';
-import { db } from '../firebase'
-import { Transaction } from '../entities/transaction';
-import { getAuth } from 'firebase/auth';
+import {
+  collection,
+  doc,
+  addDoc,
+  getDoc,
+  deleteDoc,
+  getDocs,
+  updateDoc,
+} from "firebase/firestore";
+import { db } from "../firebase";
+import { Transaction } from "../entities/transaction";
+import { getAuth } from "firebase/auth";
 
 export type TransactionDto = {
-    description: string
-    date: string
-    amount: number
-    category: string
-    type: string
-    paymentMethod: string
-    billAccountId?: string
-}
-const auth = getAuth()
+  description: string;
+  date: string;
+  amount: number;
+  category: string;
+  type: string;
+  paymentMethod: string;
+  billAccountId?: string;
+};
+const auth = getAuth();
 
 function getUserCollection() {
-const user = auth.currentUser
- if (!user) throw new Error("User not authenticated");
- return collection(db, `users/${user.uid}/transactions`)
+  const user = auth.currentUser;
+  if (!user) throw new Error("User not authenticated");
+  return collection(db, `users/${user.uid}/transactions`);
 }
 
-export async function createTransaction(data: TransactionDto): Promise<Transaction> {
-    const cardsRef = getUserCollection()
-    const createdCard = await addDoc(cardsRef, data)
-    return {
-        id: createdCard.id,
-        ...data
-
-    }
+export async function createTransaction(
+  data: TransactionDto,
+): Promise<Transaction> {
+  const cardsRef = getUserCollection();
+  const createdCard = await addDoc(cardsRef, data);
+  return {
+    id: createdCard.id,
+    ...data,
+  };
 }
 export async function deleteTransaction(id: string): Promise<void> {
   const user = auth.currentUser;
@@ -47,12 +56,15 @@ export async function getTransaction(): Promise<Transaction[]> {
     return {
       id: doc.id,
       ...data,
-      paymentMethod: data.paymentMethod ?? 'pix',
+      paymentMethod: data.paymentMethod ?? "pix",
     };
   }) as Transaction[];
 }
 
-export async function updateTransaction(id: string, data: Transaction): Promise<Transaction> {
+export async function updateTransaction(
+  id: string,
+  data: Transaction,
+): Promise<Transaction> {
   const user = auth.currentUser;
   if (!user) throw new Error("User not authenticated");
 

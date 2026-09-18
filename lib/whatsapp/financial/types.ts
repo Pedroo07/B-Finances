@@ -81,12 +81,7 @@ export type FinancialPlan = {
 };
 
 export type FinancialResultContext = {
-  itemType:
-    | "income"
-    | "expense"
-    | "card_expense"
-    | "category"
-    | "summary";
+  itemType: "income" | "expense" | "card_expense" | "category" | "summary";
   total?: number;
   listedCount?: number;
   period: ResolvedPeriod;

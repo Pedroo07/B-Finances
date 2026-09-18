@@ -666,7 +666,9 @@ function assertPartial(
     const actualValue = actual?.[key];
     return actualValue === expectedValue
       ? []
-      : [`${label}.${key}: esperado ${String(expectedValue)}, recebido ${String(actualValue)}`];
+      : [
+          `${label}.${key}: esperado ${String(expectedValue)}, recebido ${String(actualValue)}`,
+        ];
   });
 }
 

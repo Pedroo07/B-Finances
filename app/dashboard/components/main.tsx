@@ -1,556 +1,763 @@
-"use client"
-import { ChangeEvent, FC, useEffect, useState } from 'react';
+"use client";
+import { ChangeEvent, FC, useEffect, useState } from "react";
 import { IoIosArrowRoundUp, IoIosArrowRoundDown } from "react-icons/io";
-import { AiOutlineLoading3Quarters } from "react-icons/ai"
+import { AiOutlineLoading3Quarters } from "react-icons/ai";
 import { FiMinusCircle, FiPlusCircle } from "react-icons/fi";
 import { FaWhatsapp } from "react-icons/fa";
-import { Dialog, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogContent } from '@/components/ui/dialog';
-import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue, SelectLabel } from '@/components/ui/select';
-import { Button } from '@/components/ui/button';
-import { TransactionItem, TransactionHeader } from './transactions';
-import { DonutChart, GraphicListItem, separateAmountByCategory } from './graphic';
-import { useAuthState } from 'react-firebase-hooks/auth';
-import Period from './period';
-import { Transaction } from '@/lib/entities/transaction';
-import { BillAccount } from '@/lib/entities/billAccount';
-import { createTransaction, deleteTransaction, getTransaction, TransactionDto } from '@/lib/services/transactions';
-import { getBillAccounts } from '@/lib/services/billAccounts';
-import { auth } from '@/lib/firebase';
-import { TransactionsLoadings } from '../loadings/TrasactionsLoadings';
-import { Skeleton } from '@/components/ui/skeleton';
-import { ValuesLoadings } from '../loadings/ValuesLoadings';
-import { formatCurrency } from '@/lib/utils';
-import { getUserCreditCards } from '@/lib/services/userCreditCards';
-import { createCardTransaction } from '@/lib/services/cardTransactions';
-import { BANKS, BankKey, isBankKey } from '@/app/CreditCard/banks';
-import { UserCreditCard } from '@/lib/entities/userCreditCard';
-import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from '@/lib/transactionCategories';
+import {
+  Dialog,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogContent,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  SelectLabel,
+} from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { TransactionItem, TransactionHeader } from "./transactions";
+import {
+  DonutChart,
+  GraphicListItem,
+  separateAmountByCategory,
+} from "./graphic";
+import { useAuthState } from "react-firebase-hooks/auth";
+import Period from "./period";
+import { Transaction } from "@/lib/entities/transaction";
+import { BillAccount } from "@/lib/entities/billAccount";
+import {
+  createTransaction,
+  deleteTransaction,
+  getTransaction,
+  TransactionDto,
+} from "@/lib/services/transactions";
+import { getBillAccounts } from "@/lib/services/billAccounts";
+import { auth } from "@/lib/firebase";
+import { TransactionsLoadings } from "../loadings/TrasactionsLoadings";
+import { Skeleton } from "@/components/ui/skeleton";
+import { ValuesLoadings } from "../loadings/ValuesLoadings";
+import { formatCurrency } from "@/lib/utils";
+import { getUserCreditCards } from "@/lib/services/userCreditCards";
+import { createCardTransaction } from "@/lib/services/cardTransactions";
+import { BANKS, BankKey, isBankKey } from "@/app/CreditCard/banks";
+import { UserCreditCard } from "@/lib/entities/userCreditCard";
+import {
+  EXPENSE_CATEGORIES,
+  INCOME_CATEGORIES,
+} from "@/lib/transactionCategories";
 
 export const Main: FC = () => {
-    const [text, setText] = useState('')
-    const [category, setCategory] = useState('')
-    const [price, setPrice] = useState(0)
-    const [date, setDate] = useState('')
-    const [paymentMethod, setPaymentMethod] = useState('pix')
-    const [selectedCreditCard, setSelectedCreditCard] = useState('')
-    const [userCards, setUserCards] = useState<UserCreditCard[]>([])
-    const [allItems, setAllItems] = useState<Transaction[]>([])
-    const [bills, setBills] = useState<BillAccount[]>([])
-    const [user, loading] = useAuthState(auth)
-    const [selectedMonth, setSelectedMonth] = useState<number>(() => new Date().getMonth() + 1)
-    const [activeFilter, setActiveFilter] = useState("month")
+  const [text, setText] = useState("");
+  const [category, setCategory] = useState("");
+  const [price, setPrice] = useState(0);
+  const [date, setDate] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState("pix");
+  const [selectedCreditCard, setSelectedCreditCard] = useState("");
+  const [userCards, setUserCards] = useState<UserCreditCard[]>([]);
+  const [allItems, setAllItems] = useState<Transaction[]>([]);
+  const [bills, setBills] = useState<BillAccount[]>([]);
+  const [user, loading] = useAuthState(auth);
+  const [selectedMonth, setSelectedMonth] = useState<number>(
+    () => new Date().getMonth() + 1,
+  );
+  const [activeFilter, setActiveFilter] = useState("month");
 
-    const visibleAddedCardKeys = userCards.reduce<BankKey[]>((keys, c) => {
-        if (isBankKey(c.bankKey)) keys.push(c.bankKey)
-        return keys
-    }, [])
-    const userCreditCards = (Object.keys(BANKS) as BankKey[])
-        .filter((k) => visibleAddedCardKeys.includes(k))
-        .map((k) => [k, BANKS[k]] as const)
+  const visibleAddedCardKeys = userCards.reduce<BankKey[]>((keys, c) => {
+    if (isBankKey(c.bankKey)) keys.push(c.bankKey);
+    return keys;
+  }, []);
+  const userCreditCards = (Object.keys(BANKS) as BankKey[])
+    .filter((k) => visibleAddedCardKeys.includes(k))
+    .map((k) => [k, BANKS[k]] as const);
 
-    const sortItemByDate = (items: Transaction[]): Transaction[] => {
-        return [...items].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-    }
+  const sortItemByDate = (items: Transaction[]): Transaction[] => {
+    return [...items].sort(
+      (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
+    );
+  };
 
-    const calculateTotals = (items: Transaction[]): { income: number; expense: number; balance: number } => {
-        let totalIncome = 0;
-        let totalExpense = 0;
+  const calculateTotals = (
+    items: Transaction[],
+  ): { income: number; expense: number; balance: number } => {
+    let totalIncome = 0;
+    let totalExpense = 0;
 
-        items.forEach(item => {
-            if (item.amount > 0) {
-                totalIncome += item.amount;
-            } else {
-                totalExpense += Math.abs(item.amount);
-            }
-        });
+    items.forEach((item) => {
+      if (item.amount > 0) {
+        totalIncome += item.amount;
+      } else {
+        totalExpense += Math.abs(item.amount);
+      }
+    });
 
-        return {
-            income: totalIncome,
-            expense: totalExpense,
-            balance: totalIncome - totalExpense
-        };
+    return {
+      income: totalIncome,
+      expense: totalExpense,
+      balance: totalIncome - totalExpense,
     };
+  };
 
-    const calculatePendingBills = (): number => {
-        return bills
-            .filter(bill => bill.status === 'pending')
-            .filter(bill => !bill.hiddenFromBills)
-            .filter(bill => {
-                const [year, month] = bill.dueDate.split('-').map(Number)
-                const currentYear = new Date().getFullYear()
-                return year === currentYear && month === selectedMonth
-            })
-            .reduce((acc, bill) => acc + bill.amount, 0)
-    };
-
-    const resetForm = () => {
-        setText('')
-        setPrice(0)
-        setCategory('')
-        setDate('')
-        setPaymentMethod('pix')
-        setSelectedCreditCard('')
-    }
-
-    const handleTextChange = (event: ChangeEvent<HTMLInputElement>): void => {
-        const newValue = event.target.value
-        setText(newValue)
-    }
-
-    const handleCategoryChange = (value: string): void => {
-        setCategory(value)
-    }
-
-    const handleDateChange = (event: ChangeEvent<HTMLInputElement>): void => {
-        const newValue = event.target.value
-        setDate(newValue)
-    }
-
-    const handlePriceChange = (event: ChangeEvent<HTMLInputElement>): void => {
-        const newValue = +event.target.value
-        setPrice(newValue)
-    }
-
-    useEffect(() => {
-        if (loading || !user || typeof window === 'undefined') return
-
-        let isMounted = true
-
-        const fetchTransactions = async () => {
-            try {
-                const [transactionsData, billsData, cardsData] = await Promise.all([
-                    getTransaction(),
-                    getBillAccounts(),
-                    getUserCreditCards(),
-                ])
-                const sortedItems = [...(transactionsData || [])].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-                if (isMounted) {
-                    setAllItems(sortedItems)
-                    setBills(billsData || [])
-                    setUserCards(cardsData.filter(({ bankKey }) => isBankKey(bankKey)))
-                }
-            } catch (error) {
-                console.error("Error fetching transactions:", error);
-            }
-        }
-
-        void fetchTransactions()
-
-        return () => {
-            isMounted = false
-        }
-    }, [user, loading]);
-
-    const currentYear = new Date().getFullYear()
-    const filterItems = sortItemByDate(allItems.filter(item => {
-        const [year, month] = item.date.split("-").map(Number);
-
-        if (activeFilter === "year") {
-            return year === currentYear
-        }
-
+  const calculatePendingBills = (): number => {
+    return bills
+      .filter((bill) => bill.status === "pending")
+      .filter((bill) => !bill.hiddenFromBills)
+      .filter((bill) => {
+        const [year, month] = bill.dueDate.split("-").map(Number);
+        const currentYear = new Date().getFullYear();
         return year === currentYear && month === selectedMonth;
-    }))
+      })
+      .reduce((acc, bill) => acc + bill.amount, 0);
+  };
 
-    const { income, expense, balance } = calculateTotals(filterItems);
+  const resetForm = () => {
+    setText("");
+    setPrice(0);
+    setCategory("");
+    setDate("");
+    setPaymentMethod("pix");
+    setSelectedCreditCard("");
+  };
 
-    const handleDeleteItem = async (id: string) => {
-        if (typeof window === 'undefined') return
+  const handleTextChange = (event: ChangeEvent<HTMLInputElement>): void => {
+    const newValue = event.target.value;
+    setText(newValue);
+  };
 
-        await deleteTransaction(id)
-        setAllItems((currentItems) => currentItems.filter(item => item.id !== id))
-        resetForm()
-    }
+  const handleCategoryChange = (value: string): void => {
+    setCategory(value);
+  };
 
-    const handleAddNewItem = async (IsIncomeDialog: boolean): Promise<void> => {
-        const adjustedPrice = IsIncomeDialog ? Math.abs(price) : -Math.abs(price);
-        if (!IsIncomeDialog && paymentMethod === 'credit_card') {
-            if (!selectedCreditCard) return
-            try {
-                await createCardTransaction({
-                    amount: adjustedPrice,
-                    date,
-                    card: selectedCreditCard,
-                    description: text,
-                    category,
-                })
-                resetForm()
-            } catch (error) {
-                console.error('Error adding card transaction:', error)
-            }
-            return
+  const handleDateChange = (event: ChangeEvent<HTMLInputElement>): void => {
+    const newValue = event.target.value;
+    setDate(newValue);
+  };
+
+  const handlePriceChange = (event: ChangeEvent<HTMLInputElement>): void => {
+    const newValue = +event.target.value;
+    setPrice(newValue);
+  };
+
+  useEffect(() => {
+    if (loading || !user || typeof window === "undefined") return;
+
+    let isMounted = true;
+
+    const fetchTransactions = async () => {
+      try {
+        const [transactionsData, billsData, cardsData] = await Promise.all([
+          getTransaction(),
+          getBillAccounts(),
+          getUserCreditCards(),
+        ]);
+        const sortedItems = [...(transactionsData || [])].sort(
+          (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
+        );
+        if (isMounted) {
+          setAllItems(sortedItems);
+          setBills(billsData || []);
+          setUserCards(cardsData.filter(({ bankKey }) => isBankKey(bankKey)));
         }
-
-        const newItem: TransactionDto = {
-            amount: adjustedPrice,
-            date: date,
-            description: text,
-            category: category,
-            type: IsIncomeDialog ? 'income' : 'expense',
-            paymentMethod: IsIncomeDialog ? 'pix' : paymentMethod,
-        };
-
-        try {
-            const newTransaction = await createTransaction(newItem);
-            setAllItems((currentItems) => sortItemByDate([newTransaction, ...currentItems]));
-            resetForm();
-        } catch (error) {
-            console.error('Error adding transaction:', error);
-        }
+      } catch (error) {
+        console.error("Error fetching transactions:", error);
+      }
     };
 
-    const handleMonthChange = (newMonth: number) => {
-        setSelectedMonth(newMonth);
-        setActiveFilter("month");
+    void fetchTransactions();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [user, loading]);
+
+  const currentYear = new Date().getFullYear();
+  const filterItems = sortItemByDate(
+    allItems.filter((item) => {
+      const [year, month] = item.date.split("-").map(Number);
+
+      if (activeFilter === "year") {
+        return year === currentYear;
+      }
+
+      return year === currentYear && month === selectedMonth;
+    }),
+  );
+
+  const { income, expense, balance } = calculateTotals(filterItems);
+
+  const handleDeleteItem = async (id: string) => {
+    if (typeof window === "undefined") return;
+
+    await deleteTransaction(id);
+    setAllItems((currentItems) =>
+      currentItems.filter((item) => item.id !== id),
+    );
+    resetForm();
+  };
+
+  const handleAddNewItem = async (IsIncomeDialog: boolean): Promise<void> => {
+    const adjustedPrice = IsIncomeDialog ? Math.abs(price) : -Math.abs(price);
+    if (!IsIncomeDialog && paymentMethod === "credit_card") {
+      if (!selectedCreditCard) return;
+      try {
+        await createCardTransaction({
+          amount: adjustedPrice,
+          date,
+          card: selectedCreditCard,
+          description: text,
+          category,
+        });
+        resetForm();
+      } catch (error) {
+        console.error("Error adding card transaction:", error);
+      }
+      return;
+    }
+
+    const newItem: TransactionDto = {
+      amount: adjustedPrice,
+      date: date,
+      description: text,
+      category: category,
+      type: IsIncomeDialog ? "income" : "expense",
+      paymentMethod: IsIncomeDialog ? "pix" : paymentMethod,
     };
 
-    const thisMonthSelected = () => {
-        setActiveFilter("month")
-        const thisMonth = new Date().getMonth() + 1
-        setSelectedMonth(thisMonth)
+    try {
+      const newTransaction = await createTransaction(newItem);
+      setAllItems((currentItems) =>
+        sortItemByDate([newTransaction, ...currentItems]),
+      );
+      resetForm();
+    } catch (error) {
+      console.error("Error adding transaction:", error);
+    }
+  };
+
+  const handleMonthChange = (newMonth: number) => {
+    setSelectedMonth(newMonth);
+    setActiveFilter("month");
+  };
+
+  const thisMonthSelected = () => {
+    setActiveFilter("month");
+    const thisMonth = new Date().getMonth() + 1;
+    setSelectedMonth(thisMonth);
+  };
+
+  const lastMonthSelected = () => {
+    setActiveFilter("month");
+    const lastMonth = new Date().getMonth();
+    setSelectedMonth(lastMonth);
+  };
+
+  const lastYearFilter = () => {
+    setActiveFilter("year");
+    setSelectedMonth(0);
+  };
+
+  const differenceInPorcentage = () => {
+    const filteredItems = allItems.filter((item) => {
+      const [year, month] = item.date.split("-").map(Number);
+      return year === currentYear && month === selectedMonth;
+    });
+    const lastItems = allItems.filter((item) => {
+      const [year, month] = item.date.split("-").map(Number);
+      return year === currentYear && month === new Date().getMonth();
+    });
+
+    const totalExpense = filteredItems.reduce(
+      (acc, item) => acc + item.amount,
+      0,
+    );
+    const lastExpense = lastItems.reduce((acc, item) => acc + item.amount, 0);
+
+    if (lastExpense === 0) {
+      return 0;
     }
 
-    const lastMonthSelected = () => {
-        setActiveFilter("month")
-        const lastMonth = new Date().getMonth()
-        setSelectedMonth(lastMonth)
+    const difference = totalExpense - lastExpense;
+    const totalInPorcentage = (difference / Math.abs(lastExpense)) * 100;
+    return totalInPorcentage;
+  };
+
+  const differenceInPorcentageIncome = () => {
+    const filteredItems = allItems.filter((item) => {
+      const [year, month] = item.date.split("-").map(Number);
+      return year === currentYear && month === selectedMonth && item.amount > 0;
+    });
+    const lastItems = allItems.filter((item) => {
+      const [year, month] = item.date.split("-").map(Number);
+      return (
+        year === currentYear &&
+        month === new Date().getMonth() &&
+        item.amount > 0
+      );
+    });
+
+    const totalIncome = filteredItems.reduce(
+      (acc, item) => acc + item.amount,
+      0,
+    );
+    const lastIncome = lastItems.reduce((acc, item) => acc + item.amount, 0);
+
+    if (lastIncome === 0) {
+      return 0;
     }
 
-    const lastYearFilter = () => {
-        setActiveFilter("year")
-        setSelectedMonth(0)
+    const difference = totalIncome - lastIncome;
+    const totalInPorcentage = (difference / Math.abs(lastIncome)) * 100;
+    return totalInPorcentage;
+  };
+
+  const differenceInPorcentageExpense = () => {
+    const filteredItems = allItems.filter((item) => {
+      const [year, month] = item.date.split("-").map(Number);
+      return year === currentYear && month === selectedMonth && item.amount < 0;
+    });
+    const lastItems = allItems.filter((item) => {
+      const [year, month] = item.date.split("-").map(Number);
+      return (
+        year === currentYear &&
+        month === new Date().getMonth() &&
+        item.amount < 0
+      );
+    });
+
+    const totalExpense = filteredItems.reduce(
+      (acc, item) => acc + item.amount,
+      0,
+    );
+    const lastExpense = lastItems.reduce((acc, item) => acc + item.amount, 0);
+
+    if (lastExpense === 0) {
+      return 0;
     }
 
-    const differenceInPorcentage = () => {
-        const filteredItems = allItems.filter(item => {
-            const [year, month] = item.date.split("-").map(Number);
-            return year === currentYear && month === selectedMonth;
-        });
-        const lastItems = allItems.filter(item => {
-            const [year, month] = item.date.split("-").map(Number);
-            return year === currentYear && month === new Date().getMonth();
-        });
+    const difference = totalExpense - lastExpense;
+    const totalInPorcentage = (difference / lastExpense) * 100;
+    return totalInPorcentage;
+  };
 
-        const totalExpense = filteredItems.reduce((acc, item) => acc + item.amount, 0)
-        const lastExpense = lastItems.reduce((acc, item) => acc + item.amount, 0)
+  const differenceInPorcentagePendingBills = () => {
+    const currentPending = calculatePendingBills();
+    const lastMonthBills = bills
+      .filter((bill) => bill.status === "pending")
+      .filter((bill) => !bill.hiddenFromBills)
+      .filter((bill) => {
+        const [year, month] = bill.dueDate.split("-").map(Number);
+        const currentYear = new Date().getFullYear();
+        const lastMonth = new Date().getMonth();
+        return year === currentYear && month === lastMonth;
+      })
+      .reduce((acc, bill) => acc + bill.amount, 0);
 
-        if (lastExpense === 0) {
-            return 0
-        }
-
-        const difference = totalExpense - lastExpense
-        const totalInPorcentage = (difference / Math.abs(lastExpense)) * 100
-        return totalInPorcentage
+    if (lastMonthBills === 0) {
+      return 0;
     }
 
-    const differenceInPorcentageIncome = () => {
-        const filteredItems = allItems.filter(item => {
-            const [year, month] = item.date.split("-").map(Number);
-            return year === currentYear && month === selectedMonth && item.amount > 0
-        });
-        const lastItems = allItems.filter(item => {
-            const [year, month] = item.date.split("-").map(Number);
-            return year === currentYear && month === new Date().getMonth() && item.amount > 0
-        });
+    const difference = currentPending - lastMonthBills;
+    return (difference / lastMonthBills) * 100;
+  };
 
-        const totalIncome = filteredItems.reduce((acc, item) => acc + item.amount, 0)
-        const lastIncome = lastItems.reduce((acc, item) => acc + item.amount, 0)
+  const results = separateAmountByCategory(filterItems);
+  const filterButtonClass = "surface-chip inline-flex items-center px-4 py-2";
 
-        if (lastIncome === 0) {
-            return 0
-        }
-
-        const difference = totalIncome - lastIncome
-        const totalInPorcentage = (difference / Math.abs(lastIncome)) * 100
-        return totalInPorcentage
-    }
-
-    const differenceInPorcentageExpense = () => {
-        const filteredItems = allItems.filter(item => {
-            const [year, month] = item.date.split("-").map(Number);
-            return year === currentYear && month === selectedMonth && item.amount < 0
-        });
-        const lastItems = allItems.filter(item => {
-            const [year, month] = item.date.split("-").map(Number);
-            return year === currentYear && month === new Date().getMonth() && item.amount < 0
-        });
-
-        const totalExpense = filteredItems.reduce((acc, item) => acc + item.amount, 0)
-        const lastExpense = lastItems.reduce((acc, item) => acc + item.amount, 0)
-
-        if (lastExpense === 0) {
-            return 0
-        }
-
-        const difference = totalExpense - lastExpense
-        const totalInPorcentage = (difference / lastExpense * 100)
-        return totalInPorcentage
-    }
-
-    const differenceInPorcentagePendingBills = () => {
-        const currentPending = calculatePendingBills()
-        const lastMonthBills = bills
-            .filter(bill => bill.status === 'pending')
-            .filter(bill => !bill.hiddenFromBills)
-            .filter(bill => {
-                const [year, month] = bill.dueDate.split('-').map(Number)
-                const currentYear = new Date().getFullYear()
-                const lastMonth = new Date().getMonth()
-                return year === currentYear && month === lastMonth
-            })
-            .reduce((acc, bill) => acc + bill.amount, 0)
-
-        if (lastMonthBills === 0) {
-            return 0
-        }
-
-        const difference = currentPending - lastMonthBills
-        return (difference / lastMonthBills) * 100
-    }
-
-    const results = separateAmountByCategory(filterItems)
-    const filterButtonClass = 'surface-chip inline-flex items-center px-4 py-2'
-
-    return (
-        <div className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6">
-            <section className='surface-card p-6 sm:p-7'>
-                <div className='flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between'>
-                    <div className='space-y-2'>
-                        <span className='inline-flex rounded-full border border-[#22C55E]/20 bg-[#22C55E]/10 px-4 py-2 text-sm font-medium text-[#15803D] dark:text-[#4ADE80]'>
-                            Painel financeiro
-                        </span>
-                        <h1 className='text-3xl font-semibold tracking-tight text-[#0F172A] dark:text-white'>Olá!</h1>
-                        <p className='max-w-2xl text-sm leading-6 text-[#64748B] dark:text-[#94A3BB]'>
-                            Visualize seu saldo, acompanhe entradas e despesas e registre novos lançamentos com mais clareza.
-                        </p>
-                    </div>
-                    <ul className='flex max-sm:flex-wrap gap-2'>
-                        <li><button className={filterButtonClass} onClick={lastYearFilter}>Último ano</button></li>
-                        <li><button className={filterButtonClass} onClick={lastMonthSelected}>Último mês</button></li>
-                        <li><button className={filterButtonClass} onClick={thisMonthSelected}>Este mês</button></li>
-                        <Period onMonthChange={handleMonthChange} selectedMonth={selectedMonth} />
-                    </ul>
-                </div>
-            </section>
-            <section className='grid gap-4 grid-cols-1 md:grid-cols-2 xl:grid-cols-4 grid-rows-2 h-full'>
-               
-                {loading ? (<ValuesLoadings />) : (
-                    <div className='surface-card flex flex-col justify-between gap-2 p-5 sm:p-6'>
-                        <div>
-                            <p className='text-xs uppercase tracking-[0.22em] text-[#94A3BB]'>Saldo</p>
-                            <h2 className='mt-3 text-3xl font-semibold text-[#0F172A] dark:text-white sm:text-3xl'>{formatCurrency(balance)}</h2>
-                        </div>
-                        <div className='flex w-fit items-center rounded-full border border-border/60 px-3 py-2 text-sm font-semibold text-[#334155] dark:text-[#E2E8F0]'>
-                            {differenceInPorcentage() > 0 ? (<IoIosArrowRoundUp className='text-[#22C55E] text-lg' />) : (<IoIosArrowRoundDown className='text-rose-500 text-lg' />)}{differenceInPorcentage().toFixed(2)}%
-                        </div>
-                    </div>)}
-                {loading ? (<ValuesLoadings />) : (<div className='surface-card flex flex-col justify-between gap-5 p-2 sm:p-6'>
-                    <div>
-                        <p className='text-xs uppercase tracking-[0.22em] text-[#94A3BB]'>Entradas</p>
-                        <h2 className='mt-3 text-3xl font-semibold text-[#16A34A] sm:text-3xl dark:text-[#4ADE80]'>{formatCurrency(income)}</h2>
-                    </div>
-                    <div className='flex w-fit items-center rounded-full border border-border/60 px-3 py-2 text-sm font-semibold text-[#334155] dark:text-[#E2E8F0]'>
-                        {differenceInPorcentageIncome() > 0 ? (<IoIosArrowRoundUp className='text-[#22C55E] text-lg' />) : (<IoIosArrowRoundDown className='text-rose-500 text-lg' />)}{differenceInPorcentageIncome().toFixed(2)}%
-                    </div>
-                </div>)}
-                {loading ? (<ValuesLoadings />) : (<div className='surface-card flex flex-col justify-between gap-5 p-5 sm:p-6'>
-                    <div>
-                        <p className='text-xs uppercase tracking-[0.22em] text-[#94A3BB]'>Despesas</p>
-                        <h2 className='mt-3 text-3xl font-semibold text-rose-500 sm:text-3xl dark:text-rose-300'>{formatCurrency(expense)}</h2>
-                    </div>
-                    <div className='flex w-fit items-center rounded-full border border-border/60 px-3 py-2 text-sm font-semibold text-[#334155] dark:text-[#E2E8F0]'>
-                        {differenceInPorcentageExpense() < 0 ? (<IoIosArrowRoundUp className='text-[#22C55E] text-lg' />) : (<IoIosArrowRoundDown className='text-rose-500 text-lg' />)}{differenceInPorcentageExpense().toFixed(2)}%
-                    </div>
-                </div>)}
-                {loading ? (<ValuesLoadings />) : (<div className='surface-card flex flex-col justify-between gap-5 p-5 sm:p-6'>
-                    <div>
-                        <p className='text-xs uppercase tracking-[0.22em] text-[#94A3BB]'>Contas a Pagar</p>
-                        <h2 className='mt-3 text-3xl font-semibold text-amber-600 sm:text-3xl dark:text-amber-400'>{formatCurrency(calculatePendingBills())}</h2>
-                    </div>
-                    <div className='flex w-fit items-center rounded-full border border-border/60 px-3 py-2 text-sm font-semibold text-[#334155] dark:text-[#E2E8F0]'>
-                        {differenceInPorcentagePendingBills() > 0 ? (<IoIosArrowRoundUp className='text-rose-500 text-lg' />) : (<IoIosArrowRoundDown className='text-[#22C55E] text-lg' />)}{differenceInPorcentagePendingBills().toFixed(2)}%
-                    </div>
-                </div>)}
-                
-                        <div className='surface-card flex items-center gap-4 p-5 sm:p-6 md:col-span-1 xl:col-span-1'>
-                    <Dialog>
-                        <DialogTrigger asChild>
-                            <div className='flex h-14 w-14 cursor-pointer items-center justify-center rounded-2xl bg-[#22C55E]/12 text-[#16A34A] transition-transform hover:scale-[1.03] dark:bg-[#22C55E]/18 dark:text-[#4ADE80]'>
-                                <FiPlusCircle className='text-2xl' />
-                            </div>
-                        </DialogTrigger>
-                        <DialogContent className='sm:max-w-106'>
-                            <DialogHeader>
-                                <DialogTitle>Adicionar nova receita</DialogTitle>
-                            </DialogHeader>
-                            <div className='grid gap-4 py-4 '>
-                                <Input type='text' placeholder='Descrição' value={text} onChange={handleTextChange}></Input>
-                                <Input type='number' placeholder='Valor' value={price} onChange={handlePriceChange}></Input>
-                                <Input type='date' placeholder='Data' value={date} onChange={handleDateChange}></Input>
-                                <Select value={category} onValueChange={handleCategoryChange}>
-                                    <SelectTrigger className="w-full">
-                                        <SelectValue placeholder="Selecione uma categoria" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectGroup>
-                                            <SelectLabel>Categorias</SelectLabel>
-                                            {INCOME_CATEGORIES.map(({ value, label }) => (
-                                                <SelectItem key={value} value={value}>{label}</SelectItem>
-                                            ))}
-                                        </SelectGroup>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <DialogFooter>
-                                <Button
-                                    onClick={() => handleAddNewItem(true)}
-                                    type='button'
-                                    disabled={!text || !price || !category || !date}
-                                    className='w-full sm:w-auto'
-                                ><span>Criar lançamento</span></Button>
-                            </DialogFooter>
-                        </DialogContent>
-                    </Dialog>
-                    <div>
-                        <p className='font-semibold text-[#0F172A] dark:text-white'>Adicionar receita</p>
-                        <p className='text-sm text-[#64748B] dark:text-[#94A3BB]'>Cadastre uma entrada manualmente.</p>
-                    </div>
-                </div>
-                <div className='surface-card flex items-center gap-4 p-5 sm:p-6 md:col-span-1 xl:col-span-1'>
-                    <Dialog>
-                        <DialogTrigger asChild>
-                            <div className='flex h-14 w-14 cursor-pointer items-center justify-center rounded-2xl bg-rose-500/12 text-rose-500 transition-transform hover:scale-[1.03] dark:bg-rose-500/18 dark:text-rose-300'><FiMinusCircle className='text-2xl' /></div>
-                        </DialogTrigger>
-                        <DialogContent className='sm:max-w-106'>
-                            <DialogHeader>
-                                <DialogTitle>Adicionar nova despesa</DialogTitle>
-                            </DialogHeader>
-                            <div className='grid gap-4 py-4'>
-                                <Input type='text' placeholder='Descrição' value={text} onChange={handleTextChange}></Input>
-                                <Input type='number' placeholder='Valor' value={price} onChange={handlePriceChange}></Input>
-                                <Input type='date' placeholder='Data' value={date} onChange={handleDateChange}></Input>
-                                <Select value={category} onValueChange={handleCategoryChange}>
-                                    <SelectTrigger className="w-full">
-                                        <SelectValue placeholder="Selecione uma categoria" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectGroup>
-                                            <SelectLabel>Categorias</SelectLabel>
-                                            {EXPENSE_CATEGORIES.map(({ value, label }) => (
-                                                <SelectItem key={value} value={value}>{label}</SelectItem>
-                                            ))}
-                                        </SelectGroup>
-                                    </SelectContent>
-                                </Select>
-                                <Select value={paymentMethod} onValueChange={setPaymentMethod}>
-                                    <SelectTrigger className="w-full">
-                                        <SelectValue placeholder="Método de pagamento" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectGroup>
-                                            <SelectLabel>Método de pagamento</SelectLabel>
-                                            <SelectItem value="cash">Dinheiro</SelectItem>
-                                            <SelectItem value="pix">Pix</SelectItem>
-                                            <SelectItem value="debit">Cartão de Débito</SelectItem>
-                                            <SelectItem value="credit_card">Cartão de Crédito</SelectItem>
-                                        </SelectGroup>
-                                    </SelectContent>
-                                </Select>
-                                {paymentMethod === 'credit_card' && (
-                                    <Select value={selectedCreditCard} onValueChange={setSelectedCreditCard}>
-                                        <SelectTrigger className="w-full">
-                                            <SelectValue placeholder="Selecione o cartão" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectGroup>
-                                                <SelectLabel>Cartões adicionados</SelectLabel>
-                                                {userCreditCards.length > 0 ? (
-                                                    userCreditCards.map(([bankKey, bank]) => (
-                                                        <SelectItem key={bankKey} value={bank.name}>
-                                                            {bank.name}
-                                                        </SelectItem>
-                                                    ))
-                                                ) : (
-                                                    <SelectItem value="__none__" disabled>
-                                                        Nenhum cartão adicionado
-                                                    </SelectItem>
-                                                )}
-                                            </SelectGroup>
-                                        </SelectContent>
-                                    </Select>
-                                )}
-                            </div>
-                            <DialogFooter>
-                                <Button
-                                    onClick={() => handleAddNewItem(false)}
-                                    type='button'
-                                    disabled={!text || !price || !category || !date || !paymentMethod || (paymentMethod === 'credit_card' && !selectedCreditCard)}
-                                    className='w-full sm:w-auto'
-                                ><span>Criar lançamento</span></Button>
-                            </DialogFooter>
-                        </DialogContent>
-                    </Dialog>
-                    <div>
-                        <p className='font-semibold text-[#0F172A] dark:text-white'>Adicionar despesa</p>
-                        <p className='text-sm text-[#64748B] dark:text-[#94A3BB]'>Cadastre uma saída manualmente.</p>
-                    </div>
-                </div>
-                <a
-                    href={`https://wa.me/${process.env.NEXT_PUBLIC_WHATSAPP_BOT_NUMBER || '5538991245175'}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className='surface-card flex items-center gap-4 p-5 sm:p-6 md:col-span-2 xl:col-span-2 transition-all hover:scale-[1.01] hover:border-[#22C55E]/30 active:scale-[0.99]'
-                >
-                    <div className='flex h-14 w-14 items-center justify-center rounded-2xl bg-[#22C55E]/12 text-[#16A34A] dark:bg-[#22C55E]/18 dark:text-[#4ADE80]'>
-                        <FaWhatsapp className='text-2xl' />
-                    </div>
-                    <div>
-                        <p className='font-semibold text-[#0F172A] dark:text-white flex items-center gap-2'>
-                            Teste o nosso Bot do WhatsApp
-                            <span className='inline-flex rounded-full bg-[#22C55E]/10 px-2 py-0.5 text-xs font-semibold text-[#16A34A] dark:text-[#4ADE80] animate-pulse'>
-                                Novo
-                            </span>
-                        </p>
-                        <p className='text-sm text-[#64748B] dark:text-[#94A3BB]'>Cadastre transações enviando uma mensagem ou áudio.</p>
-                    </div>
-                </a>
-            </section>
-            <div className='flex flex-col gap-6 xl:flex-row xl:items-stretch'>
-                <section className='surface-card w-full p-6 xl:max-w-105'>
-                    <p className='text-lg font-semibold text-[#0F172A] dark:text-white'>Despesas por categoria</p>
-                    <p className='mt-1 text-sm text-[#64748B] dark:text-[#94A3BB]'>Entenda rapidamente a distribuição das saídas.</p>
-                    <div className='mt-6 flex justify-center items-center max-md:max-w-82'>
-                        {loading ? (
-                            <AiOutlineLoading3Quarters className='h-24 w-24 animate-spin p-6 text-[#22C55E]' />
-                        ) : (<DonutChart results={results} />)}
-                    </div>
-                    <div className='mt-4'>
-                        {loading ?
-                            (<Skeleton className='h-28 w-full' />)
-                            : (<GraphicListItem results={results} />)}
-                    </div>
-                </section>
-                <div className='w-full xl:relative xl:flex-1'>
-                    <section className='surface-card-strong w-full flex flex-col xl:absolute xl:inset-0 overflow-hidden'>
-                        <header className='border-b soft-divider px-5 py-5 sm:px-6'>
-                            <h4 className='text-xl font-semibold text-[#0F172A] dark:text-white'>Últimas transações</h4>
-                            <p className='text-sm text-[#64748B] dark:text-[#94A3BB]'>Acompanhe seus lançamentos recentes com leitura mais limpa.</p>
-                        </header>
-                        <main className="flex min-h-0 flex-1 flex-col">
-                            <TransactionHeader />
-                            <div className='min-h-0 flex-1 overflow-auto'>
-                                <ul className='divide-y divide-border/40'>
-                                    {filterItems.map((item => (loading ? (
-                                        <TransactionsLoadings key={item.id} />
-                                    ) : <TransactionItem key={item.id} item={item} onDelete={handleDeleteItem} />
-                                    )))}
-                                </ul>
-                            </div>
-                        </main>
-                    </section>
-                </div>
-            </div>
+  return (
+    <div className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6">
+      <section className="surface-card p-6 sm:p-7">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+          <div className="space-y-2">
+            <span className="inline-flex rounded-full border border-[#22C55E]/20 bg-[#22C55E]/10 px-4 py-2 text-sm font-medium text-[#15803D] dark:text-[#4ADE80]">
+              Painel financeiro
+            </span>
+            <h1 className="text-3xl font-semibold tracking-tight text-[#0F172A] dark:text-white">
+              Olá!
+            </h1>
+            <p className="max-w-2xl text-sm leading-6 text-[#64748B] dark:text-[#94A3BB]">
+              Visualize seu saldo, acompanhe entradas e despesas e registre
+              novos lançamentos com mais clareza.
+            </p>
+          </div>
+          <ul className="flex max-sm:flex-wrap gap-2">
+            <li>
+              <button className={filterButtonClass} onClick={lastYearFilter}>
+                Último ano
+              </button>
+            </li>
+            <li>
+              <button className={filterButtonClass} onClick={lastMonthSelected}>
+                Último mês
+              </button>
+            </li>
+            <li>
+              <button className={filterButtonClass} onClick={thisMonthSelected}>
+                Este mês
+              </button>
+            </li>
+            <Period
+              onMonthChange={handleMonthChange}
+              selectedMonth={selectedMonth}
+            />
+          </ul>
         </div>
-    )
-}
+      </section>
+      <section className="grid gap-4 grid-cols-1 md:grid-cols-2 xl:grid-cols-4 grid-rows-2 h-full">
+        {loading ? (
+          <ValuesLoadings />
+        ) : (
+          <div className="surface-card flex flex-col justify-between gap-2 p-5 sm:p-6">
+            <div>
+              <p className="text-xs uppercase tracking-[0.22em] text-[#94A3BB]">
+                Saldo
+              </p>
+              <h2 className="mt-3 text-3xl font-semibold text-[#0F172A] dark:text-white sm:text-3xl">
+                {formatCurrency(balance)}
+              </h2>
+            </div>
+            <div className="flex w-fit items-center rounded-full border border-border/60 px-3 py-2 text-sm font-semibold text-[#334155] dark:text-[#E2E8F0]">
+              {differenceInPorcentage() > 0 ? (
+                <IoIosArrowRoundUp className="text-[#22C55E] text-lg" />
+              ) : (
+                <IoIosArrowRoundDown className="text-rose-500 text-lg" />
+              )}
+              {differenceInPorcentage().toFixed(2)}%
+            </div>
+          </div>
+        )}
+        {loading ? (
+          <ValuesLoadings />
+        ) : (
+          <div className="surface-card flex flex-col justify-between gap-5 p-2 sm:p-6">
+            <div>
+              <p className="text-xs uppercase tracking-[0.22em] text-[#94A3BB]">
+                Entradas
+              </p>
+              <h2 className="mt-3 text-3xl font-semibold text-[#16A34A] sm:text-3xl dark:text-[#4ADE80]">
+                {formatCurrency(income)}
+              </h2>
+            </div>
+            <div className="flex w-fit items-center rounded-full border border-border/60 px-3 py-2 text-sm font-semibold text-[#334155] dark:text-[#E2E8F0]">
+              {differenceInPorcentageIncome() > 0 ? (
+                <IoIosArrowRoundUp className="text-[#22C55E] text-lg" />
+              ) : (
+                <IoIosArrowRoundDown className="text-rose-500 text-lg" />
+              )}
+              {differenceInPorcentageIncome().toFixed(2)}%
+            </div>
+          </div>
+        )}
+        {loading ? (
+          <ValuesLoadings />
+        ) : (
+          <div className="surface-card flex flex-col justify-between gap-5 p-5 sm:p-6">
+            <div>
+              <p className="text-xs uppercase tracking-[0.22em] text-[#94A3BB]">
+                Despesas
+              </p>
+              <h2 className="mt-3 text-3xl font-semibold text-rose-500 sm:text-3xl dark:text-rose-300">
+                {formatCurrency(expense)}
+              </h2>
+            </div>
+            <div className="flex w-fit items-center rounded-full border border-border/60 px-3 py-2 text-sm font-semibold text-[#334155] dark:text-[#E2E8F0]">
+              {differenceInPorcentageExpense() < 0 ? (
+                <IoIosArrowRoundUp className="text-[#22C55E] text-lg" />
+              ) : (
+                <IoIosArrowRoundDown className="text-rose-500 text-lg" />
+              )}
+              {differenceInPorcentageExpense().toFixed(2)}%
+            </div>
+          </div>
+        )}
+        {loading ? (
+          <ValuesLoadings />
+        ) : (
+          <div className="surface-card flex flex-col justify-between gap-5 p-5 sm:p-6">
+            <div>
+              <p className="text-xs uppercase tracking-[0.22em] text-[#94A3BB]">
+                Contas a Pagar
+              </p>
+              <h2 className="mt-3 text-3xl font-semibold text-amber-600 sm:text-3xl dark:text-amber-400">
+                {formatCurrency(calculatePendingBills())}
+              </h2>
+            </div>
+            <div className="flex w-fit items-center rounded-full border border-border/60 px-3 py-2 text-sm font-semibold text-[#334155] dark:text-[#E2E8F0]">
+              {differenceInPorcentagePendingBills() > 0 ? (
+                <IoIosArrowRoundUp className="text-rose-500 text-lg" />
+              ) : (
+                <IoIosArrowRoundDown className="text-[#22C55E] text-lg" />
+              )}
+              {differenceInPorcentagePendingBills().toFixed(2)}%
+            </div>
+          </div>
+        )}
+
+        <div className="surface-card flex items-center gap-4 p-5 sm:p-6 md:col-span-1 xl:col-span-1">
+          <Dialog>
+            <DialogTrigger asChild>
+              <div className="flex h-14 w-14 cursor-pointer items-center justify-center rounded-2xl bg-[#22C55E]/12 text-[#16A34A] transition-transform hover:scale-[1.03] dark:bg-[#22C55E]/18 dark:text-[#4ADE80]">
+                <FiPlusCircle className="text-2xl" />
+              </div>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-106">
+              <DialogHeader>
+                <DialogTitle>Adicionar nova receita</DialogTitle>
+              </DialogHeader>
+              <div className="grid gap-4 py-4 ">
+                <Input
+                  type="text"
+                  placeholder="Descrição"
+                  value={text}
+                  onChange={handleTextChange}
+                ></Input>
+                <Input
+                  type="number"
+                  placeholder="Valor"
+                  value={price}
+                  onChange={handlePriceChange}
+                ></Input>
+                <Input
+                  type="date"
+                  placeholder="Data"
+                  value={date}
+                  onChange={handleDateChange}
+                ></Input>
+                <Select value={category} onValueChange={handleCategoryChange}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Selecione uma categoria" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      <SelectLabel>Categorias</SelectLabel>
+                      {INCOME_CATEGORIES.map(({ value, label }) => (
+                        <SelectItem key={value} value={value}>
+                          {label}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              </div>
+              <DialogFooter>
+                <Button
+                  onClick={() => handleAddNewItem(true)}
+                  type="button"
+                  disabled={!text || !price || !category || !date}
+                  className="w-full sm:w-auto"
+                >
+                  <span>Criar lançamento</span>
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+          <div>
+            <p className="font-semibold text-[#0F172A] dark:text-white">
+              Adicionar receita
+            </p>
+            <p className="text-sm text-[#64748B] dark:text-[#94A3BB]">
+              Cadastre uma entrada manualmente.
+            </p>
+          </div>
+        </div>
+        <div className="surface-card flex items-center gap-4 p-5 sm:p-6 md:col-span-1 xl:col-span-1">
+          <Dialog>
+            <DialogTrigger asChild>
+              <div className="flex h-14 w-14 cursor-pointer items-center justify-center rounded-2xl bg-rose-500/12 text-rose-500 transition-transform hover:scale-[1.03] dark:bg-rose-500/18 dark:text-rose-300">
+                <FiMinusCircle className="text-2xl" />
+              </div>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-106">
+              <DialogHeader>
+                <DialogTitle>Adicionar nova despesa</DialogTitle>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <Input
+                  type="text"
+                  placeholder="Descrição"
+                  value={text}
+                  onChange={handleTextChange}
+                ></Input>
+                <Input
+                  type="number"
+                  placeholder="Valor"
+                  value={price}
+                  onChange={handlePriceChange}
+                ></Input>
+                <Input
+                  type="date"
+                  placeholder="Data"
+                  value={date}
+                  onChange={handleDateChange}
+                ></Input>
+                <Select value={category} onValueChange={handleCategoryChange}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Selecione uma categoria" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      <SelectLabel>Categorias</SelectLabel>
+                      {EXPENSE_CATEGORIES.map(({ value, label }) => (
+                        <SelectItem key={value} value={value}>
+                          {label}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+                <Select value={paymentMethod} onValueChange={setPaymentMethod}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Método de pagamento" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      <SelectLabel>Método de pagamento</SelectLabel>
+                      <SelectItem value="cash">Dinheiro</SelectItem>
+                      <SelectItem value="pix">Pix</SelectItem>
+                      <SelectItem value="debit">Cartão de Débito</SelectItem>
+                      <SelectItem value="credit_card">
+                        Cartão de Crédito
+                      </SelectItem>
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+                {paymentMethod === "credit_card" && (
+                  <Select
+                    value={selectedCreditCard}
+                    onValueChange={setSelectedCreditCard}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Selecione o cartão" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        <SelectLabel>Cartões adicionados</SelectLabel>
+                        {userCreditCards.length > 0 ? (
+                          userCreditCards.map(([bankKey, bank]) => (
+                            <SelectItem key={bankKey} value={bank.name}>
+                              {bank.name}
+                            </SelectItem>
+                          ))
+                        ) : (
+                          <SelectItem value="__none__" disabled>
+                            Nenhum cartão adicionado
+                          </SelectItem>
+                        )}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+              <DialogFooter>
+                <Button
+                  onClick={() => handleAddNewItem(false)}
+                  type="button"
+                  disabled={
+                    !text ||
+                    !price ||
+                    !category ||
+                    !date ||
+                    !paymentMethod ||
+                    (paymentMethod === "credit_card" && !selectedCreditCard)
+                  }
+                  className="w-full sm:w-auto"
+                >
+                  <span>Criar lançamento</span>
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+          <div>
+            <p className="font-semibold text-[#0F172A] dark:text-white">
+              Adicionar despesa
+            </p>
+            <p className="text-sm text-[#64748B] dark:text-[#94A3BB]">
+              Cadastre uma saída manualmente.
+            </p>
+          </div>
+        </div>
+        <a
+          href={`https://wa.me/${process.env.NEXT_PUBLIC_WHATSAPP_BOT_NUMBER || "5538991245175"}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="surface-card flex items-center gap-4 p-5 sm:p-6 md:col-span-2 xl:col-span-2 transition-all hover:scale-[1.01] hover:border-[#22C55E]/30 active:scale-[0.99]"
+        >
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#22C55E]/12 text-[#16A34A] dark:bg-[#22C55E]/18 dark:text-[#4ADE80]">
+            <FaWhatsapp className="text-2xl" />
+          </div>
+          <div>
+            <p className="font-semibold text-[#0F172A] dark:text-white flex items-center gap-2">
+              Teste o nosso Bot do WhatsApp
+              <span className="inline-flex rounded-full bg-[#22C55E]/10 px-2 py-0.5 text-xs font-semibold text-[#16A34A] dark:text-[#4ADE80] animate-pulse">
+                Novo
+              </span>
+            </p>
+            <p className="text-sm text-[#64748B] dark:text-[#94A3BB]">
+              Cadastre transações enviando uma mensagem ou áudio.
+            </p>
+          </div>
+        </a>
+      </section>
+      <div className="flex flex-col gap-6 xl:flex-row xl:items-stretch">
+        <section className="surface-card w-full p-6 xl:max-w-105">
+          <p className="text-lg font-semibold text-[#0F172A] dark:text-white">
+            Despesas por categoria
+          </p>
+          <p className="mt-1 text-sm text-[#64748B] dark:text-[#94A3BB]">
+            Entenda rapidamente a distribuição das saídas.
+          </p>
+          <div className="mt-6 flex justify-center items-center max-md:max-w-82">
+            {loading ? (
+              <AiOutlineLoading3Quarters className="h-24 w-24 animate-spin p-6 text-[#22C55E]" />
+            ) : (
+              <DonutChart results={results} />
+            )}
+          </div>
+          <div className="mt-4">
+            {loading ? (
+              <Skeleton className="h-28 w-full" />
+            ) : (
+              <GraphicListItem results={results} />
+            )}
+          </div>
+        </section>
+        <div className="w-full xl:relative xl:flex-1">
+          <section className="surface-card-strong w-full flex flex-col xl:absolute xl:inset-0 overflow-hidden">
+            <header className="border-b soft-divider px-5 py-5 sm:px-6">
+              <h4 className="text-xl font-semibold text-[#0F172A] dark:text-white">
+                Últimas transações
+              </h4>
+              <p className="text-sm text-[#64748B] dark:text-[#94A3BB]">
+                Acompanhe seus lançamentos recentes com leitura mais limpa.
+              </p>
+            </header>
+            <main className="flex min-h-0 flex-1 flex-col">
+              <TransactionHeader />
+              <div className="min-h-0 flex-1 overflow-auto">
+                <ul className="divide-y divide-border/40">
+                  {filterItems.map((item) =>
+                    loading ? (
+                      <TransactionsLoadings key={item.id} />
+                    ) : (
+                      <TransactionItem
+                        key={item.id}
+                        item={item}
+                        onDelete={handleDeleteItem}
+                      />
+                    ),
+                  )}
+                </ul>
+              </div>
+            </main>
+          </section>
+        </div>
+      </div>
+    </div>
+  );
+};

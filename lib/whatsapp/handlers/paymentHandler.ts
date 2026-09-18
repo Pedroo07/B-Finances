@@ -8,12 +8,18 @@ import { formatBrasiliaDate } from "@/lib/whatsapp/utils/brasiliaDate";
 
 type PaymentParameters = Record<string, unknown>;
 
-function getStringParameter(parameters: PaymentParameters, key: string): string | undefined {
+function getStringParameter(
+  parameters: PaymentParameters,
+  key: string,
+): string | undefined {
   const value = parameters[key];
   return typeof value === "string" && value.trim() ? value : undefined;
 }
 
-function getNumberParameter(parameters: PaymentParameters, key: string): number | undefined {
+function getNumberParameter(
+  parameters: PaymentParameters,
+  key: string,
+): number | undefined {
   const value = parameters[key];
   if (typeof value === "number" && Number.isFinite(value)) return value;
   if (typeof value === "string") {
@@ -27,7 +33,7 @@ function getNumberParameter(parameters: PaymentParameters, key: string): number 
 export async function handlePayment(
   userId: string,
   intent: IntentType,
-  parameters: PaymentParameters
+  parameters: PaymentParameters,
 ): Promise<string> {
   try {
     if (intent === IntentType.PAY_BILL) {
@@ -47,7 +53,7 @@ export async function handlePayment(
 
 async function handleBillPayment(
   userId: string,
-  parameters: PaymentParameters
+  parameters: PaymentParameters,
 ): Promise<string> {
   const description = getStringParameter(parameters, "description");
 
@@ -80,7 +86,7 @@ async function handleBillPayment(
 
 async function handleCardInvoicePayment(
   userId: string,
-  parameters: PaymentParameters
+  parameters: PaymentParameters,
 ): Promise<string> {
   const cardName = getStringParameter(parameters, "card");
   const amount = getNumberParameter(parameters, "amount");

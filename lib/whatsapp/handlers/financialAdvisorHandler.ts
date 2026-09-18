@@ -280,16 +280,18 @@ function buildMonthSummary(
   );
 
   const income = sum(
-    monthTransactions.filter(isIncome).map((transaction) =>
-      Math.abs(safeAmount(transaction.amount)),
-    ),
+    monthTransactions
+      .filter(isIncome)
+      .map((transaction) => Math.abs(safeAmount(transaction.amount))),
   );
   const cashExpense = sum(
-    monthTransactions.filter(isExpense).map((transaction) =>
-      Math.abs(safeAmount(transaction.amount)),
-    ),
+    monthTransactions
+      .filter(isExpense)
+      .map((transaction) => Math.abs(safeAmount(transaction.amount))),
   );
-  const consumptionExpense = sum(monthExpenses.map((expense) => expense.amount));
+  const consumptionExpense = sum(
+    monthExpenses.map((expense) => expense.amount),
+  );
 
   return {
     range,
@@ -335,8 +337,7 @@ function buildMonthComparison(
   return {
     current,
     previous,
-    expenseDifference:
-      current.consumptionExpense - previous.consumptionExpense,
+    expenseDifference: current.consumptionExpense - previous.consumptionExpense,
     expenseChangePercent: percentageChange(
       current.consumptionExpense,
       previous.consumptionExpense,
@@ -441,7 +442,9 @@ function isRecurringBill(bill: BillAccount): boolean {
     return bill.recurrence === "monthly" || bill.recurrence === "installments";
   }
 
-  return bill.recurrence.type === "monthly" || bill.recurrence.type === "yearly";
+  return (
+    bill.recurrence.type === "monthly" || bill.recurrence.type === "yearly"
+  );
 }
 
 function normalizeRecurringDescription(description: string): string {
@@ -468,13 +471,19 @@ function buildRecurringExpenses(
     }))
     .filter((bill) => bill.amount > 0);
 
-  const oldestRange = monthRangeFromOffset(today, RECURRING_LOOKBACK_MONTHS - 1);
+  const oldestRange = monthRangeFromOffset(
+    today,
+    RECURRING_LOOKBACK_MONTHS - 1,
+  );
   const recentExpenses = expenses.filter(
     (expense) => expense.date >= oldestRange.startDate,
   );
 
   const grouped = recentExpenses.reduce<
-    Record<string, { description: string; amounts: number[]; months: Set<string> }>
+    Record<
+      string,
+      { description: string; amounts: number[]; months: Set<string> }
+    >
   >((groups, expense) => {
     const normalizedDescription = normalizeRecurringDescription(
       expense.description,
@@ -544,7 +553,9 @@ function buildProjection(
 
   const historyWithData = history.filter(
     (summary) =>
-      summary.consumptionExpense > 0 || summary.income > 0 || summary.cashExpense > 0,
+      summary.consumptionExpense > 0 ||
+      summary.income > 0 ||
+      summary.cashExpense > 0,
   );
   const historyMonths = historyWithData.length;
   const averageHistoricalConsumption =
@@ -554,8 +565,7 @@ function buildProjection(
       : null;
   const elapsedDays = Math.max(1, today.getDate());
   const totalDays = daysInCurrentMonth(today);
-  const paceProjection =
-    (current.consumptionExpense / elapsedDays) * totalDays;
+  const paceProjection = (current.consumptionExpense / elapsedDays) * totalDays;
 
   const projectedConsumption =
     averageHistoricalConsumption === null
@@ -637,7 +647,10 @@ function parseBrazilianNumber(value: string): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-function extractTargetAmount(question: string, explicitAmount?: unknown): number | null {
+function extractTargetAmount(
+  question: string,
+  explicitAmount?: unknown,
+): number | null {
   if (typeof explicitAmount === "number" && explicitAmount > 0) {
     return explicitAmount;
   }
@@ -955,19 +968,14 @@ export async function handleFinancialAdvice(
       parameters.target_amount,
     );
 
-    const [
-      transactions,
-      cardTransactions,
-      bills,
-      pendingBills,
-      investments,
-    ] = await Promise.all([
-      getTransactions(userId),
-      getCardTransactions(userId),
-      getBillAccounts(userId),
-      getPendingBills(userId),
-      getInvestments(userId),
-    ]);
+    const [transactions, cardTransactions, bills, pendingBills, investments] =
+      await Promise.all([
+        getTransactions(userId),
+        getCardTransactions(userId),
+        getBillAccounts(userId),
+        getPendingBills(userId),
+        getInvestments(userId),
+      ]);
 
     const analysis = buildAnalysis(
       question,

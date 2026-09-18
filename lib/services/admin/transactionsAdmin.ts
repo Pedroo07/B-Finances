@@ -37,19 +37,15 @@ function mapTransactionSnapshot(
 
 export async function createTransaction(
   userId: string,
-  data: TransactionDto
+  data: TransactionDto,
 ): Promise<Transaction> {
-  const docRef = await db
-    .collection(`users/${userId}/transactions`)
-    .add(data);
+  const docRef = await db.collection(`users/${userId}/transactions`).add(data);
 
   return mapTransactionSnapshot(await docRef.get());
 }
 
 export async function getTransactions(userId: string): Promise<Transaction[]> {
-  const snapshot = await db
-    .collection(`users/${userId}/transactions`)
-    .get();
+  const snapshot = await db.collection(`users/${userId}/transactions`).get();
 
   return snapshot.docs.map(mapTransactionSnapshot);
 }
@@ -57,7 +53,7 @@ export async function getTransactions(userId: string): Promise<Transaction[]> {
 export async function getTransactionsByPeriod(
   userId: string,
   startDate: string,
-  endDate: string
+  endDate: string,
 ): Promise<Transaction[]> {
   const snapshot = await db
     .collection(`users/${userId}/transactions`)
@@ -72,7 +68,7 @@ export async function getTransactionsByCategory(
   userId: string,
   category: string,
   startDate?: string,
-  endDate?: string
+  endDate?: string,
 ): Promise<Transaction[]> {
   let query = db
     .collection(`users/${userId}/transactions`)
@@ -92,7 +88,7 @@ export async function getTransactionsByCategory(
 
 export async function deleteTransaction(
   userId: string,
-  transactionId: string
+  transactionId: string,
 ): Promise<void> {
   await db
     .collection(`users/${userId}/transactions`)
@@ -114,7 +110,7 @@ export async function updateTransaction(
 export async function findTransactionByDescription(
   userId: string,
   description: string,
-  daysBack: number = 30
+  daysBack: number = 30,
 ): Promise<Transaction[]> {
   const startDate = getBrasiliaDate();
   startDate.setDate(startDate.getDate() - daysBack);
@@ -126,7 +122,7 @@ export async function findTransactionByDescription(
     .get();
 
   const descLower = description.toLowerCase();
-  
+
   return snapshot.docs
     .filter((doc) => {
       const data = doc.data();
@@ -141,9 +137,11 @@ export async function getRecentTransactions(
   type?: "income" | "expense",
   categoryFilter?: string,
   startDate?: string,
-  endDate?: string
+  endDate?: string,
 ): Promise<Transaction[]> {
-  let query: Query<DocumentData> = db.collection(`users/${userId}/transactions`);
+  let query: Query<DocumentData> = db.collection(
+    `users/${userId}/transactions`,
+  );
 
   if (startDate) query = query.where("date", ">=", startDate);
   if (endDate) query = query.where("date", "<=", endDate);
@@ -168,7 +166,7 @@ export async function getTransactionsByPeriodAndCategory(
   userId: string,
   startDate: string,
   endDate: string,
-  category: string
+  category: string,
 ): Promise<Transaction[]> {
   const snapshot = await db
     .collection(`users/${userId}/transactions`)
@@ -179,4 +177,3 @@ export async function getTransactionsByPeriodAndCategory(
 
   return snapshot.docs.map(mapTransactionSnapshot);
 }
-

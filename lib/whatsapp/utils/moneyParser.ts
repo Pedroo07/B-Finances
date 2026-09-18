@@ -37,10 +37,6 @@ function normalizeSeparators(value: string): string {
   return parts.join("");
 }
 
-/**
- * Converte um valor monetário isolado para número, aceitando as convenções
- * brasileira e internacional. Retorna null para texto parcial ou ambíguo.
- */
 export function parseMoney(value: string | number): number | null {
   if (typeof value === "number") {
     return Number.isFinite(value) ? value : null;
@@ -61,7 +57,6 @@ export function parseMoney(value: string | number): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-/** Localiza o primeiro valor monetário completo sem confundir parte de datas. */
 export function extractMoney(text: string): MoneyMatch | null {
   const matcher = new RegExp(
     `(?<![\\d.,/])(?:r\\$|rs)?\\s*([+-]?${MONEY_VALUE_PATTERN})(?![\\d.,/])`,
