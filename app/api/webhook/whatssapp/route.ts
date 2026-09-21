@@ -196,7 +196,6 @@ function isPendingActionResponse(messageText: string): boolean {
 function isNumericSelectionResponse(messageText: string): boolean {
   return /^#?\s*\d+\s*$/.test(messageText.trim());
 }
-
 function isCancelPendingResponse(messageText: string): boolean {
   const normalized = normalizeFreeText(messageText);
   return /^(cancelar|cancela|nao|n)$/.test(normalized);
