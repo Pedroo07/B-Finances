@@ -67,6 +67,7 @@ export async function handleAddTransaction(
   userId: string,
   messageText: string,
   conversationHistory: string,
+  whatsappMessageId?: string,
 ): Promise<string> {
   const todayStr = formatBrasiliaDate();
 
@@ -188,11 +189,18 @@ export async function handleAddTransaction(
         totalAmount: Math.abs(transactionData.amount),
         card: transactionData.card,
         installmentCount,
+        ...(whatsappMessageId ? { whatsappMessageId } : {}),
       });
     } else if (isCardTransaction) {
-      await createCardTransaction(userId, transactionData);
+      await createCardTransaction(userId, {
+        ...transactionData,
+        ...(whatsappMessageId ? { whatsappMessageId } : {}),
+      });
     } else {
-      await createTransaction(userId, transactionData);
+      await createTransaction(userId, {
+        ...transactionData,
+        ...(whatsappMessageId ? { whatsappMessageId } : {}),
+      });
     }
 
     const typeLabel = transactionData.type === "income" ? "Receita" : "Despesa";

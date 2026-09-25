@@ -13,6 +13,7 @@ export type TransactionDto = {
   category: string;
   type: string;
   paymentMethod: string;
+  whatsappMessageId?: string;
 };
 
 export type Transaction = TransactionDto & {
@@ -39,6 +40,21 @@ export async function createTransaction(
   userId: string,
   data: TransactionDto,
 ): Promise<Transaction> {
+  if (data.whatsappMessageId) {
+    const existing = await db
+      .collection(`users/${userId}/transactions`)
+      .where("whatsappMessageId", "==", data.whatsappMessageId)
+      .limit(1)
+      .get();
+
+    if (!existing.empty) {
+      console.warn(
+        `[transactionsAdmin] Transação com whatsappMessageId ${data.whatsappMessageId} já existe. Evitando duplicação.`,
+      );
+      return mapTransactionSnapshot(existing.docs[0]);
+    }
+  }
+
   const docRef = await db.collection(`users/${userId}/transactions`).add(data);
 
   return mapTransactionSnapshot(await docRef.get());

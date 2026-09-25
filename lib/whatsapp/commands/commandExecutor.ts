@@ -70,6 +70,7 @@ type ExecutorInput = {
   conversationHistory?: string;
   phoneNumber?: string;
   recentTransaction?: UpdateTransactionTarget | null;
+  whatsappMessageId?: string;
 };
 
 type TransactionQueryResult = {
@@ -715,6 +716,7 @@ async function executeCreateTransaction(
   userId: string,
   command: BFinanceCommand,
   messageText: string,
+  whatsappMessageId?: string,
 ): Promise<BFinanceCommandResult> {
   const missingFields: string[] = [];
   const description = command.data?.description || command.filters?.description;
@@ -828,6 +830,7 @@ async function executeCreateTransaction(
         purchaseDate: date,
         card: getCreditCardName(cardName),
         installmentCount,
+        ...(whatsappMessageId ? { whatsappMessageId } : {}),
       });
       const item = cardTransactionToItem(created[0]);
       item.totalAmount = Math.abs(amountValue);
@@ -846,6 +849,7 @@ async function executeCreateTransaction(
       category,
       date,
       card: getCreditCardName(cardName),
+      ...(whatsappMessageId ? { whatsappMessageId } : {}),
     });
 
     return {
@@ -863,6 +867,7 @@ async function executeCreateTransaction(
     date,
     type,
     paymentMethod,
+    ...(whatsappMessageId ? { whatsappMessageId } : {}),
   });
 
   return {
@@ -1383,6 +1388,7 @@ export async function executeBFinanceCommand({
   command,
   messageText,
   recentTransaction,
+  whatsappMessageId,
 }: ExecutorInput): Promise<BFinanceCommandResult> {
   try {
     if (command.action === "help") {
@@ -1408,14 +1414,24 @@ export async function executeBFinanceCommand({
     }
 
     if (command.action === "create" && command.resource === "transaction") {
-      return await executeCreateTransaction(userId, command, messageText);
+      return await executeCreateTransaction(
+        userId,
+        command,
+        messageText,
+        whatsappMessageId,
+      );
     }
 
     if (
       command.action === "create" &&
       command.resource === "card_transaction"
     ) {
-      return await executeCreateTransaction(userId, command, messageText);
+      return await executeCreateTransaction(
+        userId,
+        command,
+        messageText,
+        whatsappMessageId,
+      );
     }
 
     if (

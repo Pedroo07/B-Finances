@@ -12,6 +12,7 @@ export type CardTransactionDto = {
   installmentGroupId?: string;
   installmentNumber?: number;
   installmentCount?: number;
+  whatsappMessageId?: string;
 };
 
 export type CardTransaction = CardTransactionDto & {
@@ -41,12 +42,28 @@ export type CardInstallmentTransactionDto = {
   totalAmount: number;
   card: string;
   installmentCount: number;
+  whatsappMessageId?: string;
 };
 
 export async function createCardTransaction(
   userId: string,
   data: CardTransactionDto,
 ): Promise<CardTransaction> {
+  if (data.whatsappMessageId) {
+    const existing = await db
+      .collection(`users/${userId}/cardTransactions`)
+      .where("whatsappMessageId", "==", data.whatsappMessageId)
+      .limit(1)
+      .get();
+
+    if (!existing.empty) {
+      console.warn(
+        `[cardTransactionsAdmin] Transação de cartão com whatsappMessageId ${data.whatsappMessageId} já existe. Evitando duplicação.`,
+      );
+      return mapCardTransactionSnapshot(existing.docs[0]);
+    }
+  }
+
   const docRef = await db
     .collection(`users/${userId}/cardTransactions`)
     .add(data);
@@ -58,6 +75,20 @@ export async function createCardInstallmentTransactions(
   userId: string,
   data: CardInstallmentTransactionDto,
 ): Promise<CardTransaction[]> {
+  if (data.whatsappMessageId) {
+    const existing = await db
+      .collection(`users/${userId}/cardTransactions`)
+      .where("whatsappMessageId", "==", data.whatsappMessageId)
+      .get();
+
+    if (!existing.empty) {
+      console.warn(
+        `[cardTransactionsAdmin] Parcelamento com whatsappMessageId ${data.whatsappMessageId} já existe. Evitando duplicação.`,
+      );
+      return existing.docs.map(mapCardTransactionSnapshot);
+    }
+  }
+
   const schedule = buildInstallmentSchedule(data);
   const collection = db.collection(`users/${userId}/cardTransactions`);
   const batch = db.batch();
@@ -77,6 +108,9 @@ export async function createCardInstallmentTransactions(
       installmentGroupId,
       installmentNumber: installment.installmentNumber,
       installmentCount: installment.installmentCount,
+      ...(data.whatsappMessageId
+        ? { whatsappMessageId: data.whatsappMessageId }
+        : {}),
     };
 
     batch.set(transactionRefs[index], transaction);

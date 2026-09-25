@@ -48,6 +48,12 @@ import {
 } from "@/lib/whatsapp/utils/shortTermMemory";
 import { getBrasiliaDate } from "@/lib/whatsapp/utils/brasiliaDate";
 import { extractMoney } from "@/lib/whatsapp/utils/moneyParser";
+import {
+  acquireMessageLock,
+  markMessageCompleted,
+  markMessageFailed,
+  isMessageStale,
+} from "@/lib/whatsapp/utils/messageDeduplicator";
 
 const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN;
 const WHATSAPP_ACCESS_TOKEN = process.env.WHATSAPP_ACCESS_TOKEN!;
@@ -401,6 +407,7 @@ async function handleCardSelectionPendingAction(
   userId: string,
   fromPhoneNumber: string,
   messageText: string,
+  messageId?: string,
 ): Promise<boolean> {
   const options = getCardSelectionOptions(pendingAction);
   const command = isRecord(pendingAction.command)
@@ -443,6 +450,7 @@ async function handleCardSelectionPendingAction(
     command: selectedCommand,
     messageText: sourceMessageText,
     phoneNumber: fromPhoneNumber,
+    whatsappMessageId: messageId,
   });
 
   if (
@@ -503,6 +511,7 @@ async function handlePendingActionIfApplicable(
   userId: string,
   fromPhoneNumber: string,
   messageText: string,
+  messageId?: string,
 ): Promise<boolean> {
   if (isCancelPendingResponse(messageText)) {
     await clearPendingAction(fromPhoneNumber);
@@ -518,6 +527,7 @@ async function handlePendingActionIfApplicable(
       userId,
       fromPhoneNumber,
       messageText,
+      messageId,
     );
   }
 
@@ -618,6 +628,7 @@ async function handlePendingActionIfApplicable(
         command,
         messageText,
         phoneNumber: fromPhoneNumber,
+        whatsappMessageId: messageId,
       });
 
       if (
@@ -727,6 +738,8 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
+  let currentMessageId: string | undefined;
+
   try {
     const data = await req.json();
     const messageEntry = data?.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
@@ -735,9 +748,42 @@ export async function POST(req: Request) {
       return NextResponse.json({ status: "ignored" });
     }
 
+    currentMessageId = messageEntry.id;
+    const messageTimestamp = messageEntry.timestamp;
     const fromPhoneNumber = messageEntry.from;
+
     if (!fromPhoneNumber) {
       return NextResponse.json({ status: "ignored_no_sender" });
+    }
+
+    if (isMessageStale(messageTimestamp)) {
+      console.warn(
+        `[WhatsApp Webhook] Mensagem ignorada por ser muito antiga: id=${currentMessageId}, timestamp=${messageTimestamp}`,
+      );
+      return NextResponse.json(
+        { status: "ignored_stale_message", messageId: currentMessageId },
+        { status: 200 },
+      );
+    }
+
+    const lock = await acquireMessageLock(currentMessageId, {
+      phoneNumber: fromPhoneNumber,
+      messageTimestamp,
+      messageType: messageEntry.type,
+    });
+
+    if (!lock.shouldProcess) {
+      console.warn(
+        `[WhatsApp Webhook] Mensagem duplicada ignorada: id=${currentMessageId}, reason=${lock.reason}`,
+      );
+      return NextResponse.json(
+        {
+          status: "already_processed",
+          reason: lock.reason,
+          messageId: currentMessageId,
+        },
+        { status: 200 },
+      );
     }
 
     const userId = await getUserIdByPhone(fromPhoneNumber);
@@ -749,6 +795,11 @@ export async function POST(req: Request) {
         fromPhoneNumber,
         "Olá! Não encontramos nenhuma conta associada a este número no B-Finances. Cadastre seu telefone no aplicativo para usar o bot do WhatsApp.",
       );
+      if (currentMessageId) {
+        await markMessageCompleted(currentMessageId, {
+          action: "unregistered_user",
+        });
+      }
       return NextResponse.json({
         status: "error",
         error: "Unregistered phone number",
@@ -761,6 +812,12 @@ export async function POST(req: Request) {
         fromPhoneNumber,
         `Você atingiu o limite de ${rateLimit.limit} mensagens por hora. Tente novamente após ${formatResetTime(rateLimit.resetAt)}.`,
       );
+      if (currentMessageId) {
+        await markMessageCompleted(currentMessageId, {
+          userId,
+          action: "rate_limited",
+        });
+      }
       return NextResponse.json({ status: "rate_limited" });
     }
 
@@ -796,9 +853,16 @@ export async function POST(req: Request) {
         userId,
         fromPhoneNumber,
         messageText,
+        currentMessageId,
       );
 
       if (handledPending) {
+        if (currentMessageId) {
+          await markMessageCompleted(currentMessageId, {
+            userId,
+            action: "pending_action",
+          });
+        }
         return NextResponse.json({ status: "success" });
       }
     }
@@ -855,6 +919,7 @@ export async function POST(req: Request) {
       conversationHistory,
       phoneNumber: fromPhoneNumber,
       recentTransaction,
+      whatsappMessageId: currentMessageId,
     });
 
     if (
@@ -911,9 +976,29 @@ export async function POST(req: Request) {
 
     await updateSessionHistory(fromPhoneNumber, "assistant", reply);
 
+    if (currentMessageId) {
+      await markMessageCompleted(currentMessageId, {
+        userId,
+        action: command.action,
+        transactionId:
+          commandResult.success && "item" in commandResult
+            ? commandResult.item?.id
+            : undefined,
+      });
+    }
+
     return NextResponse.json({ status: "success" });
   } catch (error) {
     console.error("Erro no processamento:", error);
-    return NextResponse.json({ status: "error" }, { status: 500 });
+    if (currentMessageId) {
+      await markMessageFailed(currentMessageId, error);
+    }
+    return NextResponse.json(
+      {
+        status: "error_handled",
+        error: error instanceof Error ? error.message : "Internal Error",
+      },
+      { status: 200 },
+    );
   }
 }
