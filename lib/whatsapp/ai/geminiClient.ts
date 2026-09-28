@@ -41,6 +41,7 @@ const TASK_MODEL_CHAINS: Record<AiTaskType, string[]> = {
   COMMAND_INTERPRETATION: [
     "gemini-3.5-flash",      // Primário para NLU e estruturação financeira (~1.5s)
     "gemini-3.5-flash-lite", // Reserva 1 (alta qualidade quando disponível)
+    "gemini-3.1-flash-lite",
     "gemini-3.6-flash",      // Reserva 2 (raciocínio avançado)
     "gemini-flash-latest",   // Reserva 3
   ],
