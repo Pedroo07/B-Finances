@@ -1,8 +1,4 @@
-import {
-  GoogleGenerativeAI,
-  type GenerateContentRequest,
-  type Part,
-} from "@google/generative-ai";
+import { generateContentWithTaskRouting } from "../ai/geminiClient";
 import { CREDIT_CARD_NAMES_TEXT } from "@/lib/creditCards/catalog";
 import type { ShortTermMemorySnapshot } from "../utils/shortTermMemory";
 import { getBrasiliaDate } from "../utils/brasiliaDate";
@@ -19,24 +15,12 @@ import type {
   BFinanceUpdateReference,
 } from "./types";
 
-type PromptPayload = string | GenerateContentRequest | Array<string | Part>;
-
 type InterpreterInput = {
   messageText: string;
   conversationHistory: string;
   shortTermMemory?: ShortTermMemorySnapshot | null;
   currentDate?: Date;
 };
-
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
-
-const agentModels = [
-  "gemini-3.5-flash-lite",
-  "gemini-3.8-flash",
-  "gemini-3.7-flash",
-  "gemini-3.6-flash",
-  "gemini-3.5-flash",
-];
 
 const ACTIONS = new Set<BFinanceAction>([
   "query",
@@ -111,33 +95,6 @@ const UPDATE_REFERENCES = new Set<BFinanceUpdateReference>([
   "latest",
 ]);
 
-async function generateContentWithFallback(
-  promptPayload: PromptPayload,
-  systemInstruction?: string,
-): Promise<string> {
-  let lastError: unknown = null;
-
-  for (const agent of agentModels) {
-    try {
-      const config: { model: string; systemInstruction?: string } = {
-        model: agent,
-      };
-      if (systemInstruction) config.systemInstruction = systemInstruction;
-      const model = genAI.getGenerativeModel(config);
-      const result = await model.generateContent(promptPayload);
-      return result.response.text();
-    } catch (error) {
-      console.warn(
-        `Falha ou limite atingido no modelo ${agent}. Tentando o proximo da lista...`,
-      );
-      lastError = error;
-    }
-  }
-
-  const errorMessage =
-    lastError instanceof Error ? lastError.message : String(lastError);
-  throw new Error(`Todos os modelos falharam. Ultimo erro: ${errorMessage}`);
-}
 
 function formatDateForPrompt(date: Date): string {
   const year = date.getFullYear();
@@ -533,10 +490,16 @@ export async function interpretBFinanceCommand({
   };
 
   try {
-    const responseText = await generateContentWithFallback(
-      messageText,
-      buildSystemInstruction(input),
-    );
+    const responseText = await generateContentWithTaskRouting({
+      task: "COMMAND_INTERPRETATION",
+      promptPayload: messageText,
+      systemInstruction: buildSystemInstruction(input),
+      generationConfig: {
+        temperature: 0.1,
+        responseMimeType: "application/json",
+      },
+      timeoutMs: 4000,
+    });
     return normalizeParsedCommand(JSON.parse(cleanJsonResponse(responseText)));
   } catch (error) {
     console.error("Erro ao interpretar comando B-Finances:", error);

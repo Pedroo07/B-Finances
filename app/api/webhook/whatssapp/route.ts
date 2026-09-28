@@ -1,10 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/firebaseAdmin";
-import {
-  GoogleGenerativeAI,
-  type GenerateContentRequest,
-  type Part,
-} from "@google/generative-ai";
+import { generateContentWithTaskRouting } from "@/lib/whatsapp/ai/geminiClient";
 import { getPhoneVariations } from "@/lib/utils";
 import { sendWhatsAppMessage } from "@/lib/whatsapp";
 import { confirmDeleteTool } from "@/lib/whatsapp/tools";
@@ -57,17 +53,6 @@ import {
 
 const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN;
 const WHATSAPP_ACCESS_TOKEN = process.env.WHATSAPP_ACCESS_TOKEN!;
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
-
-const agentModels = [
-  "gemini-3.5-flash-lite",
-  "gemini-3.8-flash",
-  "gemini-3.7-flash",
-  "gemini-3.6-flash",
-  "gemini-3.5-flash",
-];
-
-type PromptPayload = string | GenerateContentRequest | Array<string | Part>;
 
 async function getUserIdByPhone(phoneNumber: string): Promise<string | null> {
   try {
@@ -127,34 +112,6 @@ async function downloadWhatsAppAudio(mediaId: string): Promise<{
   };
 }
 
-async function generateContentWithFallback(
-  promptPayload: PromptPayload,
-  systemInstruction?: string,
-): Promise<string> {
-  let lastError: unknown = null;
-
-  for (const agent of agentModels) {
-    try {
-      const config: { model: string; systemInstruction?: string } = {
-        model: agent,
-      };
-      if (systemInstruction) config.systemInstruction = systemInstruction;
-      const model = genAI.getGenerativeModel(config);
-      const result = await model.generateContent(promptPayload);
-      return result.response.text();
-    } catch (error) {
-      console.warn(
-        `Falha ou limite atingido no modelo ${agent}. Tentando o proximo da lista...`,
-      );
-      lastError = error;
-    }
-  }
-
-  const errorMessage =
-    lastError instanceof Error ? lastError.message : String(lastError);
-  throw new Error(`Todos os modelos falharam. Ultimo erro: ${errorMessage}`);
-}
-
 async function transcribeAudio(
   audioBuffer: Buffer,
   mimeType: string,
@@ -171,14 +128,20 @@ async function transcribeAudio(
     },
   ];
 
-  return await generateContentWithFallback(promptPayload);
+  return await generateContentWithTaskRouting({
+    task: "AUDIO_TRANSCRIPTION",
+    promptPayload,
+    timeoutMs: 4500,
+  });
 }
 
 function buildHistoryString(
   history: Array<{ role: string; text: string }> | undefined,
 ): string {
   if (!history || history.length === 0) return "Nenhum historico anterior.";
-  return history.map((h) => `${h.role}: ${h.text}`).join("\n");
+  // Limita o historico recente aos ultimos 4 turnos para economizar TPM e tempo de resposta
+  const recentHistory = history.slice(-4);
+  return recentHistory.map((h) => `${h.role}: ${h.text}`).join("\n");
 }
 
 function normalizeFreeText(value: string): string {

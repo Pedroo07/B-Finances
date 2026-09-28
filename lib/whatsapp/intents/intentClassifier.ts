@@ -1,49 +1,8 @@
-import {
-  GoogleGenerativeAI,
-  type GenerateContentRequest,
-  type ModelParams,
-  type Part,
-} from "@google/generative-ai";
+import { generateContentWithTaskRouting, cleanJsonBlock } from "../ai/geminiClient";
 import { IntentType, IntentResult } from "./intentTypes";
 import { formatBrasiliaDate } from "../utils/brasiliaDate";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
-const agentModels = [
-  "gemini-3.1-flash-lite",
-  "gemini-3.8-flash",
-  "gemini-3.7-flash",
-  "gemini-3.6-flash",
-  "gemini-3.5-flash",
-];
-
-async function generateContentWithFallback(
-  promptPayload: GenerateContentRequest | string | Array<string | Part>,
-  systemInstruction?: string,
-): Promise<string> {
-  let ultimoErro: unknown = null;
-
-  for (const agent of agentModels) {
-    try {
-      const config: ModelParams = { model: agent };
-      if (systemInstruction) {
-        config.systemInstruction = systemInstruction;
-      }
-      const model = genAI.getGenerativeModel(config);
-      const result = await model.generateContent(promptPayload);
-      return result.response.text();
-    } catch (error) {
-      console.warn(
-        `Falha ou limite atingido no modelo ${agent}. Tentando o próximo da lista...`,
-      );
-      ultimoErro = error;
-    }
-  }
-
-  throw new Error(
-    `Todos os modelos falharam. Último erro: ${ultimoErro instanceof Error ? ultimoErro.message : String(ultimoErro)}`,
-  );
-}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
@@ -142,15 +101,18 @@ REGRAS PARA PARÂMETROS:
 A confiança (confidence) deve ser um número entre 0 e 1.`;
 
   try {
-    const responseText = await generateContentWithFallback(
-      message,
+    const responseText = await generateContentWithTaskRouting({
+      task: "INTENT_CLASSIFICATION",
+      promptPayload: message,
       systemInstruction,
-    );
+      generationConfig: {
+        temperature: 0.1,
+        responseMimeType: "application/json",
+      },
+      timeoutMs: 4000,
+    });
 
-    const cleanJson = responseText
-      .replace(/```json/g, "")
-      .replace(/```/g, "")
-      .trim();
+    const cleanJson = cleanJsonBlock(responseText);
 
     const parsed: unknown = JSON.parse(cleanJson);
     if (!isRecord(parsed)) {

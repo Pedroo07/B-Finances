@@ -1,8 +1,4 @@
-import {
-  GoogleGenerativeAI,
-  type GenerateContentRequest,
-  type Part,
-} from "@google/generative-ai";
+import { generateContentWithTaskRouting, cleanJsonBlock } from "../ai/geminiClient";
 import { findCreditCardNameInText } from "@/lib/creditCards/catalog";
 import { plannableWhatsappTools, type Tool } from "../tools";
 import type {
@@ -11,7 +7,6 @@ import type {
 } from "../utils/shortTermMemory";
 import { formatBrasiliaDate } from "../utils/brasiliaDate";
 
-type PromptPayload = string | GenerateContentRequest | Array<string | Part>;
 
 export type ToolPlan =
   | {
@@ -36,45 +31,7 @@ type ToolResultResponseInput = {
   result: unknown;
 };
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
-const agentModels = [
-  "gemini-3.5-flash-lite",
-  "gemini-3.7-flash",
-  "gemini-3.6-flash",
-  "gemini-3.5-flash",
-];
-
-async function generateContentWithFallback(
-  promptPayload: PromptPayload,
-  systemInstruction?: string,
-): Promise<string> {
-  let ultimoErro: unknown = null;
-
-  for (const agent of agentModels) {
-    try {
-      const config: { model: string; systemInstruction?: string } = {
-        model: agent,
-      };
-      if (systemInstruction) {
-        config.systemInstruction = systemInstruction;
-      }
-      const model = genAI.getGenerativeModel(config);
-      const result = await model.generateContent(promptPayload);
-      return result.response.text();
-    } catch (error) {
-      console.warn(
-        `Falha ou limite atingido no modelo ${agent}. Tentando o proximo da lista...`,
-      );
-      ultimoErro = error;
-    }
-  }
-
-  const errMsg =
-    ultimoErro instanceof Error ? ultimoErro.message : String(ultimoErro);
-
-  throw new Error(`Todos os modelos falharam. Ultimo erro: ${errMsg}`);
-}
 
 function cleanJsonResponse(responseText: string): string {
   return responseText
@@ -519,11 +476,17 @@ Formato para perguntar:
 }`;
 
   try {
-    const responseText = await generateContentWithFallback(
-      messageText,
+    const responseText = await generateContentWithTaskRouting({
+      task: "TOOL_PLANNING",
+      promptPayload: messageText,
       systemInstruction,
-    );
-    const parsed = JSON.parse(cleanJsonResponse(responseText));
+      generationConfig: {
+        temperature: 0.1,
+        responseMimeType: "application/json",
+      },
+      timeoutMs: 4000,
+    });
+    const parsed = JSON.parse(cleanJsonBlock(responseText));
     const plan = applyShortTermMemoryToPlan(
       normalizePlan(parsed),
       messageText,
@@ -606,7 +569,12 @@ REGRAS:
 - Responda apenas com a mensagem final em portugues, sem JSON e sem markdown de bloco.`;
 
   try {
-    return await generateContentWithFallback(messageText, systemInstruction);
+    return await generateContentWithTaskRouting({
+      task: "TOOL_PLANNING",
+      promptPayload: messageText,
+      systemInstruction,
+      timeoutMs: 4000,
+    });
   } catch (error) {
     console.error("Erro ao gerar resposta final:", error);
     return typeof result === "string" ? result : JSON.stringify(result);

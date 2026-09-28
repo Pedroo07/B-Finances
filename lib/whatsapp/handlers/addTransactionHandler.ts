@@ -1,8 +1,4 @@
-import {
-  GoogleGenerativeAI,
-  type GenerateContentRequest,
-  type Part,
-} from "@google/generative-ai";
+import { generateContentWithTaskRouting, cleanJsonBlock } from "../ai/geminiClient";
 import {
   createCardInstallmentTransactions,
   createCardTransaction,
@@ -18,51 +14,9 @@ import { resolveTransactionCategory } from "../commands/normalizers/categoryNorm
 import { extractInstallmentMention } from "../commands/normalizers/installmentNormalizer";
 import { formatBrasiliaDate } from "../utils/brasiliaDate";
 
-type PromptPayload = string | GenerateContentRequest | Array<string | Part>;
-
-const agentModels = [
-  "gemini-3.5-flash-lite",
-  "gemini-3.8-flash",
-  "gemini-3.7-flash",
-  "gemini-3.6-flash",
-  "gemini-3.5-flash",
-];
-
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
-
 const creditCardNameUnion = CREDIT_CARD_NAMES.map(
   (cardName) => `"${cardName}"`,
 ).join(" | ");
-
-async function generateContentWithFallback(
-  promptPayload: PromptPayload,
-  systemInstruction?: string,
-): Promise<string> {
-  let ultimoErro: unknown = null;
-
-  for (const agent of agentModels) {
-    try {
-      const config: { model: string; systemInstruction?: string } = {
-        model: agent,
-      };
-      if (systemInstruction) {
-        config.systemInstruction = systemInstruction;
-      }
-      const model = genAI.getGenerativeModel(config);
-      const result = await model.generateContent(promptPayload);
-      return result.response.text();
-    } catch (error) {
-      console.warn(
-        `Falha ou limite atingido no modelo ${agent}. Tentando o próximo da lista...`,
-      );
-      ultimoErro = error;
-    }
-  }
-
-  throw new Error(
-    `Todos os modelos falharam. Último erro: ${ultimoErro instanceof Error ? ultimoErro.message : String(ultimoErro)}`,
-  );
-}
 
 export async function handleAddTransaction(
   userId: string,
@@ -140,15 +94,18 @@ export async function handleAddTransaction(
         "responseMessage": "Pergunta curta para o usuário em português."
     }`;
 
-  const responseText = await generateContentWithFallback(
-    messageText,
+  const responseText = await generateContentWithTaskRouting({
+    task: "TRANSACTION_EXTRACTION",
+    promptPayload: messageText,
     systemInstruction,
-  );
+    generationConfig: {
+      temperature: 0.1,
+      responseMimeType: "application/json",
+    },
+    timeoutMs: 4000,
+  });
 
-  const cleanJson = responseText
-    .replace(/```json/g, "")
-    .replace(/```/g, "")
-    .trim();
+  const cleanJson = cleanJsonBlock(responseText);
 
   const parsed = JSON.parse(cleanJson);
 
