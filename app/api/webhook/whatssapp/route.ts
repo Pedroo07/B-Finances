@@ -60,6 +60,7 @@ const WHATSAPP_ACCESS_TOKEN = process.env.WHATSAPP_ACCESS_TOKEN!;
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
 const agentModels = [
+  "gemini-3.5-flash-lite",
   "gemini-3.8-flash",
   "gemini-3.7-flash",
   "gemini-3.6-flash",
