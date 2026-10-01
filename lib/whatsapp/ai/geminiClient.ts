@@ -28,9 +28,9 @@ export interface GenerateAiOptions {
 // Model configurations per task: Primary followed by fallback reserves
 const TASK_MODEL_CHAINS: Record<AiTaskType, string[]> = {
   AUDIO_TRANSCRIPTION: [
-    "gemini-3.5-transcribe", // Modelo dedicado para áudio (~260ms, pool de cota isolado)
-    "gemini-2.5-flash",      // Reserva 1 (multimodal completo)
-    "gemini-3.5-flash",      // Reserva 2
+    "gemini-3.5-transcribe", // Modelo dedicado para áudio (~1.8s, pool de cota isolado)
+    "gemini-flash-latest",   // Reserva 1 (rápido e compatível com áudio, ~3s)
+    "gemini-3.5-flash",      // Reserva 2 (alta precisão)
   ],
   INTENT_CLASSIFICATION: [
     "gemini-3.5-flash-lite", // Preferido do usuário para qualidade em tarefas leves
@@ -46,9 +46,9 @@ const TASK_MODEL_CHAINS: Record<AiTaskType, string[]> = {
     "gemini-flash-latest",   // Reserva 3
   ],
   TRANSACTION_EXTRACTION: [
-    "gemini-3-flash",      // Primário
-    "gemini-3.5-flash-lite", // Reserva 1
-    "gemini-3.6-flash",      // Reserva 2
+    "gemini-3.5-flash-lite", // Primário
+    "gemini-3.6-flash",      // Reserva 1
+    "gemini-flash-latest",   // Reserva 2
     "gemini-3.1-flash-lite", // Reserva 3
   ],
   TOOL_PLANNING: [
@@ -88,6 +88,48 @@ function getGenAI(): GoogleGenerativeAI {
     cachedGenAI = new GoogleGenerativeAI(key);
   }
   return cachedGenAI;
+}
+
+/**
+ * Extrai o texto gerado da resposta do Gemini, incluindo suporte a modelos de
+ * transcrição de áudio (como gemini-3.5-transcribe) que retornam texto dentro
+ * de `audioTranscription.text` em vez do campo padrão `text`.
+ */
+export function extractTextFromResponse(response: any): string {
+  if (!response) return "";
+
+  const candidates = response.candidates;
+  if (Array.isArray(candidates) && candidates.length > 0) {
+    const parts = candidates[0]?.content?.parts;
+    if (Array.isArray(parts) && parts.length > 0) {
+      const texts: string[] = [];
+      for (const part of parts) {
+        if (typeof part.text === "string" && part.text.length > 0) {
+          texts.push(part.text);
+        } else if (
+          part.audioTranscription &&
+          typeof part.audioTranscription.text === "string" &&
+          part.audioTranscription.text.length > 0
+        ) {
+          texts.push(part.audioTranscription.text);
+        }
+      }
+      const combined = texts.join(" ").trim();
+      if (combined) {
+        return combined;
+      }
+    }
+  }
+
+  try {
+    if (typeof response.text === "function") {
+      return response.text()?.trim() || "";
+    }
+  } catch {
+    // Ignora erro caso o SDK não encontre parts com text
+  }
+
+  return "";
 }
 
 /**
@@ -135,15 +177,19 @@ export async function generateContentWithTaskRouting({
       const result = await model.generateContent(promptPayload);
       const elapsed = Date.now() - startTime;
 
-      const text = result.response.text();
-      if (text !== undefined) {
+      const text = extractTextFromResponse(result.response);
+      if (text && text.trim().length > 0) {
         if (elapsed > 2500) {
           console.info(
             `[GeminiClient] Tarefa ${task} concluída pelo modelo ${modelName} em ${elapsed}ms.`,
           );
         }
-        return text;
+        return text.trim();
       }
+
+      console.warn(
+        `[GeminiClient] Modelo ${modelName} (${task}) retornou resposta vazia. Tentando próximo modelo...`,
+      );
     } catch (error) {
       lastError = error;
       const errorMsg =
@@ -181,19 +227,22 @@ export async function generateContentWithTaskRouting({
   // Se todos os modelos da cadeia foram pulados por cooldown, tenta o mais estável diretamente como última cartada
   if (attemptedModels.length === 0) {
     console.warn(
-      `[GeminiClient] Todos os modelos de ${task} estavam em cooldown. Forçando tentativa de emergência em gemini-2.5-flash...`,
+      `[GeminiClient] Todos os modelos de ${task} estavam em cooldown. Forçando tentativa de emergência em gemini-flash-latest...`,
     );
     try {
       const emergencyModel = getGenAI().getGenerativeModel(
         {
-          model: "gemini-2.5-flash",
+          model: "gemini-flash-latest",
           systemInstruction: systemInstruction || undefined,
           generationConfig: generationConfig || undefined,
         },
         { timeout: 5000 },
       );
       const res = await emergencyModel.generateContent(promptPayload);
-      return res.response.text();
+      const emergencyText = extractTextFromResponse(res.response);
+      if (emergencyText && emergencyText.trim().length > 0) {
+        return emergencyText.trim();
+      }
     } catch (emErr) {
       lastError = emErr;
     }

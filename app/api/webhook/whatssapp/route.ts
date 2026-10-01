@@ -106,9 +106,12 @@ async function downloadWhatsAppAudio(mediaId: string): Promise<{
   }
 
   const arrayBuffer = await audioResponse.arrayBuffer();
+  const rawMimeType = mediaData.mime_type || "audio/ogg";
+  const cleanMimeType = rawMimeType.split(";")[0].trim() || "audio/ogg";
+
   return {
     buffer: Buffer.from(arrayBuffer),
-    mimeType: mediaData.mime_type || "audio/ogg",
+    mimeType: cleanMimeType,
   };
 }
 
@@ -131,7 +134,7 @@ async function transcribeAudio(
   return await generateContentWithTaskRouting({
     task: "AUDIO_TRANSCRIPTION",
     promptPayload,
-    timeoutMs: 4500,
+    timeoutMs: 6000,
   });
 }
 
@@ -139,7 +142,6 @@ function buildHistoryString(
   history: Array<{ role: string; text: string }> | undefined,
 ): string {
   if (!history || history.length === 0) return "Nenhum historico anterior.";
-  // Limita o historico recente aos ultimos 4 turnos para economizar TPM e tempo de resposta
   const recentHistory = history.slice(-4);
   return recentHistory.map((h) => `${h.role}: ${h.text}`).join("\n");
 }
@@ -799,8 +801,22 @@ export async function POST(req: Request) {
 
       console.log("Recebido audio:", mediaId);
       const { buffer, mimeType } = await downloadWhatsAppAudio(mediaId);
-      messageText = await transcribeAudio(buffer, mimeType);
+      messageText = (await transcribeAudio(buffer, mimeType)).trim();
       console.log("Transcricao:", messageText);
+
+      if (!messageText) {
+        await sendWhatsAppMessage(
+          fromPhoneNumber,
+          "Não consegui compreender o áudio. Poderia enviar novamente ou digitar sua mensagem?",
+        );
+        if (currentMessageId) {
+          await markMessageCompleted(currentMessageId, {
+            userId,
+            action: "audio_empty_transcription",
+          });
+        }
+        return NextResponse.json({ status: "audio_empty_transcription" });
+      }
     }
 
     if (!messageText) {
