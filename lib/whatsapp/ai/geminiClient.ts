@@ -30,7 +30,7 @@ const TASK_MODEL_CHAINS: Record<AiTaskType, string[]> = {
   AUDIO_TRANSCRIPTION: [
     "gemini-3.5-transcribe", // Modelo dedicado para áudio (~1.8s, pool de cota isolado)
     "gemini-flash-latest",   // Reserva 1 (rápido e compatível com áudio, ~3s)
-    "gemini-3.5-flash",      // Reserva 2 (alta precisão)
+    "gemini-3.6-flash",      // Reserva 2 (alta precisão)
   ],
   INTENT_CLASSIFICATION: [
     "gemini-3.5-flash-lite", // Preferido do usuário para qualidade em tarefas leves
@@ -39,10 +39,10 @@ const TASK_MODEL_CHAINS: Record<AiTaskType, string[]> = {
     "gemini-3.6-flash",      // Reserva 3
   ],
   COMMAND_INTERPRETATION: [
-    "gemini-3.5-flash",      // Primário para NLU e estruturação financeira (~1.5s)
+    "gemini-3.8-flash",      // Primário para NLU e estruturação financeira (~1.5s)
     "gemini-3.5-flash-lite", // Reserva 1 (alta qualidade quando disponível)
     "gemini-3.1-flash-lite",
-    "gemini-3.6-flash",      // Reserva 2 (raciocínio avançado)
+    "gemini-3.7-flash",      // Reserva 2 (raciocínio avançado)
     "gemini-flash-latest",   // Reserva 3
   ],
   TRANSACTION_EXTRACTION: [
