@@ -107,6 +107,7 @@ export type BFinanceCommandData = {
   paymentMethod?: string | null;
   installmentCount?: number | null;
   installmentRequested?: boolean;
+  categoryValidated?: boolean;
 };
 
 export type BFinanceClarification = {

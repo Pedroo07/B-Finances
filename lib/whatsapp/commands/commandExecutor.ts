@@ -26,7 +26,11 @@ import {
   type UpdateTransactionTarget,
 } from "../handlers/updateTransactionHandler";
 import { getBrasiliaDate } from "../utils/brasiliaDate";
-import { resolveTransactionCategory } from "./normalizers/categoryNormalizer";
+import {
+  canonicalizeTransactionCategory,
+  resolveTransactionCategory,
+} from "./normalizers/categoryNormalizer";
+import { resolveClosestOption, type TransactionValidationOption } from "./normalizers/transactionValidation";
 import { resolveCreationDate } from "./normalizers/creationDateResolver";
 import {
   compareCreatedAtDescending,
@@ -181,7 +185,7 @@ function withSelectedCard(
     data: command.data
       ? {
           ...command.data,
-          cardName: command.data.cardName ?? cardName,
+          cardName,
           paymentMethod: command.data.paymentMethod ?? "credit_card",
         }
       : command.data,
@@ -702,15 +706,88 @@ function normalizeCategory(
   });
 }
 
-function normalizePaymentMethod(
-  command: BFinanceCommand,
-): BFinancePaymentMethod {
+const PAYMENT_METHOD_OPTIONS: TransactionValidationOption[] = [
+  { value: "cash", label: "Dinheiro", aliases: ["cash", "especie"] },
+  { value: "pix", label: "Pix", aliases: ["piz"] },
+  { value: "debit", label: "Débito", aliases: ["debito", "debit", "cartao de debito"] },
+  { value: "credit_card", label: "Cartão de crédito", aliases: ["credito", "cartao credito", "cartao de credito", "credit card"] },
+];
+
+function normalizePaymentMethod(command: BFinanceCommand): BFinancePaymentMethod | null {
   const method = command.data?.paymentMethod ?? command.scope?.paymentMethod;
-  if (method === "cash" || method === "pix" || method === "debit")
-    return method;
-  if (method === "credit_card") return "credit_card";
-  return command.transactionType === "income" ? "pix" : "pix";
+  if (method === null || method === undefined || method === "") return "pix";
+  const resolution = resolveClosestOption(String(method), PAYMENT_METHOD_OPTIONS);
+  return resolution.status === "matched"
+    ? (resolution.option.value as BFinancePaymentMethod)
+    : null;
 }
+
+function getTransactionFieldPrompt(
+  field: "cardName" | "paymentMethod" | "category",
+  input: string,
+  options: TransactionValidationOption[],
+  command: BFinanceCommand,
+  sourceMessageText: string,
+): BFinanceCommandResult {
+  const fieldLabel = field === "cardName" ? "cartão" : field === "paymentMethod" ? "método de pagamento" : "categoria";
+  const question = input
+    ? `Não consegui confirmar ${fieldLabel} “${input}”. Qual opção devo usar?`
+    : `Qual ${fieldLabel} devo usar para essa transação?`;
+  const message = [
+    question,
+    "",
+    ...options.map((option, index) => `${index + 1}. ${option.label}`),
+  ].join("\n");
+  return {
+    success: true,
+    kind: "ready_message",
+    command,
+    message,
+    pendingAction: {
+      type: "clarify_transaction_field",
+      field,
+      input,
+      command,
+      sourceMessageText,
+      options: options.map((option, index) => ({
+        index: index + 1,
+        value: option.value,
+        label: option.label,
+        aliases: option.aliases ?? [],
+      })),
+    },
+  };
+}
+
+function extractExplicitCategoryInput(messageText: string): string | null {
+  const normalized = messageText
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+  const match = normalized.match(
+    /\b(?:categoria|categorize|categorizar|classifique|classificar)\b(?:\s+(?:como|em|na|no))?\s+([a-z]+(?:\s+[a-z]+)?)/,
+  );
+  return match?.[1]?.trim() ?? null;
+}
+
+const TRANSACTION_CATEGORY_OPTIONS: Record<string, TransactionValidationOption[]> = {
+  expense: [
+    { value: "fixes", label: "Contas fixas", aliases: ["fixas", "contas"] },
+    { value: "foods", label: "Alimentação", aliases: ["comida", "mercado", "supermercado", "restaurante", "padaria"] },
+    { value: "housing", label: "Moradia", aliases: ["casa", "aluguel"] },
+    { value: "transport", label: "Transporte", aliases: ["uber", "combustivel"] },
+    { value: "delivery", label: "Delivery", aliases: ["entrega", "ifood"] },
+    { value: "shopping", label: "Compras", aliases: ["roupas", "eletronicos"] },
+    { value: "subscriptions", label: "Assinaturas", aliases: ["streaming", "mensalidade"] },
+    { value: "entertainment", label: "Lazer", aliases: ["cinema", "viagem"] },
+    { value: "other", label: "Outros", aliases: ["outro", "outra"] },
+  ],
+  income: [
+    { value: "salary", label: "Salário", aliases: ["salario", "ordenado"] },
+    { value: "extra", label: "Renda extra", aliases: ["freela", "bonus"] },
+    { value: "other", label: "Outros", aliases: ["outro", "outra"] },
+  ],
+};
 
 async function executeCreateTransaction(
   userId: string,
@@ -738,9 +815,24 @@ async function executeCreateTransaction(
   const descriptionText = description ?? "";
   const amountValue = amount ?? 0;
   const paymentMethod = normalizePaymentMethod(command);
+  if (!paymentMethod) {
+    const methodInput = String(command.data?.paymentMethod ?? command.scope?.paymentMethod ?? "");
+    return getTransactionFieldPrompt("paymentMethod", methodInput, PAYMENT_METHOD_OPTIONS, command, messageText);
+  }
   const date = resolveCreationDate(messageText, command.data?.date);
   const type = command.transactionType === "income" ? "income" : "expense";
-  const category = normalizeCategory(command, messageText, descriptionText);
+  let category = normalizeCategory(command, messageText, descriptionText);
+  const explicitCategory = extractExplicitCategoryInput(messageText);
+  if (explicitCategory && !command.data?.categoryValidated) {
+    const categoryOptions = TRANSACTION_CATEGORY_OPTIONS[type];
+    const categoryResolution = resolveClosestOption(explicitCategory, categoryOptions);
+    if (categoryResolution.status !== "matched") {
+      return getTransactionFieldPrompt("category", explicitCategory, categoryOptions, command, messageText);
+    }
+    category = categoryResolution.option.value;
+  } else if (!canonicalizeTransactionCategory(category, type)) {
+    return getTransactionFieldPrompt("category", category, TRANSACTION_CATEGORY_OPTIONS[type], command, messageText);
+  }
   const normalizedAmount =
     type === "income" ? Math.abs(amountValue) : -Math.abs(amountValue);
   const installmentRequested = Boolean(command.data?.installmentRequested);
@@ -779,48 +871,41 @@ async function executeCreateTransaction(
     isInstallmentPurchase;
 
   if (isCardPurchase) {
-    let cardName = command.data?.cardName || command.scope?.cardName;
-    let resolvedCommand = command;
+    const requestedCardName = command.data?.cardName || command.scope?.cardName || "";
+    const cards = await getUserCreditCards(userId);
+    const cardOptions: TransactionValidationOption[] = cards.map((card) => {
+      const bankKey = card.bankKey ?? card.id;
+      const canonicalName = cardDisplayName(card);
+      return {
+        value: canonicalName,
+        label: canonicalName,
+        aliases: [bankKey, ...(bankKey === "inter" ? ["iti"] : [])],
+      };
+    });
 
-    if (!cardName) {
-      const cards = await getUserCreditCards(userId);
-      const cardNames = cards.map(cardDisplayName);
-
-      if (cardNames.length === 0) {
-        return {
-          success: true,
-          kind: "ready_message",
-          command,
-          message:
-            "Você ainda não tem cartões cadastrados. Cadastre um cartão no aplicativo antes de adicionar esta compra.",
-        };
-      }
-
-      if (cardNames.length > 1) {
-        return {
-          success: true,
-          kind: "ready_message",
-          command,
-          message: [
-            "Qual cartão devo usar para essa compra?",
-            "",
-            ...cardNames.map((name, index) => `${index + 1}. ${name}`),
-          ].join("\n"),
-          pendingAction: {
-            type: "select_card_for_query",
-            command,
-            sourceMessageText: messageText,
-            cards: cardNames.map((name, index) => ({
-              index: index + 1,
-              cardName: name,
-            })),
-          },
-        };
-      }
-
-      cardName = cardNames[0];
-      resolvedCommand = withSelectedCard(command, cardName);
+    if (cardOptions.length === 0) {
+      return {
+        success: true,
+        kind: "ready_message",
+        command,
+        message: "Você ainda não tem cartões cadastrados. Cadastre um cartão no aplicativo antes de adicionar esta compra.",
+      };
     }
+
+    let cardName: string | null = null;
+    if (requestedCardName) {
+      const cardResolution = resolveClosestOption(requestedCardName, cardOptions);
+      if (cardResolution.status !== "matched") {
+        return getTransactionFieldPrompt("cardName", requestedCardName, cardOptions, command, messageText);
+      }
+      cardName = cardResolution.option.value;
+    } else if (cardOptions.length === 1) {
+      cardName = cardOptions[0].value;
+    } else {
+      return getTransactionFieldPrompt("cardName", "", cardOptions, command, messageText);
+    }
+
+    const resolvedCommand = withSelectedCard(command, cardName);
 
     if (isInstallmentPurchase) {
       const created = await createCardInstallmentTransactions(userId, {

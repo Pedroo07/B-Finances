@@ -1,4 +1,5 @@
 import type { BFinanceCommand, BFinanceTransactionType } from "../types";
+import { resolveClosestOption } from "./transactionValidation";
 
 const EXPENSE_CATEGORIES = [
   "fixes",
@@ -40,6 +41,10 @@ const CATEGORY_ALIASES: Record<TransactionCategory, string[]> = {
     "alimentacao",
     "alimento",
     "alimentos",
+    "supermercado",
+    "mercado",
+    "restaurante",
+    "padaria",
     "comida",
     "comidas",
   ],
@@ -344,16 +349,17 @@ export function canonicalizeTransactionCategory(
   const normalized = normalizeText(category);
   if (!normalized) return null;
 
-  for (const [canonical, aliases] of aliasesForType(transactionType)) {
-    if (
-      normalized === normalizeText(canonical) ||
-      aliases.some((alias) => normalized === normalizeText(alias))
-    ) {
-      return canonical;
-    }
-  }
-
-  return null;
+  const resolution = resolveClosestOption(
+    normalized,
+    aliasesForType(transactionType).map(([canonical, aliases]) => ({
+      value: canonical,
+      label: canonical,
+      aliases,
+    })),
+  );
+  return resolution.status === "matched"
+    ? (resolution.option.value as TransactionCategory)
+    : null;
 }
 
 function findMentionedCategory(

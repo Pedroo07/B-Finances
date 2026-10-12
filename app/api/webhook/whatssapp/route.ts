@@ -26,6 +26,7 @@ import { normalizeCommandUpdate } from "@/lib/whatsapp/commands/normalizers/upda
 import { normalizeCommandPeriod } from "@/lib/whatsapp/commands/normalizers/periodNormalizer";
 import { normalizeCommandScope } from "@/lib/whatsapp/commands/normalizers/scopeNormalizer";
 import { normalizeCommandResource } from "@/lib/whatsapp/commands/normalizers/resourceNormalizer";
+import { resolveClosestOption, type TransactionValidationOption } from "@/lib/whatsapp/commands/normalizers/transactionValidation";
 import type { BFinanceCommand } from "@/lib/whatsapp/commands/types";
 import {
   getSession,
@@ -472,6 +473,108 @@ async function handleCardSelectionPendingAction(
   return true;
 }
 
+async function handleTransactionFieldClarification(
+  pendingAction: { type?: string; [key: string]: unknown },
+  userId: string,
+  fromPhoneNumber: string,
+  messageText: string,
+  messageId?: string,
+): Promise<boolean> {
+  const field = pendingAction.field;
+  const command = isRecord(pendingAction.command)
+    ? (pendingAction.command as BFinanceCommand)
+    : null;
+  const sourceMessageText = typeof pendingAction.sourceMessageText === "string"
+    ? pendingAction.sourceMessageText
+    : messageText;
+  const rawOptions = Array.isArray(pendingAction.options) ? pendingAction.options : [];
+  const options: TransactionValidationOption[] = rawOptions.flatMap((item) => {
+    if (!isRecord(item) || typeof item.value !== "string" || typeof item.label !== "string") return [];
+    const aliases = Array.isArray(item.aliases)
+      ? item.aliases.filter((alias): alias is string => typeof alias === "string")
+      : undefined;
+    return [{ value: item.value, label: item.label, ...(aliases ? { aliases } : {}) }];
+  });
+
+  if (!command || options.length === 0 || !["cardName", "paymentMethod", "category"].includes(String(field))) {
+    await clearPendingAction(fromPhoneNumber);
+    return false;
+  }
+
+  const normalizedAnswer = normalizeFreeText(messageText).replace(/^#/, "").replace(/[^a-z0-9]/g, "");
+  const selectionIndex = Number(normalizedAnswer);
+  const selectedOption = Number.isInteger(selectionIndex) && selectionIndex > 0
+    ? options[selectionIndex - 1]
+    : null;
+  const resolution = selectedOption
+    ? { status: "matched" as const, option: selectedOption }
+    : resolveClosestOption(messageText, options);
+
+  if (resolution.status !== "matched") {
+    const reply = [
+      "Não consegui identificar a opção. Responda com o número ou o nome:",
+      "",
+      ...options.map((option, index) => `${index + 1}. ${option.label}`),
+      "",
+      "Se preferir, envie *cancelar*.",
+    ].join("\n");
+    await setPendingAction(fromPhoneNumber, pendingAction);
+    await sendWhatsAppMessage(fromPhoneNumber, reply);
+    await updateSessionHistory(fromPhoneNumber, "assistant", reply);
+    return true;
+  }
+
+  const value = resolution.option.value;
+  const nextCommand: BFinanceCommand = {
+    ...command,
+    data: {
+      ...command.data,
+      ...(field === "cardName" ? { cardName: value, paymentMethod: "credit_card" } : {}),
+      ...(field === "paymentMethod" ? { paymentMethod: value } : {}),
+      ...(field === "category" ? { category: value, categoryValidated: true } : {}),
+    },
+    ...(field === "cardName" || (field === "paymentMethod" && value === "credit_card")
+      ? {
+          resource: "card_transaction",
+          scope: {
+            ...(command.scope ?? { includeNormalTransactions: false, includeCardTransactions: true }),
+            includeNormalTransactions: false,
+            includeCardTransactions: true,
+            cardName: field === "cardName" ? value : command.scope?.cardName ?? null,
+            paymentMethod: "credit_card",
+            excludeCardTransactions: false,
+          },
+        }
+      : {}),
+  };
+
+  const result = await executeBFinanceCommand({
+    userId,
+    command: nextCommand,
+    messageText: sourceMessageText,
+    phoneNumber: fromPhoneNumber,
+    whatsappMessageId: messageId,
+  });
+  if (result.success && result.kind === "ready_message" && result.pendingAction) {
+    await setPendingAction(fromPhoneNumber, result.pendingAction);
+  } else {
+    await clearPendingAction(fromPhoneNumber);
+  }
+  if (result.success && result.kind === "transaction_created") {
+    await rememberTransactionTarget(fromPhoneNumber, result.item);
+  }
+  const reply = formatBFinanceResponse(result);
+  await sendWhatsAppMessage(fromPhoneNumber, reply);
+  rememberShortTermTopic(fromPhoneNumber, {
+    toolName: "bfinance_command",
+    parameters: { command: nextCommand },
+    userMessage: sourceMessageText,
+    assistantReply: reply,
+  });
+  await updateSessionHistory(fromPhoneNumber, "assistant", reply);
+  return true;
+}
+
 async function handlePendingActionIfApplicable(
   pendingAction: { type?: string; [key: string]: unknown },
   userId: string,
@@ -485,6 +588,16 @@ async function handlePendingActionIfApplicable(
     await sendWhatsAppMessage(fromPhoneNumber, reply);
     await updateSessionHistory(fromPhoneNumber, "assistant", reply);
     return true;
+  }
+
+  if (pendingAction.type === "clarify_transaction_field") {
+    return await handleTransactionFieldClarification(
+      pendingAction,
+      userId,
+      fromPhoneNumber,
+      messageText,
+      messageId,
+    );
   }
 
   if (pendingAction.type === "select_card_for_query") {
