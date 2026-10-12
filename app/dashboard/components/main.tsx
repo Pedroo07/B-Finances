@@ -39,7 +39,21 @@ import {
   getTransaction,
   TransactionDto,
 } from "@/lib/services/transactions";
-import { getBillAccounts } from "@/lib/services/billAccounts";
+import {
+  getBillAccounts,
+  syncCreditCardInvoiceBills,
+} from "@/lib/services/billAccounts";
+import { getCardTransaction } from "@/lib/services/cardTransactions";
+import { CardTransaction } from "@/lib/entities/cardTransaction";
+import {
+  getInvoiceDueDate,
+  getInvoicePeriodKeyForDate,
+  isValidBillingDay,
+} from "@/lib/creditCards/billing";
+import {
+  getCreditCardBankKey,
+  getCreditCardName,
+} from "@/lib/creditCards/catalog";
 import { auth } from "@/lib/firebase";
 import { TransactionsLoadings } from "../loadings/TrasactionsLoadings";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -54,6 +68,82 @@ import {
   INCOME_CATEGORIES,
 } from "@/lib/transactionCategories";
 
+type CreditCardInvoiceSummary = {
+  card: UserCreditCard;
+  invoiceAmount: number;
+  totalAmount: number;
+  isPaid: boolean;
+  periodKey: string;
+  dueDate: string;
+};
+
+const getCreditCardInvoiceSummaries = (
+  cards: UserCreditCard[],
+  transactions: CardTransaction[],
+): CreditCardInvoiceSummary[] => {
+  return cards.flatMap((card) => {
+    if (!isValidBillingDay(card.closingDay) || !isValidBillingDay(card.dueDay)) {
+      return [];
+    }
+
+    const cardItems = transactions.filter(
+      (transaction) => getCreditCardBankKey(transaction.card) === card.bankKey,
+    );
+    const totalsByPeriod = cardItems.reduce<Record<string, number>>(
+      (totals, item) => {
+        const periodKey = getInvoicePeriodKeyForDate(
+          item.date,
+          card.closingDay,
+          card.dueDay,
+        );
+        totals[periodKey] = (totals[periodKey] || 0) + Math.abs(item.amount);
+        return totals;
+      },
+      {},
+    );
+
+    return Object.entries(totalsByPeriod).map(([periodKey, totalAmount]) => {
+      const amountPaid = card.invoices?.[periodKey]?.amountPaid || 0;
+      return {
+        card,
+        invoiceAmount: Math.max(totalAmount - amountPaid, 0),
+        totalAmount,
+        isPaid: totalAmount > 0 && amountPaid >= totalAmount,
+        periodKey,
+        dueDate: getInvoiceDueDate(periodKey, card.closingDay, card.dueDay),
+      };
+    });
+  });
+};
+
+const syncDashboardCreditCardInvoices = async (
+  cards: UserCreditCard[],
+  cardTransactions: import("@/lib/entities/cardTransaction").CardTransaction[],
+  existingBills: BillAccount[],
+): Promise<BillAccount[]> => {
+  const invoiceSummaries = getCreditCardInvoiceSummaries(cards, cardTransactions);
+  const syncedBills = await syncCreditCardInvoiceBills(
+    invoiceSummaries
+      .filter(({ card, periodKey, totalAmount, isPaid }) =>
+        totalAmount > 0 &&
+        (!isPaid || existingBills.some((bill) =>
+          bill.creditCardId === card.id &&
+          bill.creditCardInvoicePeriodKey === periodKey,
+        )),
+      )
+      .map(({ card, periodKey, dueDate, invoiceAmount, totalAmount, isPaid }) => ({
+        creditCardId: card.id,
+        creditCardInvoicePeriodKey: periodKey,
+        description: "Fatura do cartão " + getCreditCardName(card.bankKey),
+        amount: isPaid ? totalAmount : invoiceAmount,
+        dueDate,
+        status: isPaid ? "paid" : "pending",
+      })),
+  );
+  const billsById = new Map<string, BillAccount>(existingBills.map((bill) => [bill.id, bill]));
+  syncedBills.forEach((bill) => billsById.set(bill.id, bill));
+  return Array.from(billsById.values());
+};
 export const Main: FC = () => {
   const [text, setText] = useState("");
   const [category, setCategory] = useState("");
@@ -152,17 +242,24 @@ export const Main: FC = () => {
 
     const fetchTransactions = async () => {
       try {
-        const [transactionsData, billsData, cardsData] = await Promise.all([
-          getTransaction(),
-          getBillAccounts(),
-          getUserCreditCards(),
-        ]);
+        const [transactionsData, billsData, cardsData, cardTransactionsData] =
+          await Promise.all([
+            getTransaction(),
+            getBillAccounts(),
+            getUserCreditCards(),
+            getCardTransaction(),
+          ]);
+        const syncedBills = await syncDashboardCreditCardInvoices(
+          cardsData || [],
+          cardTransactionsData || [],
+          billsData || [],
+        );
         const sortedItems = [...(transactionsData || [])].sort(
           (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
         );
         if (isMounted) {
           setAllItems(sortedItems);
-          setBills(billsData || []);
+          setBills(syncedBills);
           setUserCards(cardsData.filter(({ bankKey }) => isBankKey(bankKey)));
         }
       } catch (error) {
@@ -214,6 +311,16 @@ export const Main: FC = () => {
           description: text,
           category,
         });
+        const [updatedCardTransactions, updatedBills] = await Promise.all([
+          getCardTransaction(),
+          getBillAccounts(),
+        ]);
+        const syncedBills = await syncDashboardCreditCardInvoices(
+          userCards,
+          updatedCardTransactions,
+          updatedBills,
+        );
+        setBills(syncedBills);
         resetForm();
       } catch (error) {
         console.error("Error adding card transaction:", error);
