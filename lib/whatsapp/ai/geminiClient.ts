@@ -23,6 +23,7 @@ export interface GenerateAiOptions {
   systemInstruction?: string;
   generationConfig?: GenerationConfig;
   timeoutMs?: number;
+  maxTotalTimeMs?: number;
 }
 
 // Model configurations per task: Primary followed by fallback reserves
@@ -143,6 +144,7 @@ export async function generateContentWithTaskRouting({
   systemInstruction,
   generationConfig,
   timeoutMs = 4000, // 4 segundos máx por modelo para evitar timeout na Vercel
+  maxTotalTimeMs = timeoutMs * (TASK_MODEL_CHAINS[task]?.length ?? 3),
 }: GenerateAiOptions): Promise<string> {
   const chain = TASK_MODEL_CHAINS[task] || [
     "gemini-2.5-flash",
@@ -152,8 +154,12 @@ export async function generateContentWithTaskRouting({
 
   let lastError: unknown = null;
   const attemptedModels: string[] = [];
+  const deadline = Date.now() + maxTotalTimeMs;
 
   for (const modelName of chain) {
+    const remainingTimeMs = deadline - Date.now();
+    if (remainingTimeMs < 100) break;
+
     // Se o modelo falhou recentemente por 503 ou 429, pula imediatamente (0ms de atraso)
     if (isModelInCooldown(modelName)) {
       continue;
@@ -169,7 +175,7 @@ export async function generateContentWithTaskRouting({
           generationConfig: generationConfig || undefined,
         },
         {
-          timeout: timeoutMs,
+          timeout: Math.min(timeoutMs, remainingTimeMs),
         },
       );
 
@@ -225,7 +231,8 @@ export async function generateContentWithTaskRouting({
   }
 
   // Se todos os modelos da cadeia foram pulados por cooldown, tenta o mais estável diretamente como última cartada
-  if (attemptedModels.length === 0) {
+  const remainingTimeMs = deadline - Date.now();
+  if (attemptedModels.length === 0 && remainingTimeMs >= 100) {
     console.warn(
       `[GeminiClient] Todos os modelos de ${task} estavam em cooldown. Forçando tentativa de emergência em gemini-flash-latest...`,
     );
@@ -236,7 +243,7 @@ export async function generateContentWithTaskRouting({
           systemInstruction: systemInstruction || undefined,
           generationConfig: generationConfig || undefined,
         },
-        { timeout: 5000 },
+        { timeout: Math.min(5000, remainingTimeMs) },
       );
       const res = await emergencyModel.generateContent(promptPayload);
       const emergencyText = extractTextFromResponse(res.response);

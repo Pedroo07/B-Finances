@@ -135,7 +135,8 @@ async function transcribeAudio(
   return await generateContentWithTaskRouting({
     task: "AUDIO_TRANSCRIPTION",
     promptPayload,
-    timeoutMs: 6000,
+    timeoutMs: 3000,
+    maxTotalTimeMs: 4000,
   });
 }
 
@@ -818,6 +819,7 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   let currentMessageId: string | undefined;
+  const requestStartedAt = Date.now();
 
   try {
     const data = await req.json();
@@ -969,6 +971,10 @@ export async function POST(req: Request) {
       conversationHistory,
       shortTermMemory,
       currentDate,
+      maxGenerationTimeMs: Math.max(
+        0,
+        7000 - (Date.now() - requestStartedAt),
+      ),
     });
     const normalizerContext = { previousCommand };
 

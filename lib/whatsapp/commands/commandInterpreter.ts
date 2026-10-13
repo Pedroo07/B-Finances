@@ -20,6 +20,7 @@ type InterpreterInput = {
   conversationHistory: string;
   shortTermMemory?: ShortTermMemorySnapshot | null;
   currentDate?: Date;
+  maxGenerationTimeMs?: number;
 };
 
 const ACTIONS = new Set<BFinanceAction>([
@@ -344,7 +345,12 @@ function buildClarificationCommand(question: string): BFinanceCommand {
   };
 }
 
-function buildSystemInstruction(input: Required<InterpreterInput>): string {
+function buildSystemInstruction(
+  input: Pick<
+    Required<InterpreterInput>,
+    "messageText" | "conversationHistory" | "shortTermMemory" | "currentDate"
+  >,
+): string {
   const today = formatDateForPrompt(input.currentDate);
 
   return `Voce e o Command Interpreter do bot WhatsApp do B-Finances.
@@ -481,6 +487,7 @@ export async function interpretBFinanceCommand({
   conversationHistory,
   shortTermMemory = null,
   currentDate = getBrasiliaDate(),
+  maxGenerationTimeMs = 7000,
 }: InterpreterInput): Promise<BFinanceCommand> {
   const input = {
     messageText,
@@ -499,6 +506,7 @@ export async function interpretBFinanceCommand({
         responseMimeType: "application/json",
       },
       timeoutMs: 4000,
+      maxTotalTimeMs: maxGenerationTimeMs,
     });
     return normalizeParsedCommand(JSON.parse(cleanJsonResponse(responseText)));
   } catch (error) {
