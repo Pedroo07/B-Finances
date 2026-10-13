@@ -86,6 +86,8 @@ const getCreditCardInvoiceSummaries = (
       return [];
     }
 
+    const closingDay = card.closingDay;
+    const dueDay = card.dueDay;
     const cardItems = transactions.filter(
       (transaction) => getCreditCardBankKey(transaction.card) === card.bankKey,
     );
@@ -93,8 +95,8 @@ const getCreditCardInvoiceSummaries = (
       (totals, item) => {
         const periodKey = getInvoicePeriodKeyForDate(
           item.date,
-          card.closingDay,
-          card.dueDay,
+          closingDay,
+          dueDay,
         );
         totals[periodKey] = (totals[periodKey] || 0) + Math.abs(item.amount);
         return totals;
@@ -110,7 +112,7 @@ const getCreditCardInvoiceSummaries = (
         totalAmount,
         isPaid: totalAmount > 0 && amountPaid >= totalAmount,
         periodKey,
-        dueDate: getInvoiceDueDate(periodKey, card.closingDay, card.dueDay),
+        dueDate: getInvoiceDueDate(periodKey, closingDay, dueDay),
       };
     });
   });
