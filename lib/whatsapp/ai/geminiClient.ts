@@ -41,8 +41,8 @@ const TASK_MODEL_CHAINS: Record<AiTaskType, string[]> = {
   ],
   COMMAND_INTERPRETATION: [
     "gemini-3.5-flash-lite", // Modelo rápido para interpretar comandos curtos
+    "gemini-3.8-flash",      // Reserva estável (~1.5s) para NLU financeira
     "gemini-3.6-flash",      // Reserva rápida e mais capaz
-    "gemini-3.8-flash",      // Reserva para interpretações mais difíceis
     "gemini-flash-latest",   // Reserva final
   ],
   TRANSACTION_EXTRACTION: [
@@ -59,32 +59,13 @@ const TASK_MODEL_CHAINS: Record<AiTaskType, string[]> = {
   ],
 };
 
-function getGenerationConfigForModel(
-  task: AiTaskType,
-  modelName: string,
-  generationConfig?: GenerationConfig,
-): GenerationConfig | undefined {
-  if (!generationConfig || task !== "COMMAND_INTERPRETATION") {
-    return generationConfig;
-  }
-
-  const thinkingLevel =
-    modelName === "gemini-3.5-flash-lite" || modelName === "gemini-3.6-flash"
-      ? "minimal"
-      : modelName === "gemini-3.8-flash" || modelName === "gemini-3.7-flash"
-        ? "low"
-        : undefined;
-
-  if (!thinkingLevel) return generationConfig;
-
-  return {
-    ...generationConfig,
-    thinkingConfig: { thinkingLevel },
-  } as GenerationConfig;
-}
-
 // Cooldown em memória para modelos que retornaram 503 (High Demand) ou 429 (Rate Limit)
 const MODEL_COOLDOWN_MS = 60 * 1000; // 60 segundos de cooldown
+// Cooldown mais curto para modelos que estouraram o timeout, evitando que um
+// modelo lento consuma o orçamento de tempo das próximas mensagens.
+const TIMEOUT_COOLDOWN_MS = 30 * 1000;
+// Não vale a pena disparar uma tentativa com menos tempo que isso: ela seria abortada.
+const MIN_ATTEMPT_TIME_MS = 1500;
 const modelCooldownMap = new Map<string, number>();
 
 function isModelInCooldown(modelName: string): boolean {
@@ -97,11 +78,15 @@ function isModelInCooldown(modelName: string): boolean {
   return true;
 }
 
-function setModelCooldown(modelName: string, reason: string): void {
-  const expiry = Date.now() + MODEL_COOLDOWN_MS;
+function setModelCooldown(
+  modelName: string,
+  reason: string,
+  durationMs: number = MODEL_COOLDOWN_MS,
+): void {
+  const expiry = Date.now() + durationMs;
   modelCooldownMap.set(modelName, expiry);
   console.warn(
-    `[GeminiClient] Modelo ${modelName} entrou em cooldown de 60s (${reason}). Pulando nas próximas requisições...`,
+    `[GeminiClient] Modelo ${modelName} entrou em cooldown de ${Math.round(durationMs / 1000)}s (${reason}). Pulando nas próximas requisições...`,
   );
 }
 
@@ -181,7 +166,7 @@ export async function generateContentWithTaskRouting({
 
   for (const modelName of chain) {
     const remainingTimeMs = deadline - Date.now();
-    if (remainingTimeMs < 100) break;
+    if (remainingTimeMs < MIN_ATTEMPT_TIME_MS) break;
 
     // Se o modelo falhou recentemente por 503 ou 429, pula imediatamente (0ms de atraso)
     if (isModelInCooldown(modelName)) {
@@ -189,18 +174,17 @@ export async function generateContentWithTaskRouting({
     }
 
     attemptedModels.push(modelName);
+    const attemptTimeoutMs = Math.min(timeoutMs, remainingTimeMs);
 
     try {
       const model = getGenAI().getGenerativeModel(
         {
           model: modelName,
           systemInstruction: systemInstruction || undefined,
-          generationConfig:
-            getGenerationConfigForModel(task, modelName, generationConfig) ||
-            undefined,
+          generationConfig: generationConfig || undefined,
         },
         {
-          timeout: Math.min(timeoutMs, remainingTimeMs),
+          timeout: attemptTimeoutMs,
         },
       );
 
@@ -245,8 +229,13 @@ export async function generateContentWithTaskRouting({
         setModelCooldown(modelName, "429 Rate Limit");
       } else if (isTimeout) {
         console.warn(
-          `[GeminiClient] Modelo ${modelName} atingiu timeout de ${timeoutMs}ms na tarefa ${task}. Acionando reserva...`,
+          `[GeminiClient] Modelo ${modelName} atingiu timeout de ${attemptTimeoutMs}ms na tarefa ${task}. Acionando reserva...`,
         );
+        // Só penaliza o modelo se ele teve o tempo cheio; se foi cortado pelo
+        // orçamento total da requisição, a culpa não é do modelo.
+        if (attemptTimeoutMs >= timeoutMs) {
+          setModelCooldown(modelName, "timeout", TIMEOUT_COOLDOWN_MS);
+        }
       } else {
         console.warn(
           `[GeminiClient] Falha no modelo ${modelName} (${task}): ${errorMsg}. Tentando próximo...`,
@@ -257,7 +246,7 @@ export async function generateContentWithTaskRouting({
 
   // Se todos os modelos da cadeia foram pulados por cooldown, tenta o mais estável diretamente como última cartada
   const remainingTimeMs = deadline - Date.now();
-  if (attemptedModels.length === 0 && remainingTimeMs >= 100) {
+  if (attemptedModels.length === 0 && remainingTimeMs >= MIN_ATTEMPT_TIME_MS) {
     console.warn(
       `[GeminiClient] Todos os modelos de ${task} estavam em cooldown. Forçando tentativa de emergência em gemini-flash-latest...`,
     );

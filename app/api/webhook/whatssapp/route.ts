@@ -55,6 +55,15 @@ import {
 const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN;
 const WHATSAPP_ACCESS_TOKEN = process.env.WHATSAPP_ACCESS_TOKEN!;
 
+// Permite que a função rode tempo suficiente para os fallbacks entre modelos
+// do Gemini acontecerem (o padrão da Vercel pode ser 10s).
+export const maxDuration = 60;
+
+// Orçamento total de IA por mensagem e o mínimo garantido para o interpretador,
+// mesmo que banco/transcrição já tenham consumido parte do tempo.
+const REQUEST_AI_BUDGET_MS = 30000;
+const MIN_INTERPRETER_BUDGET_MS = 10000;
+
 async function getUserIdByPhone(phoneNumber: string): Promise<string | null> {
   try {
     const variations = getPhoneVariations(phoneNumber);
@@ -135,8 +144,8 @@ async function transcribeAudio(
   return await generateContentWithTaskRouting({
     task: "AUDIO_TRANSCRIPTION",
     promptPayload,
-    timeoutMs: 3000,
-    maxTotalTimeMs: 4000,
+    timeoutMs: 6000,
+    maxTotalTimeMs: 12000,
   });
 }
 
@@ -985,8 +994,8 @@ export async function POST(req: Request) {
       shortTermMemory,
       currentDate,
       maxGenerationTimeMs: Math.max(
-        0,
-        7000 - (Date.now() - requestStartedAt),
+        MIN_INTERPRETER_BUDGET_MS,
+        REQUEST_AI_BUDGET_MS - (Date.now() - requestStartedAt),
       ),
     });
     const normalizerContext = { previousCommand };

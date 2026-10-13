@@ -3,6 +3,7 @@ import { CREDIT_CARD_NAMES_TEXT } from "@/lib/creditCards/catalog";
 import type { ShortTermMemorySnapshot } from "../utils/shortTermMemory";
 import { getBrasiliaDate } from "../utils/brasiliaDate";
 import { parseMoney } from "../utils/moneyParser";
+import { buildLocalFallbackCommand } from "./localCommandFallback";
 import type {
   BFinanceAction,
   BFinanceCommand,
@@ -431,6 +432,8 @@ REGRAS:
 - Se o usuario indicar explicitamente uma categoria, respeite a escolha dele.
 - Exemplos de categoria: mercado/padaria/restaurante => foods; conta de luz/internet => fixes; tenis/roupa/Amazon => shopping; Uber/gasolina => transport; iFood => delivery; Netflix/academia => subscriptions; aluguel/condominio => housing; cinema/show => entertainment.
 - Cartoes aceitos para scope.cardName/data.cardName: ${CREDIT_CARD_NAMES_TEXT}. Use esses nomes canonicos.
+- O texto pode vir de audio transcrito ou ter erros de digitacao. Se o nome do cartao estiver parecido com um cartao aceito (ex.: "inte" ou "intel" => Inter, "nu bank" => Nubank, "mercado" => Mercado Pago), use o nome canonico mais proximo em vez de pedir esclarecimento.
+- Mensagens no formato "<descricao> <valor> [reais] [no cartao X]" sao criacao de transacao: action create, transactionType expense, data.description com a descricao, data.amount com o valor e, se houver cartao, resource card_transaction, data.paymentMethod credit_card e data.cardName.
 - Para "quanto gastei", "qnt foi de gasto", "quanto entrou": action query, resource transaction, operation total.
 - Para "liste", "ultimas", "mostre": action query, operation list.
 - Para "resumo financeiro", "como foi meu mes", "balanco", "minhas financas": action query, resource summary, operation summary.
@@ -479,7 +482,9 @@ EXEMPLOS:
 "altere o valor da ultima despesa para 4,75" => update transaction expense, update amount 4.75, reference latest
 "paguei a conta de luz" => pay bill, description luz
 "minhas contas pendentes" => query bill list
-"como foi meu mes?" => query summary summary current_month`;
+"como foi meu mes?" => query summary summary current_month
+"Corte de cabelo 40 reais no cartao nubank" => create card_transaction expense, description "Corte de cabelo", amount 40, paymentMethod credit_card, cardName Nubank
+"transferencia 50 no cartao inte" => create card_transaction expense, description "Transferencia", amount 50, paymentMethod credit_card, cardName Inter`;
 }
 
 export async function interpretBFinanceCommand({
@@ -487,7 +492,7 @@ export async function interpretBFinanceCommand({
   conversationHistory,
   shortTermMemory = null,
   currentDate = getBrasiliaDate(),
-  maxGenerationTimeMs = 7000,
+  maxGenerationTimeMs = 15000,
 }: InterpreterInput): Promise<BFinanceCommand> {
   const input = {
     messageText,
@@ -503,15 +508,34 @@ export async function interpretBFinanceCommand({
       systemInstruction: buildSystemInstruction(input),
       generationConfig: {
         temperature: 0.1,
-        maxOutputTokens: 512,
+        // Modelos com "thinking" contam o raciocínio dentro desse limite;
+        // um valor baixo (ex.: 512) corta o JSON no meio e quebra o parse.
+        maxOutputTokens: 2048,
         responseMimeType: "application/json",
       },
-      timeoutMs: 4000,
+      timeoutMs: 5000,
       maxTotalTimeMs: maxGenerationTimeMs,
     });
-    return normalizeParsedCommand(JSON.parse(cleanJsonResponse(responseText)));
+
+    const parsed: unknown = JSON.parse(cleanJsonResponse(responseText));
+    if (!isRecord(parsed)) {
+      throw new Error(`Resposta da IA não é um objeto JSON: ${truncate(responseText, 200)}`);
+    }
+    return normalizeParsedCommand(parsed);
   } catch (error) {
     console.error("Erro ao interpretar comando B-Finances:", error);
+
+    // Plano B: se a IA falhou (timeout, 503, JSON inválido), tenta interpretar
+    // localmente lançamentos simples como "Corte de cabelo 40 reais no cartão nubank".
+    const localCommand = buildLocalFallbackCommand(messageText);
+    if (localCommand) {
+      console.warn(
+        "[CommandInterpreter] Usando interpretação local de fallback:",
+        JSON.stringify(localCommand),
+      );
+      return localCommand;
+    }
+
     return buildClarificationCommand(
       "Não consegui entender com segurança. Você pode reformular o pedido?",
     );
