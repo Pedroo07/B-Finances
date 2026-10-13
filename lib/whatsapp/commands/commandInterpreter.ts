@@ -494,6 +494,20 @@ export async function interpretBFinanceCommand({
   currentDate = getBrasiliaDate(),
   maxGenerationTimeMs = 15000,
 }: InterpreterInput): Promise<BFinanceCommand> {
+  // 1. FAST-PATH: Se a mensagem for um lançamento direto claro
+  // (ex.: "Corte de cabelo 40 reais no cartao nubank", "transferencia 50 no cartao inte"),
+  // interpretamos localmente em 0ms. Isso elimina latência, economiza cota de IA
+  // e evita qualquer lentidão ou erro 503/timeout da API externa.
+  const fastLocalCommand = buildLocalFallbackCommand(messageText);
+  if (fastLocalCommand) {
+    console.info(
+      "[CommandInterpreter] Fast-path local executado com sucesso (0ms):",
+      JSON.stringify(fastLocalCommand),
+    );
+    return fastLocalCommand;
+  }
+
+  // 2. IA (Gemini): para consultas, relatórios, resumos, edições, exclusões e frases complexas.
   const input = {
     messageText,
     conversationHistory,
@@ -508,12 +522,10 @@ export async function interpretBFinanceCommand({
       systemInstruction: buildSystemInstruction(input),
       generationConfig: {
         temperature: 0.1,
-        // Modelos com "thinking" contam o raciocínio dentro desse limite;
-        // um valor baixo (ex.: 512) corta o JSON no meio e quebra o parse.
         maxOutputTokens: 2048,
         responseMimeType: "application/json",
       },
-      timeoutMs: 5000,
+      timeoutMs: 3500,
       maxTotalTimeMs: maxGenerationTimeMs,
     });
 
@@ -525,8 +537,7 @@ export async function interpretBFinanceCommand({
   } catch (error) {
     console.error("Erro ao interpretar comando B-Finances:", error);
 
-    // Plano B: se a IA falhou (timeout, 503, JSON inválido), tenta interpretar
-    // localmente lançamentos simples como "Corte de cabelo 40 reais no cartão nubank".
+    // Se a IA falhou, tenta mais uma vez o fallback local (caso algo tenha escapado)
     const localCommand = buildLocalFallbackCommand(messageText);
     if (localCommand) {
       console.warn(

@@ -89,6 +89,12 @@ const EXPENSE_RULES: CategoryRule[] = [
       "cea",
     ],
     terms: [
+      "corte de cabelo",
+      "barbearia",
+      "salao de beleza",
+      "cabelo",
+      "barbeiro",
+      "salao",
       "roupa",
       "roupas",
       "camisa",

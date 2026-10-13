@@ -40,10 +40,10 @@ const TASK_MODEL_CHAINS: Record<AiTaskType, string[]> = {
     "gemini-3.6-flash",      // Reserva 3
   ],
   COMMAND_INTERPRETATION: [
-    "gemini-3.5-flash-lite", // Modelo rápido para interpretar comandos curtos
-    "gemini-3.8-flash",      // Reserva estável (~1.5s) para NLU financeira
-    "gemini-3.6-flash",      // Reserva rápida e mais capaz
-    "gemini-flash-latest",   // Reserva final
+    "gemini-flash-latest",   // Modelo mais estável e com alta disponibilidade (~1s)
+    "gemini-2.5-flash",      // Reserva rápida e altamente estável
+    "gemini-3.5-flash",      // Reserva com alta precisão
+    "gemini-3.5-flash-lite", // Reserva leve
   ],
   TRANSACTION_EXTRACTION: [
     "gemini-3.5-flash-lite", // Primário
@@ -67,39 +67,6 @@ const TIMEOUT_COOLDOWN_MS = 30 * 1000;
 // Não vale a pena disparar uma tentativa com menos tempo que isso: ela seria abortada.
 const MIN_ATTEMPT_TIME_MS = 1500;
 const modelCooldownMap = new Map<string, number>();
-
-// Raciocínio mínimo reduz bastante a latência na interpretação de comandos curtos.
-const COMMAND_THINKING_LEVEL: Record<string, string> = {
-  "gemini-3.5-flash-lite": "minimal",
-  "gemini-3.6-flash": "minimal",
-  "gemini-3.8-flash": "minimal",
-  "gemini-3.7-flash": "low",
-};
-// Modelos que rejeitaram thinkingConfig (400): passam a ser chamados sem ele.
-const modelsRejectingThinkingConfig = new Set<string>();
-
-function withLatencyConfig(
-  task: AiTaskType,
-  modelName: string,
-  generationConfig?: GenerationConfig,
-): GenerationConfig | undefined {
-  if (!generationConfig || task !== "COMMAND_INTERPRETATION") {
-    return generationConfig;
-  }
-  const thinkingLevel = COMMAND_THINKING_LEVEL[modelName];
-  if (!thinkingLevel || modelsRejectingThinkingConfig.has(modelName)) {
-    return generationConfig;
-  }
-  return {
-    ...generationConfig,
-    thinkingConfig: { thinkingLevel },
-  } as GenerationConfig;
-}
-
-function isThinkingConfigError(error: unknown): boolean {
-  const message = error instanceof Error ? error.message : String(error);
-  return /\b400\b|INVALID_ARGUMENT/i.test(message) && /thinking/i.test(message);
-}
 
 function isModelInCooldown(modelName: string): boolean {
   const expiry = modelCooldownMap.get(modelName);
@@ -209,46 +176,21 @@ export async function generateContentWithTaskRouting({
     attemptedModels.push(modelName);
     const attemptTimeoutMs = Math.min(timeoutMs, remainingTimeMs);
 
-    const runModel = async (
-      config: GenerationConfig | undefined,
-      timeout: number,
-    ): Promise<{ text: string; elapsed: number }> => {
+    try {
       const model = getGenAI().getGenerativeModel(
         {
           model: modelName,
           systemInstruction: systemInstruction || undefined,
-          generationConfig: config || undefined,
+          generationConfig: generationConfig || undefined,
         },
-        { timeout },
+        { timeout: attemptTimeoutMs },
       );
+
       const startTime = Date.now();
       const result = await model.generateContent(promptPayload);
-      return {
-        text: extractTextFromResponse(result.response),
-        elapsed: Date.now() - startTime,
-      };
-    };
+      const elapsed = Date.now() - startTime;
 
-    try {
-      const tunedConfig = withLatencyConfig(task, modelName, generationConfig);
-      let attempt: { text: string; elapsed: number };
-      try {
-        attempt = await runModel(tunedConfig, attemptTimeoutMs);
-      } catch (error) {
-        if (tunedConfig === generationConfig || !isThinkingConfigError(error)) {
-          throw error;
-        }
-        // O modelo não aceita thinkingConfig: memoriza e repete sem ele.
-        modelsRejectingThinkingConfig.add(modelName);
-        console.warn(
-          `[GeminiClient] Modelo ${modelName} rejeitou thinkingConfig. Repetindo sem ele...`,
-        );
-        const retryTimeoutMs = Math.min(timeoutMs, deadline - Date.now());
-        if (retryTimeoutMs < MIN_ATTEMPT_TIME_MS) throw error;
-        attempt = await runModel(generationConfig, retryTimeoutMs);
-      }
-
-      const { text, elapsed } = attempt;
+      const text = extractTextFromResponse(result.response);
       if (text && text.trim().length > 0) {
         console.info(
           `[GeminiClient] Tarefa ${task} concluída pelo modelo ${modelName} em ${elapsed}ms.`,

@@ -35,7 +35,7 @@ function escapeRegExp(value: string): string {
 }
 
 const NON_CREATE_HINTS =
-  /\b(quanto|quantos|quantas|qnt|qto|qual|quais|liste|listar|lista|mostre|mostrar|mostra|ver|veja|ultim[oa]s?|resumo|balanco|fatura|faturas|extrato|historico|apag\w*|delet\w*|exclu\w*|remov\w*|edit\w*|alter\w*|corrig\w*|atualiz\w*|pendentes?|investimentos?|ajuda)\b|\?/;
+  /\b(quanto|quantos|quantas|qnt|qto|qual|quais|liste|listar|lista|mostre|mostrar|mostra|ver|veja|tem|houve|existe|consult\w*|ultim[oa]s?|resumo|balanco|fatura|faturas|extrato|historico|saldo|relatorio|ranking|grafico|apag\w*|delet\w*|exclu\w*|remov\w*|edit\w*|alter\w*|mud\w*|troc\w*|corrig\w*|atualiz\w*|pendentes?|investimentos?|ajuda)\b|\?/;
 
 const INCOME_HINTS =
   /\b(recebi|recebido|ganhei|entrou|entrada|salario|freela|renda|lucro|vendi)\b/;
