@@ -40,11 +40,10 @@ const TASK_MODEL_CHAINS: Record<AiTaskType, string[]> = {
     "gemini-3.6-flash",      // Reserva 3
   ],
   COMMAND_INTERPRETATION: [
-    "gemini-3.8-flash",      // Primário para NLU e estruturação financeira (~1.5s)
-    "gemini-3.5-flash-lite", // Reserva 1 (alta qualidade quando disponível)
-    "gemini-3.1-flash-lite",
-    "gemini-3.7-flash",      // Reserva 2 (raciocínio avançado)
-    "gemini-flash-latest",   // Reserva 3
+    "gemini-3.5-flash-lite", // Modelo rápido para interpretar comandos curtos
+    "gemini-3.6-flash",      // Reserva rápida e mais capaz
+    "gemini-3.8-flash",      // Reserva para interpretações mais difíceis
+    "gemini-flash-latest",   // Reserva final
   ],
   TRANSACTION_EXTRACTION: [
     "gemini-3.5-flash-lite", // Primário
@@ -59,6 +58,30 @@ const TASK_MODEL_CHAINS: Record<AiTaskType, string[]> = {
     "gemini-3.1-flash-lite", // Reserva 3
   ],
 };
+
+function getGenerationConfigForModel(
+  task: AiTaskType,
+  modelName: string,
+  generationConfig?: GenerationConfig,
+): GenerationConfig | undefined {
+  if (!generationConfig || task !== "COMMAND_INTERPRETATION") {
+    return generationConfig;
+  }
+
+  const thinkingLevel =
+    modelName === "gemini-3.5-flash-lite" || modelName === "gemini-3.6-flash"
+      ? "minimal"
+      : modelName === "gemini-3.8-flash" || modelName === "gemini-3.7-flash"
+        ? "low"
+        : undefined;
+
+  if (!thinkingLevel) return generationConfig;
+
+  return {
+    ...generationConfig,
+    thinkingConfig: { thinkingLevel },
+  } as GenerationConfig;
+}
 
 // Cooldown em memória para modelos que retornaram 503 (High Demand) ou 429 (Rate Limit)
 const MODEL_COOLDOWN_MS = 60 * 1000; // 60 segundos de cooldown
@@ -172,7 +195,9 @@ export async function generateContentWithTaskRouting({
         {
           model: modelName,
           systemInstruction: systemInstruction || undefined,
-          generationConfig: generationConfig || undefined,
+          generationConfig:
+            getGenerationConfigForModel(task, modelName, generationConfig) ||
+            undefined,
         },
         {
           timeout: Math.min(timeoutMs, remainingTimeMs),

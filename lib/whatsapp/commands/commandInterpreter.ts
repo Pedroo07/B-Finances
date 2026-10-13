@@ -503,6 +503,7 @@ export async function interpretBFinanceCommand({
       systemInstruction: buildSystemInstruction(input),
       generationConfig: {
         temperature: 0.1,
+        maxOutputTokens: 512,
         responseMimeType: "application/json",
       },
       timeoutMs: 4000,

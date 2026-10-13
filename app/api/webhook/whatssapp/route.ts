@@ -142,9 +142,19 @@ async function transcribeAudio(
 
 function buildHistoryString(
   history: Array<{ role: string; text: string }> | undefined,
+  currentMessageText: string,
 ): string {
   if (!history || history.length === 0) return "Nenhum historico anterior.";
-  const recentHistory = history.slice(-4);
+  const historyWithoutCurrentMessage = [...history];
+  const lastEntry = historyWithoutCurrentMessage.at(-1);
+  if (
+    lastEntry?.role === "user" &&
+    lastEntry.text.trim() === currentMessageText.trim()
+  ) {
+    historyWithoutCurrentMessage.pop();
+  }
+  const recentHistory = historyWithoutCurrentMessage.slice(-4);
+  if (recentHistory.length === 0) return "Nenhum historico anterior.";
   return recentHistory.map((h) => `${h.role}: ${h.text}`).join("\n");
 }
 
@@ -963,7 +973,10 @@ export async function POST(req: Request) {
     }
 
     const session = await getSession(fromPhoneNumber);
-    const conversationHistory = buildHistoryString(session?.history);
+    const conversationHistory = buildHistoryString(
+      session?.history,
+      messageText,
+    );
     const currentDate = getBrasiliaDate();
     const previousCommand = getPreviousBFinanceCommand(shortTermMemory);
     const interpretedCommand = await interpretBFinanceCommand({
