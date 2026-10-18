@@ -68,6 +68,11 @@ import {
   INCOME_CATEGORIES,
 } from "@/lib/transactionCategories";
 
+import {
+  computeInvoiceBalance,
+  getInvoicePeriodsWithBalance,
+} from "@/lib/creditCards/invoiceBalance";
+
 type CreditCardInvoiceSummary = {
   card: UserCreditCard;
   invoiceAmount: number;
@@ -75,6 +80,8 @@ type CreditCardInvoiceSummary = {
   isPaid: boolean;
   periodKey: string;
   dueDate: string;
+  paymentTransactionId?: string;
+  paidAt?: string;
 };
 
 const getCreditCardInvoiceSummaries = (
@@ -104,15 +111,25 @@ const getCreditCardInvoiceSummaries = (
       {},
     );
 
-    return Object.entries(totalsByPeriod).map(([periodKey, totalAmount]) => {
-      const amountPaid = card.invoices?.[periodKey]?.amountPaid || 0;
+    return getInvoicePeriodsWithBalance(
+      card.invoices,
+      Object.keys(totalsByPeriod),
+    ).map((periodKey) => {
+      const balance = computeInvoiceBalance({
+        purchases: totalsByPeriod[periodKey] || 0,
+        invoices: card.invoices,
+        periodKey,
+      });
+      const lastPayment = balance.payments.at(-1);
       return {
         card,
-        invoiceAmount: Math.max(totalAmount - amountPaid, 0),
-        totalAmount,
-        isPaid: totalAmount > 0 && amountPaid >= totalAmount,
+        invoiceAmount: balance.remaining,
+        totalAmount: balance.total,
+        isPaid: balance.isPaid,
         periodKey,
         dueDate: getInvoiceDueDate(periodKey, closingDay, dueDay),
+        paymentTransactionId: lastPayment?.transactionId,
+        paidAt: lastPayment?.paidAt,
       };
     });
   });
@@ -133,13 +150,14 @@ const syncDashboardCreditCardInvoices = async (
           bill.creditCardInvoicePeriodKey === periodKey,
         )),
       )
-      .map(({ card, periodKey, dueDate, invoiceAmount, totalAmount, isPaid }) => ({
+      .map(({ card, periodKey, dueDate, invoiceAmount, totalAmount, isPaid, paymentTransactionId, paidAt }) => ({
         creditCardId: card.id,
         creditCardInvoicePeriodKey: periodKey,
         description: "Fatura do cartão " + getCreditCardName(card.bankKey),
         amount: isPaid ? totalAmount : invoiceAmount,
         dueDate,
         status: isPaid ? "paid" : "pending",
+        ...(isPaid && { paymentTransactionId, paidAt }),
       })),
   );
   const billsById = new Map<string, BillAccount>(existingBills.map((bill) => [bill.id, bill]));

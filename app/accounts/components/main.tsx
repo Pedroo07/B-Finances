@@ -57,6 +57,11 @@ import {
   getCreditCardBankKey,
   getCreditCardName,
 } from "@/lib/creditCards/catalog";
+import {
+  computeInvoiceBalance,
+  getInvoicePayments,
+  getInvoicePeriodsWithBalance,
+} from "@/lib/creditCards/invoiceBalance";
 
 const getTodayDate = () => {
   const now = new Date();
@@ -121,6 +126,8 @@ type CreditCardInvoiceSummary = {
   isPaid: boolean;
   periodKey: string;
   dueDate: string;
+  paymentTransactionId?: string;
+  paidAt?: string;
 };
 
 const isCreditCardInvoiceBill = (bill: BillAccount): boolean => {
@@ -162,18 +169,26 @@ const getCreditCardInvoiceSummaries = (
       {},
     );
 
-    return Object.entries(totalsByPeriod).map(([periodKey, totalAmount]) => {
-      const invoicePaidAmount = card.invoices?.[periodKey]?.amountPaid || 0;
-      const invoiceAmount = Math.max(totalAmount - invoicePaidAmount, 0);
-      const isPaid = totalAmount > 0 && invoicePaidAmount >= totalAmount;
+    return getInvoicePeriodsWithBalance(
+      card.invoices,
+      Object.keys(totalsByPeriod),
+    ).map((periodKey) => {
+      const balance = computeInvoiceBalance({
+        purchases: totalsByPeriod[periodKey] || 0,
+        invoices: card.invoices,
+        periodKey,
+      });
+      const lastPayment = balance.payments.at(-1);
 
       return {
         card,
-        invoiceAmount,
-        totalAmount,
-        isPaid,
+        invoiceAmount: balance.remaining,
+        totalAmount: balance.total,
+        isPaid: balance.isPaid,
         periodKey,
         dueDate: getInvoiceDueDate(periodKey, closingDay, dueDay),
+        paymentTransactionId: lastPayment?.transactionId,
+        paidAt: lastPayment?.paidAt,
       };
     });
   });
@@ -337,6 +352,8 @@ export const Main: FC = () => {
                 invoiceAmount,
                 totalAmount,
                 isPaid,
+                paymentTransactionId,
+                paidAt,
               }) => ({
                 creditCardId: card.id,
                 creditCardInvoicePeriodKey: periodKey,
@@ -344,6 +361,7 @@ export const Main: FC = () => {
                 amount: isPaid ? totalAmount : invoiceAmount,
                 dueDate,
                 status: isPaid ? "paid" : "pending",
+                ...(isPaid && { paymentTransactionId, paidAt }),
               }),
             ),
         );
@@ -663,9 +681,36 @@ export const Main: FC = () => {
       legacyPaymentTransactionId = legacyPayment.id;
     }
 
+    let paymentEntryId: string | undefined;
+    if (bill?.creditCardId && bill.creditCardInvoicePeriodKey) {
+      const invoicePayments = getInvoicePayments(
+        userCards.find((card) => card.id === bill.creditCardId)?.invoices?.[
+          bill.creditCardInvoicePeriodKey
+        ],
+      );
+
+      if (invoicePayments.length > 1) {
+        const options = invoicePayments
+          .map(
+            (payment, index) =>
+              `${index + 1}) ${new Date(`${payment.paidAt}T12:00:00`).toLocaleDateString("pt-BR")} - ${formatCurrency(payment.amount)}${payment.rolledOver ? " (parcial)" : ""}`,
+          )
+          .join("\n");
+        const answer = window.prompt(
+          `Esta fatura tem ${invoicePayments.length} pagamentos. Qual deseja desfazer?\n\n${options}`,
+          String(invoicePayments.length),
+        );
+        if (answer === null) return;
+
+        const selectedPayment = invoicePayments[Number(answer) - 1];
+        if (!selectedPayment) return;
+        paymentEntryId = selectedPayment.id;
+      }
+    }
+
     setIsProcessing(true);
     try {
-      await unpayBillAccount(billId, legacyPaymentTransactionId);
+      await unpayBillAccount(billId, legacyPaymentTransactionId, paymentEntryId);
       const [updatedBills, updatedTransactions, updatedCards] =
         await Promise.all([
           getBillAccounts(),

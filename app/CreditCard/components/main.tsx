@@ -64,6 +64,7 @@ import {
   getInvoicePeriodKeyForDate,
   isValidBillingDay,
 } from "@/lib/creditCards/billing";
+import { computeInvoiceBalance } from "@/lib/creditCards/invoiceBalance";
 
 const getTodayDate = () => {
   const now = new Date();
@@ -108,6 +109,9 @@ export const Main = () => {
   const [invoicePaymentDate, setInvoicePaymentDate] = useState(() =>
     getTodayDate(),
   );
+  const [invoicePaymentAmount, setInvoicePaymentAmount] = useState(0);
+  const [invoicePaymentInterest, setInvoicePaymentInterest] = useState(0);
+  const [invoicePaymentError, setInvoicePaymentError] = useState("");
   const [user, loading] = useAuthState(auth);
   const [items, setItems] = useState<CardTransaction[]>([]);
   const [userCards, setUserCards] = useState<UserCreditCard[]>([]);
@@ -350,29 +354,50 @@ export const Main = () => {
   );
 
   const expense = filterItems.reduce((acc, item) => acc + item.amount, 0);
-  const currentInvoiceAmount = Math.abs(expense);
-  const currentInvoicePayment = currentInvoicePeriodKey
-    ? currentUserCard?.invoices?.[currentInvoicePeriodKey]
-    : undefined;
-  const invoicePaidAmount = currentInvoicePayment?.amountPaid ?? 0;
+  const invoicePurchasesAmount = Math.abs(expense);
+  const invoiceBalance = currentInvoicePeriodKey
+    ? computeInvoiceBalance({
+        purchases: invoicePurchasesAmount,
+        invoices: currentUserCard?.invoices,
+        periodKey: currentInvoicePeriodKey,
+      })
+    : null;
+  const currentInvoiceAmount = invoiceBalance
+    ? invoiceBalance.total
+    : invoicePurchasesAmount;
+  const invoiceRemainingAmount = invoiceBalance?.remaining ?? 0;
+  const invoicePaidAmount = invoiceBalance?.paid ?? 0;
+  const invoicePayments = invoiceBalance?.payments ?? [];
+  const currentInvoicePayment = invoicePayments.at(-1);
   const isInvoicePaid =
     Boolean(currentInvoicePeriodKey) &&
     hasCurrentCardBilling &&
-    currentInvoiceAmount > 0 &&
-    invoicePaidAmount >= currentInvoiceAmount;
+    Boolean(invoiceBalance?.isPaid);
+  const isInvoicePartiallyPaid = isInvoicePaid && Boolean(currentInvoicePayment?.rolledOver);
+  const hasInvoiceDifference =
+    !isInvoicePaid && invoicePaidAmount > 0 && invoiceRemainingAmount > 0;
   const canPayInvoice =
     Boolean(currentCard) &&
     hasCurrentCardBilling &&
     Boolean(currentInvoicePeriodKey) &&
-    currentInvoiceAmount > 0 &&
-    !isInvoicePaid;
+    invoiceRemainingAmount > 0.005;
+  const invoicePaymentAmountIsValid =
+    invoicePaymentAmount > 0 &&
+    invoicePaymentAmount <= invoiceRemainingAmount + 0.005;
+  const invoiceRolledOverAmount = invoicePaymentAmountIsValid
+    ? Math.max(invoiceRemainingAmount - invoicePaymentAmount, 0)
+    : 0;
   const invoiceStatusLabel = !hasCurrentCardBilling
     ? "Configure a fatura"
     : !currentInvoicePeriodKey
       ? "Selecione um mes"
-      : isInvoicePaid
-        ? "Fatura paga"
-        : "Fatura em aberto";
+      : isInvoicePartiallyPaid
+        ? "Paga parcialmente"
+        : isInvoicePaid
+          ? "Fatura paga"
+          : hasInvoiceDifference
+            ? "Restante a pagar"
+            : "Fatura em aberto";
   const invoiceStatusClass = !hasCurrentCardBilling
     ? "border-rose-500/20 bg-rose-500/10 text-rose-700 dark:text-rose-300"
     : !currentInvoicePeriodKey
@@ -566,6 +591,9 @@ export const Main = () => {
 
   const handleOpenPayInvoiceDialog = () => {
     setInvoicePaymentDate(getTodayDate());
+    setInvoicePaymentAmount(invoiceRemainingAmount);
+    setInvoicePaymentInterest(0);
+    setInvoicePaymentError("");
     setIsPayInvoiceDialogOpen(true);
   };
 
@@ -575,7 +603,7 @@ export const Main = () => {
       !hasCurrentCardBilling ||
       !currentInvoicePeriodKey ||
       !invoicePaymentDate ||
-      currentInvoiceAmount <= 0 ||
+      !invoicePaymentAmountIsValid ||
       isPayingInvoice
     ) {
       return;
@@ -583,12 +611,15 @@ export const Main = () => {
 
     try {
       setIsPayingInvoice(true);
+      setInvoicePaymentError("");
 
       const { card: updatedCard } = await payCreditCardInvoice({
         bankKey: effectiveSelectedCardKey,
         periodKey: currentInvoicePeriodKey,
-        amountPaid: currentInvoiceAmount,
+        amountPaid: invoicePaymentAmount,
         paidAt: invoicePaymentDate,
+        periodPurchases: invoicePurchasesAmount,
+        interest: invoiceRolledOverAmount > 0 ? invoicePaymentInterest : 0,
       });
 
       setUserCards((currentCards) =>
@@ -610,6 +641,11 @@ export const Main = () => {
       setIsPayInvoiceDialogOpen(false);
     } catch (error) {
       console.error("Error paying credit card invoice:", error);
+      setInvoicePaymentError(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível registrar o pagamento",
+      );
     } finally {
       setIsPayingInvoice(false);
     }
@@ -874,18 +910,30 @@ export const Main = () => {
           <DialogHeader>
             <DialogTitle>Pagar fatura</DialogTitle>
             <DialogDescription>
-              Marque sua fatura como paga, e adicione a despesa automaticamente
-              a suas transações.
+              Registre o pagamento da fatura. Você pode pagar o saldo
+              restante ou um valor menor: o que sobrar vai para a próxima
+              fatura.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="rounded-2xl border border-border/60 bg-[#F8FAFC] px-4 py-4 dark:bg-white/5">
               <p className="text-xs uppercase tracking-[0.22em] text-[#94A3BB]">
-                Valor da fatura
+                Saldo a pagar
               </p>
               <p className="mt-2 text-2xl font-semibold text-[#0F172A] dark:text-white">
-                {formatCurrency(-currentInvoiceAmount)}
+                {formatCurrency(-invoiceRemainingAmount)}
               </p>
+              {invoiceBalance && invoiceBalance.carryIn > 0 ? (
+                <p className="mt-2 text-sm text-[#64748B] dark:text-[#94A3BB]">
+                  Inclui {formatCurrency(invoiceBalance.carryIn)} de saldo da
+                  fatura anterior.
+                </p>
+              ) : null}
+              {invoicePaidAmount > 0 ? (
+                <p className="mt-2 text-sm text-[#64748B] dark:text-[#94A3BB]">
+                  Já pago nesta fatura: {formatCurrency(invoicePaidAmount)}.
+                </p>
+              ) : null}
               {currentInvoiceRange && currentInvoiceDueDate ? (
                 <p className="mt-2 text-sm text-[#64748B] dark:text-[#94A3BB]">
                   {formatDisplayDate(currentInvoiceRange.startDate)} a{" "}
@@ -894,12 +942,63 @@ export const Main = () => {
                 </p>
               ) : null}
             </div>
+            <div className="grid gap-2">
+              <label className="text-sm font-medium text-[#334155] dark:text-[#E2E8F0]">
+                Valor a pagar
+              </label>
+              <Input
+                type="number"
+                min="0.01"
+                step="0.01"
+                max={invoiceRemainingAmount || undefined}
+                value={invoicePaymentAmount || ""}
+                onChange={(event) =>
+                  setInvoicePaymentAmount(Number(event.target.value))
+                }
+              />
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setInvoicePaymentAmount(invoiceRemainingAmount)}
+                >
+                  Pagar tudo
+                </Button>
+              </div>
+              {invoicePaymentAmount > invoiceRemainingAmount + 0.005 ? (
+                <p className="text-sm text-rose-500">
+                  O valor não pode ser maior que o saldo a pagar.
+                </p>
+              ) : null}
+            </div>
+            {invoiceRolledOverAmount > 0 ? (
+              <div className="grid gap-2 rounded-xl border border-amber-500/20 bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-300">
+                <p>
+                  {formatCurrency(invoiceRolledOverAmount)} serão somados à
+                  próxima fatura.
+                </p>
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="Juros/encargos (opcional)"
+                  value={invoicePaymentInterest || ""}
+                  onChange={(event) =>
+                    setInvoicePaymentInterest(Number(event.target.value))
+                  }
+                />
+              </div>
+            ) : null}
             <Input
               type="date"
               placeholder="Data do pagamento"
               value={invoicePaymentDate}
               onChange={handleInvoicePaymentDateChange}
             />
+            {invoicePaymentError ? (
+              <p className="text-sm text-rose-500">{invoicePaymentError}</p>
+            ) : null}
           </div>
           <DialogFooter>
             <Button
@@ -914,7 +1013,10 @@ export const Main = () => {
               type="button"
               onClick={handlePayCurrentInvoice}
               disabled={
-                !invoicePaymentDate || !canPayInvoice || isPayingInvoice
+                !invoicePaymentDate ||
+                !canPayInvoice ||
+                !invoicePaymentAmountIsValid ||
+                isPayingInvoice
               }
               className="w-full sm:w-auto"
             >
@@ -1275,6 +1377,33 @@ export const Main = () => {
                       {formatDisplayDate(currentInvoiceDueDate)}.
                     </p>
                   ) : null}
+                  {invoiceBalance && invoiceBalance.carryIn > 0 ? (
+                    <p className="mt-2 text-sm text-[#64748B] dark:text-[#94A3BB]">
+                      Inclui {formatCurrency(invoiceBalance.carryIn)} de saldo da
+                      fatura anterior.
+                    </p>
+                  ) : null}
+                  {invoicePaidAmount > 0 ? (
+                    <p className="mt-2 text-sm font-medium text-[#334155] dark:text-[#E2E8F0]">
+                      Pago: {formatCurrency(invoicePaidAmount)}
+                      {invoiceRemainingAmount > 0
+                        ? ` • Restante: ${formatCurrency(invoiceRemainingAmount)}`
+                        : ""}
+                    </p>
+                  ) : null}
+                  {invoicePayments.length > 0 ? (
+                    <ul className="mt-3 space-y-1 text-xs text-[#64748B] dark:text-[#94A3BB]">
+                      {invoicePayments.map((payment) => (
+                        <li key={payment.id}>
+                          {formatDisplayDate(payment.paidAt)}:{" "}
+                          {formatCurrency(payment.amount)}
+                          {payment.rolledOver
+                            ? ` (parcial, ${formatCurrency(payment.rolledOver)} para a próxima fatura)`
+                            : ""}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
                   <span
@@ -1306,11 +1435,11 @@ export const Main = () => {
                     ? "Configure fechamento e vencimento para calcular e pagar esta fatura."
                     : activeFilter === "year"
                       ? "Selecione um mes para pagar a fatura deste cartao."
-                      : currentInvoiceAmount === 0
+                      : invoiceRemainingAmount <= 0.005 && !isInvoicePaid
                         ? "Nao ha lancamentos neste periodo para gerar uma fatura."
                         : currentInvoicePayment
-                          ? `Ultimo pagamento registrado em ${currentInvoicePayment.paidAt}.`
-                          : "Escolha a data do pagamento para registrar a fatura e gerar a despesa automaticamente."}
+                          ? `Ultimo pagamento registrado em ${formatDisplayDate(currentInvoicePayment.paidAt)}.`
+                          : "Escolha o valor e a data do pagamento. Se pagar menos que o saldo, o restante vai para a proxima fatura."}
                 </p>
               </div>
             </div>
