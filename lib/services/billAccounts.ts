@@ -510,6 +510,8 @@ export function getLegacyBillPaymentCandidates(
 export async function payBillAccount(
   id: string,
   paymentDate: string,
+  amountPaid?: number,
+  interest?: number,
 ): Promise<BillAccount> {
   const user = auth.currentUser;
   if (!user) throw new Error("User not authenticated");
@@ -572,14 +574,22 @@ export async function payBillAccount(
         invoices: cardData?.invoices,
         periodKey,
       });
+      const paymentAmount =
+        typeof amountPaid === "number" && amountPaid > 0
+          ? amountPaid
+          : balance.remaining;
       const entry = buildInvoicePaymentEntry({
-        amount: balance.remaining,
+        amount: paymentAmount,
         remaining: balance.remaining,
         paidAt: paymentDate,
         transactionId: transactionRef.id,
+        interest,
       });
 
       transactionData.amount = -entry.amount;
+      if (entry.rolledOver) {
+        transactionData.description = `${bill.description} (parcial)`;
+      }
       batch.set(
         cardRef,
         {

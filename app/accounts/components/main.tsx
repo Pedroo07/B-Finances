@@ -218,6 +218,9 @@ export const Main: FC = () => {
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
   const [selectedBillForPayment, setSelectedBillForPayment] =
     useState<BillAccount | null>(null);
+  const [billPaymentAmount, setBillPaymentAmount] = useState(0);
+  const [billPaymentInterest, setBillPaymentInterest] = useState(0);
+  const [billPaymentError, setBillPaymentError] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [dateError, setDateError] = useState("");
   const [statusFilter, setStatusFilter] = useState<
@@ -571,10 +574,20 @@ export const Main: FC = () => {
     if (!selectedBillForPayment) return;
 
     setIsProcessing(true);
+    setBillPaymentError("");
 
     try {
       if (addTransaction || isCreditCardInvoiceBill(selectedBillForPayment)) {
-        await payBillAccount(selectedBillForPayment.id, paymentDate);
+        await payBillAccount(
+          selectedBillForPayment.id,
+          paymentDate,
+          isCreditCardInvoiceBill(selectedBillForPayment)
+            ? billPaymentAmount
+            : undefined,
+          isCreditCardInvoiceBill(selectedBillForPayment)
+            ? billPaymentInterest
+            : undefined,
+        );
       } else {
         await updateBillAccount(selectedBillForPayment.id, { status: "paid" });
       }
@@ -591,6 +604,11 @@ export const Main: FC = () => {
       setSelectedBillForPayment(null);
     } catch (error) {
       console.error("Error paying bill:", error);
+      setBillPaymentError(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível registrar o pagamento",
+      );
     } finally {
       setIsProcessing(false);
     }
@@ -731,6 +749,9 @@ export const Main: FC = () => {
   const openPaymentDialog = (bill: BillAccount) => {
     setSelectedBillForPayment(bill);
     setPaymentDate(getTodayDate_YYYYMMDD());
+    setBillPaymentAmount(bill.amount);
+    setBillPaymentInterest(0);
+    setBillPaymentError("");
     setIsPaymentDialogOpen(true);
   };
 
@@ -851,24 +872,93 @@ export const Main: FC = () => {
       <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
         <DialogContent className="sm:max-w-106">
           <DialogHeader>
-            <DialogTitle>Pagar conta</DialogTitle>
+            <DialogTitle>
+              {selectedBillForPayment &&
+              isCreditCardInvoiceBill(selectedBillForPayment)
+                ? "Pagar fatura"
+                : "Pagar conta"}
+            </DialogTitle>
           </DialogHeader>
           {selectedBillForPayment && (
             <div className="grid gap-4 py-4">
               <div className="rounded-2xl border border-border/60 bg-[#F8FAFC] px-4 py-4 dark:bg-white/5">
                 <p className="text-xs uppercase tracking-[0.22em] text-[#94A3BB]">
-                  Valor da conta
+                  {isCreditCardInvoiceBill(selectedBillForPayment)
+                    ? "Saldo a pagar"
+                    : "Valor da conta"}
                 </p>
                 <p className="mt-2 text-2xl font-semibold text-[#0F172A] dark:text-white">
                   {formatCurrency(selectedBillForPayment.amount)}
                 </p>
               </div>
+
+              {isCreditCardInvoiceBill(selectedBillForPayment) && (
+                <>
+                  <div className="grid gap-2">
+                    <label className="text-sm font-medium text-[#334155] dark:text-[#E2E8F0]">
+                      Valor a pagar
+                    </label>
+                    <Input
+                      type="number"
+                      min="0.01"
+                      step="0.01"
+                      max={selectedBillForPayment.amount}
+                      value={billPaymentAmount || ""}
+                      onChange={(e) => setBillPaymentAmount(Number(e.target.value))}
+                    />
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() =>
+                          setBillPaymentAmount(selectedBillForPayment.amount)
+                        }
+                      >
+                        Pagar tudo
+                      </Button>
+                    </div>
+                    {billPaymentAmount > selectedBillForPayment.amount + 0.005 ? (
+                      <p className="text-sm text-rose-500">
+                        O valor não pode ser maior que o saldo a pagar.
+                      </p>
+                    ) : null}
+                  </div>
+
+                  {billPaymentAmount > 0 &&
+                  billPaymentAmount < selectedBillForPayment.amount - 0.005 ? (
+                    <div className="grid gap-2 rounded-xl border border-amber-500/20 bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-300">
+                      <p>
+                        {formatCurrency(
+                          selectedBillForPayment.amount - billPaymentAmount,
+                        )}{" "}
+                        serão somados à próxima fatura.
+                      </p>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="Juros/encargos (opcional)"
+                        value={billPaymentInterest || ""}
+                        onChange={(e) =>
+                          setBillPaymentInterest(Number(e.target.value))
+                        }
+                      />
+                    </div>
+                  ) : null}
+                </>
+              )}
+
               <Input
                 type="date"
                 placeholder="Data do pagamento"
                 value={paymentDate}
                 onChange={(e) => setPaymentDate(e.target.value)}
               />
+
+              {billPaymentError ? (
+                <p className="text-sm text-rose-500">{billPaymentError}</p>
+              ) : null}
             </div>
           )}
           <DialogFooter>
@@ -883,7 +973,14 @@ export const Main: FC = () => {
             <Button
               type="button"
               onClick={handlePayBill}
-              disabled={!paymentDate || isProcessing}
+              disabled={
+                !paymentDate ||
+                (selectedBillForPayment &&
+                  isCreditCardInvoiceBill(selectedBillForPayment) &&
+                  (billPaymentAmount <= 0 ||
+                    billPaymentAmount > selectedBillForPayment.amount + 0.005)) ||
+                isProcessing
+              }
               className="w-full sm:w-auto"
             >
               <span>{isProcessing ? "Pagando..." : "Confirmar pagamento"}</span>
