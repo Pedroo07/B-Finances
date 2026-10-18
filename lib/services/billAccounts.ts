@@ -28,6 +28,14 @@ import {
   isValidBillingDay,
 } from "../creditCards/billing";
 import { UserCreditCard } from "../entities/userCreditCard";
+import {
+  appendInvoicePayment,
+  buildInvoicePaymentEntry,
+  computeInvoiceBalance,
+  getInvoiceCarryIn,
+  getInvoicePayments,
+  removeInvoicePayment,
+} from "../creditCards/invoiceBalance";
 
 const auth = getAuth();
 
@@ -206,6 +214,8 @@ export type CreditCardInvoiceBillDto = {
   amount: number;
   dueDate: string;
   status: "pending" | "paid";
+  paymentTransactionId?: string;
+  paidAt?: string;
 };
 
 export function getCreditCardInvoiceBillId(
@@ -290,7 +300,21 @@ export async function syncCreditCardInvoiceBills(
         createdAt,
       };
 
-      await setDoc(billRef, billData, { merge: true });
+      await setDoc(
+        billRef,
+        {
+          ...billData,
+          ...(invoice.status === "pending"
+            ? { paymentTransactionId: deleteField(), paidAt: deleteField() }
+            : {
+                ...(invoice.paymentTransactionId && {
+                  paymentTransactionId: invoice.paymentTransactionId,
+                }),
+                ...(invoice.paidAt && { paidAt: invoice.paidAt }),
+              }),
+        },
+        { merge: true },
+      );
 
       return {
         id: billId,
@@ -527,29 +551,46 @@ export async function payBillAccount(
           )
         : paymentDate.slice(0, 7));
     const invoicePayment = cardData?.invoices?.[periodKey];
+    const existingPayments = getInvoicePayments(invoicePayment);
+    const alreadySettledAmount = existingPayments.reduce(
+      (sum, payment) => sum + payment.amount + (payment.rolledOver ?? 0),
+      0,
+    );
 
-    if (invoicePayment && invoicePayment.amountPaid >= Math.abs(bill.amount)) {
+    if (
+      invoicePayment &&
+      alreadySettledAmount >= Math.abs(bill.amount) - 0.005
+    ) {
       shouldCreateTransaction = false;
       existingInvoiceTransactionId = invoicePayment.transactionId;
-    }
+    } else {
+      // O valor da fatura pendente já é o saldo restante; reconstrói as compras
+      // do período para o cálculo de saldo ser consistente.
+      const carryIn = getInvoiceCarryIn(cardData?.invoices, periodKey);
+      const balance = computeInvoiceBalance({
+        purchases: Math.abs(bill.amount) + alreadySettledAmount - carryIn,
+        invoices: cardData?.invoices,
+        periodKey,
+      });
+      const entry = buildInvoicePaymentEntry({
+        amount: balance.remaining,
+        remaining: balance.remaining,
+        paidAt: paymentDate,
+        transactionId: transactionRef.id,
+      });
 
-    const invoiceTransactionId =
-      existingInvoiceTransactionId ?? transactionRef.id;
-
-    batch.set(
-      cardRef,
-      {
-        bankKey: bill.creditCardId,
-        invoices: {
-          [periodKey]: {
-            amountPaid: Math.abs(bill.amount),
-            paidAt: paymentDate,
-            transactionId: invoiceTransactionId,
+      transactionData.amount = -entry.amount;
+      batch.set(
+        cardRef,
+        {
+          bankKey: bill.creditCardId,
+          invoices: {
+            [periodKey]: appendInvoicePayment(invoicePayment, entry),
           },
         },
-      },
-      { merge: true },
-    );
+        { merge: true },
+      );
+    }
   }
 
   if (shouldCreateTransaction) {
@@ -583,6 +624,7 @@ export type UnpayBillAccountResult = {
 export async function unpayBillAccount(
   id: string,
   legacyPaymentTransactionId?: string,
+  paymentEntryId?: string,
 ): Promise<UnpayBillAccountResult> {
   const user = auth.currentUser;
   if (!user) throw new Error("User not authenticated");
@@ -614,6 +656,7 @@ export async function unpayBillAccount(
     let cardRef: ReturnType<typeof doc> | null = null;
     let invoicePeriodKey: string | undefined;
     let hasInvoicePayment = false;
+    let remainingInvoicePayment: ReturnType<typeof removeInvoicePayment> = null;
 
     if (bill.creditCardId) {
       cardRef = doc(db, `users/${user.uid}/creditCards`, bill.creditCardId);
@@ -636,8 +679,22 @@ export async function unpayBillAccount(
         ? cardData?.invoices?.[invoicePeriodKey]
         : undefined;
 
+      const payments = getInvoicePayments(invoicePayment);
+      const targetPayment =
+        payments.find(
+          (payment) =>
+            payment.id === paymentEntryId ||
+            payment.transactionId === paymentEntryId,
+        ) ?? payments.at(-1);
+
       paymentTransactionId =
-        invoicePayment?.transactionId ?? paymentTransactionId;
+        targetPayment?.transactionId ??
+        invoicePayment?.transactionId ??
+        paymentTransactionId;
+      remainingInvoicePayment =
+        invoicePayment && targetPayment
+          ? removeInvoicePayment(invoicePayment, targetPayment.id)
+          : null;
       hasInvoicePayment =
         cardDoc.exists() && Boolean(invoicePeriodKey && invoicePayment);
     }
@@ -674,7 +731,7 @@ export async function unpayBillAccount(
 
     if (cardRef && invoicePeriodKey && hasInvoicePayment) {
       firestoreTransaction.update(cardRef, {
-        [`invoices.${invoicePeriodKey}`]: deleteField(),
+        [`invoices.${invoicePeriodKey}`]: remainingInvoicePayment ?? deleteField(),
       });
     }
 
@@ -684,18 +741,29 @@ export async function unpayBillAccount(
       );
     }
 
-    firestoreTransaction.update(billRef, {
-      status: "pending",
-      paymentTransactionId: deleteField(),
-      paidAt: deleteField(),
-    });
+    const stillHasPayments = Boolean(remainingInvoicePayment);
+
+    firestoreTransaction.update(
+      billRef,
+      stillHasPayments && remainingInvoicePayment
+        ? {
+            status: "paid",
+            paymentTransactionId: remainingInvoicePayment.transactionId,
+            paidAt: remainingInvoicePayment.paidAt,
+          }
+        : {
+            status: "pending",
+            paymentTransactionId: deleteField(),
+            paidAt: deleteField(),
+          },
+    );
 
     result = {
       bill: {
         ...bill,
-        status: "pending",
-        paymentTransactionId: undefined,
-        paidAt: undefined,
+        status: stillHasPayments ? "paid" : "pending",
+        paymentTransactionId: remainingInvoicePayment?.transactionId,
+        paidAt: remainingInvoicePayment?.paidAt,
       },
       removedTransactionIds: paymentTransactionId ? [paymentTransactionId] : [],
     };

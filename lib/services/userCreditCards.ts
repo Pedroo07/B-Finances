@@ -2,20 +2,21 @@ import {
   collection,
   deleteDoc,
   doc,
-  getDoc,
   getDocs,
+  runTransaction,
   setDoc,
-  writeBatch,
 } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 import { db } from "../firebase";
-import {
-  CreditCardInvoicePayment,
-  UserCreditCard,
-} from "../entities/userCreditCard";
+import { UserCreditCard } from "../entities/userCreditCard";
 import { Transaction } from "../entities/transaction";
 import { getInvoiceDueDate, isValidBillingDay } from "../creditCards/billing";
 import { getCreditCardName } from "../creditCards/catalog";
+import {
+  appendInvoicePayment,
+  buildInvoicePaymentEntry,
+  computeInvoiceBalance,
+} from "../creditCards/invoiceBalance";
 import {
   findCreditCardInvoiceBill,
   getCreditCardInvoiceBillId,
@@ -110,8 +111,13 @@ export async function deleteUserCreditCard(bankKey: string): Promise<void> {
 export type PayCreditCardInvoiceDto = {
   bankKey: string;
   periodKey: string;
+  /** Valor efetivamente pago agora (pode ser parcial). */
   amountPaid: number;
   paidAt: string;
+  /** Soma das compras do período (sem saldo rolado). */
+  periodPurchases: number;
+  /** Juros/encargos opcionais; só valem em pagamento parcial. */
+  interest?: number;
 };
 
 export async function payCreditCardInvoice(
@@ -123,10 +129,7 @@ export async function payCreditCardInvoice(
   const user = auth.currentUser;
   if (!user) throw new Error("User not authenticated");
 
-  const normalizedAmount = Math.abs(data.amountPaid);
   const cardRef = doc(db, `users/${user.uid}/creditCards`, data.bankKey);
-  const cardDoc = await getDoc(cardRef);
-  const cardData = cardDoc.exists() ? (cardDoc.data() as UserCreditCard) : null;
   const existingInvoiceBill = await findCreditCardInvoiceBill(
     data.bankKey,
     data.periodKey,
@@ -141,81 +144,91 @@ export async function payCreditCardInvoice(
   );
   const transactionRef = doc(collection(db, `users/${user.uid}/transactions`));
 
-  const invoicePayment: CreditCardInvoicePayment = {
-    amountPaid: normalizedAmount,
-    paidAt: data.paidAt,
-    transactionId: transactionRef.id,
-  };
+  const normalizedAmount = Math.abs(data.amountPaid);
+  const cardName = getCreditCardName(data.bankKey);
 
-  const transactionData: Omit<Transaction, "id"> = {
-    description: `Fatura do cartao ${getCreditCardName(data.bankKey)}`,
-    date: data.paidAt,
-    amount: -normalizedAmount,
-    category: "Credit Card",
-    type: "expense",
-    paymentMethod: "pix",
-    billAccountId: invoiceBillId,
-  };
-
-  const batch = writeBatch(db);
-
-  batch.set(
-    cardRef,
-    {
-      bankKey: data.bankKey,
-      invoices: {
-        [data.periodKey]: invoicePayment,
-      },
-    },
-    { merge: true },
-  );
-
-  batch.set(transactionRef, transactionData);
-
-  const invoiceBillDueDate =
-    cardData &&
-    isValidBillingDay(cardData.closingDay) &&
-    isValidBillingDay(cardData.dueDay)
-      ? getInvoiceDueDate(data.periodKey, cardData.closingDay, cardData.dueDay)
+  return runTransaction(db, async (firestoreTransaction) => {
+    const cardDoc = await firestoreTransaction.get(cardRef);
+    const cardData = cardDoc.exists()
+      ? (cardDoc.data() as UserCreditCard)
       : null;
+    const invoices = cardData?.invoices ?? {};
 
-  batch.set(
-    invoiceBillRef,
-    {
-      description:
-        existingInvoiceBill?.description ?? transactionData.description,
+    const balance = computeInvoiceBalance({
+      purchases: data.periodPurchases,
+      invoices,
+      periodKey: data.periodKey,
+    });
+    const entry = buildInvoicePaymentEntry({
       amount: normalizedAmount,
-      ...(invoiceBillDueDate && {
-        dueDate: invoiceBillDueDate,
-      }),
-      status: "paid",
-      recurrence: "unique",
-      creditCardId: data.bankKey,
-      creditCardInvoicePeriodKey: data.periodKey,
-      source: "credit_card_invoice",
-      hiddenFromBills: existingInvoiceBill?.hiddenFromBills ?? false,
-      paymentTransactionId: transactionRef.id,
+      remaining: balance.remaining,
       paidAt: data.paidAt,
-      createdAt:
-        existingInvoiceBill?.createdAt ??
-        new Date().toISOString().split("T")[0],
-    },
-    { merge: true },
-  );
+      transactionId: transactionRef.id,
+      interest: data.interest,
+    });
+    const updatedPayment = appendInvoicePayment(
+      invoices[data.periodKey],
+      entry,
+    );
+    const isPartial = Boolean(entry.rolledOver);
+    const transactionData: Omit<Transaction, "id"> = {
+      description: `Fatura do cartao ${cardName}${isPartial ? " (parcial)" : ""}`,
+      date: data.paidAt,
+      amount: -entry.amount,
+      category: "Credit Card",
+      type: "expense",
+      paymentMethod: "pix",
+      billAccountId: invoiceBillId,
+    };
+    const invoiceBillDueDate =
+      cardData &&
+      isValidBillingDay(cardData.closingDay) &&
+      isValidBillingDay(cardData.dueDay)
+        ? getInvoiceDueDate(
+            data.periodKey,
+            cardData.closingDay,
+            cardData.dueDay,
+          )
+        : null;
 
-  await batch.commit();
-
-  return {
-    card: {
-      id: cardRef.id,
-      bankKey: data.bankKey,
-      invoices: {
-        [data.periodKey]: invoicePayment,
+    firestoreTransaction.set(
+      cardRef,
+      {
+        bankKey: data.bankKey,
+        invoices: { [data.periodKey]: updatedPayment },
       },
-    },
-    transaction: {
-      id: transactionRef.id,
-      ...transactionData,
-    },
-  };
+      { merge: true },
+    );
+    firestoreTransaction.set(transactionRef, transactionData);
+    firestoreTransaction.set(
+      invoiceBillRef,
+      {
+        description:
+          existingInvoiceBill?.description ?? `Fatura do cartao ${cardName}`,
+        amount: balance.total,
+        ...(invoiceBillDueDate && { dueDate: invoiceBillDueDate }),
+        status: "paid",
+        recurrence: "unique",
+        creditCardId: data.bankKey,
+        creditCardInvoicePeriodKey: data.periodKey,
+        source: "credit_card_invoice",
+        hiddenFromBills: existingInvoiceBill?.hiddenFromBills ?? false,
+        paymentTransactionId: transactionRef.id,
+        paidAt: data.paidAt,
+        createdAt:
+          existingInvoiceBill?.createdAt ??
+          new Date().toISOString().split("T")[0],
+      },
+      { merge: true },
+    );
+
+    return {
+      card: {
+        id: cardRef.id,
+        bankKey: data.bankKey,
+        invoices: { [data.periodKey]: updatedPayment },
+      },
+      transaction: { id: transactionRef.id, ...transactionData },
+    };
+  });
 }
