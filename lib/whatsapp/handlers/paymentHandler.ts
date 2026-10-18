@@ -3,7 +3,10 @@ import {
   findBillByDescription,
   payBillAccount,
 } from "@/lib/services/admin/billAccountsAdmin";
-import { payCardInvoice } from "@/lib/services/admin/userCreditCardsAdmin";
+import {
+  InvoicePaymentRejectedError,
+  payCardInvoice,
+} from "@/lib/services/admin/userCreditCardsAdmin";
 import { formatBrasiliaDate } from "@/lib/whatsapp/utils/brasiliaDate";
 
 type PaymentParameters = Record<string, unknown>;
@@ -101,10 +104,23 @@ async function handleCardInvoicePayment(
 
   const today = formatBrasiliaDate();
 
-  await payCardInvoice(userId, cardName, amount, today, {
-    month: getNumberParameter(parameters, "month"),
-    year: getNumberParameter(parameters, "year"),
-  });
+  try {
+    const result = await payCardInvoice(userId, cardName, amount, today, {
+      month: getNumberParameter(parameters, "month"),
+      year: getNumberParameter(parameters, "year"),
+    });
 
-  return `✅ Pagamento da fatura do ${cardName} registrado!\n💰 Valor: R$ ${amount.toFixed(2)}`;
+    let response = `✅ Pagamento da fatura do ${cardName} registrado!\n💰 Valor: R$ ${result.paid.toFixed(2)}`;
+    if (result.rolledOver > 0) {
+      response += `\n↪️ Pagamento parcial: R$ ${result.rolledOver.toFixed(2)} foram para a próxima fatura.`;
+    }
+    return response;
+  } catch (error) {
+    if (error instanceof InvoicePaymentRejectedError) {
+      return error.reason === "already_paid"
+        ? `ℹ️ A fatura do ${cardName} já está paga, não há saldo a pagar.`
+        : `❌ O valor informado é maior que o saldo da fatura do ${cardName} (R$ ${error.remaining.toFixed(2)}). Informe um valor até esse saldo.`;
+    }
+    throw error;
+  }
 }

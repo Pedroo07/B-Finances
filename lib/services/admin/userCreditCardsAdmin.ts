@@ -15,11 +15,32 @@ import {
   getCreditCardBankKey,
   getCreditCardName,
 } from "@/lib/creditCards/catalog";
+import {
+  appendInvoicePayment,
+  buildInvoicePaymentEntry,
+  computeInvoiceBalance,
+  getInvoicePeriodsWithBalance,
+  roundMoney,
+} from "@/lib/creditCards/invoiceBalance";
+import type { CreditCardInvoicePayment } from "@/lib/entities/userCreditCard";
 
-export type CreditCardInvoicePayment = {
-  amountPaid: number;
-  paidAt: string;
-  transactionId: string;
+export type { CreditCardInvoicePayment };
+
+export class InvoicePaymentRejectedError extends Error {
+  readonly reason: "already_paid" | "exceeds_balance";
+  readonly remaining: number;
+
+  constructor(reason: "already_paid" | "exceeds_balance", remaining: number) {
+    super(`Invoice payment rejected: ${reason}`);
+    this.reason = reason;
+    this.remaining = remaining;
+  }
+}
+
+export type CardInvoicePaymentResult = {
+  paid: number;
+  rolledOver: number;
+  periodKey: string;
 };
 
 export type UserCreditCard = {
@@ -180,7 +201,7 @@ async function resolvePaymentPeriodKey(
     userId,
     transactionCardName,
   );
-  const totalsByPeriod = transactions.reduce<Record<string, number>>(
+  const purchasesByPeriod = transactions.reduce<Record<string, number>>(
     (totals, transaction) => {
       const periodKey = getInvoicePeriodKeyForDate(
         transaction.date,
@@ -194,11 +215,18 @@ async function resolvePaymentPeriodKey(
     {},
   );
 
-  const openPeriods = Object.entries(totalsByPeriod)
-    .map(([periodKey, total]) => ({
+  const openPeriods = getInvoicePeriodsWithBalance(
+    card.invoices,
+    Object.keys(purchasesByPeriod),
+  )
+    .map((periodKey) => ({
       periodKey,
       dueDate: getInvoiceDueDate(periodKey, card.closingDay, card.dueDay),
-      amount: total - (card.invoices?.[periodKey]?.amountPaid || 0),
+      amount: computeInvoiceBalance({
+        purchases: purchasesByPeriod[periodKey] || 0,
+        invoices: card.invoices,
+        periodKey,
+      }).remaining,
     }))
     .filter(({ amount }) => amount > 0.01)
     .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
@@ -257,13 +285,16 @@ export async function getCardInvoiceSummary(
     endDate,
   );
 
-  const total = transactions.reduce(
+  const purchases = transactions.reduce(
     (sum, transaction) => sum + Math.abs(transaction.amount),
     0,
   );
 
-  const payment = card.invoices?.[periodKey];
-  const amount = Math.max(total - (payment?.amountPaid || 0), 0);
+  const amount = computeInvoiceBalance({
+    purchases,
+    invoices: card.invoices,
+    periodKey,
+  }).remaining;
 
   return {
     cardName: getCreditCardName(card.bankKey ?? card.id),
@@ -301,11 +332,15 @@ export async function getCurrentCardInvoiceTransactions(
     startDate,
     endDate,
   );
-  const total = transactions.reduce(
+  const purchases = transactions.reduce(
     (sum, transaction) => sum + Math.abs(transaction.amount),
     0,
   );
-  const paidAmount = card.invoices?.[periodKey]?.amountPaid || 0;
+  const balance = computeInvoiceBalance({
+    purchases,
+    invoices: card.invoices,
+    periodKey,
+  });
 
   return {
     cardName: getCreditCardName(card.bankKey ?? card.id),
@@ -313,7 +348,7 @@ export async function getCurrentCardInvoiceTransactions(
     startDate,
     endDate,
     dueDate: getInvoiceDueDate(periodKey, card.closingDay, card.dueDay),
-    amount: Math.max(total - paidAmount, 0),
+    amount: balance.remaining,
     transactions,
   };
 }
@@ -323,8 +358,8 @@ export async function payCardInvoice(
   cardName: string,
   amount: number,
   paymentDate: string,
-  options: { year?: number; month?: number } = {},
-): Promise<void> {
+  options: { year?: number; month?: number; interest?: number } = {},
+): Promise<CardInvoicePaymentResult> {
   const { docId, transactionCardName, card } = await resolveCreditCard(
     userId,
     cardName,
@@ -338,6 +373,21 @@ export async function payCardInvoice(
     paymentDate,
     options.year,
     options.month,
+  );
+  const { startDate, endDate } = getInvoiceDateRange(
+    periodKey,
+    card.closingDay,
+    card.dueDay,
+  );
+  const periodTransactions = await getTransactionsForResolvedCard(
+    userId,
+    transactionCardName,
+    startDate,
+    endDate,
+  );
+  const purchases = periodTransactions.reduce(
+    (sum, transaction) => sum + Math.abs(transaction.amount),
+    0,
   );
 
   const existingInvoiceBill = await findCreditCardInvoiceBill(
@@ -353,58 +403,85 @@ export async function payCardInvoice(
     .collection(`users/${userId}/billAccounts`)
     .doc(invoiceBillId);
   const existingBillData = existingInvoiceBill?.data;
-  const batch = db.batch();
 
-  batch.set(transactionRef, {
-    description: `Fatura do cartão ${cardName}`,
-    date: paymentDate,
-    amount: -Math.abs(amount),
-    category: "Credit Card",
-    type: "expense",
-    paymentMethod: "pix",
-    billAccountId: invoiceBillId,
-  });
+  return db.runTransaction(async (firestoreTransaction) => {
+    const cardDoc = await firestoreTransaction.get(cardRef);
+    const invoices = (cardDoc.data()?.invoices ?? {}) as Record<
+      string,
+      CreditCardInvoicePayment
+    >;
+    const balance = computeInvoiceBalance({ purchases, invoices, periodKey });
 
-  batch.set(
-    cardRef,
-    {
-      bankKey: card.bankKey ?? docId,
-      invoices: {
-        [periodKey]: {
-          amountPaid: Math.abs(amount),
-          paidAt: paymentDate,
-          transactionId: transactionRef.id,
+    if (balance.remaining <= 0.005) {
+      throw new InvoicePaymentRejectedError("already_paid", 0);
+    }
+    if (roundMoney(Math.abs(amount)) > balance.remaining + 0.005) {
+      throw new InvoicePaymentRejectedError(
+        "exceeds_balance",
+        balance.remaining,
+      );
+    }
+
+    const entry = buildInvoicePaymentEntry({
+      amount: Math.abs(amount),
+      remaining: balance.remaining,
+      paidAt: paymentDate,
+      transactionId: transactionRef.id,
+      interest: options.interest,
+    });
+
+    firestoreTransaction.set(transactionRef, {
+      description: `Fatura do cartão ${cardName}${entry.rolledOver ? " (parcial)" : ""}`,
+      date: paymentDate,
+      amount: -entry.amount,
+      category: "Credit Card",
+      type: "expense",
+      paymentMethod: "pix",
+      billAccountId: invoiceBillId,
+    });
+
+    firestoreTransaction.set(
+      cardRef,
+      {
+        bankKey: card.bankKey ?? docId,
+        invoices: {
+          [periodKey]: appendInvoicePayment(invoices[periodKey], entry),
         },
       },
-    },
-    { merge: true },
-  );
+      { merge: true },
+    );
 
-  batch.set(
-    billRef,
-    {
-      description:
-        existingBillData?.description ??
-        `Fatura do cartão ${getCreditCardName(card.bankKey ?? docId)}`,
-      amount: Math.abs(amount),
-      dueDate:
-        existingBillData?.dueDate ??
-        getInvoiceDueDate(periodKey, card.closingDay, card.dueDay),
-      status: "paid",
-      recurrence: "unique",
-      creditCardId: docId,
-      creditCardInvoicePeriodKey: periodKey,
-      source: "credit_card_invoice",
-      hiddenFromBills: existingBillData?.hiddenFromBills ?? false,
-      paymentTransactionId: transactionRef.id,
-      paidAt: paymentDate,
-      createdAt:
-        existingBillData?.createdAt ?? new Date().toISOString().split("T")[0],
-    },
-    { merge: true },
-  );
+    firestoreTransaction.set(
+      billRef,
+      {
+        description:
+          existingBillData?.description ??
+          `Fatura do cartão ${getCreditCardName(card.bankKey ?? docId)}`,
+        amount: balance.total,
+        dueDate:
+          existingBillData?.dueDate ??
+          getInvoiceDueDate(periodKey, card.closingDay, card.dueDay),
+        status: "paid",
+        recurrence: "unique",
+        creditCardId: docId,
+        creditCardInvoicePeriodKey: periodKey,
+        source: "credit_card_invoice",
+        hiddenFromBills: existingBillData?.hiddenFromBills ?? false,
+        paymentTransactionId: transactionRef.id,
+        paidAt: paymentDate,
+        createdAt:
+          existingBillData?.createdAt ??
+          new Date().toISOString().split("T")[0],
+      },
+      { merge: true },
+    );
 
-  await batch.commit();
+    return {
+      paid: entry.amount,
+      rolledOver: entry.rolledOver ?? 0,
+      periodKey,
+    };
+  });
 }
 
 export async function getAllCardInvoices(
@@ -521,9 +598,15 @@ export function buildOpenCardInvoices(
       {},
     );
 
-    for (const [periodKey, total] of Object.entries(totalsByPeriod)) {
-      const paidAmount = card.invoices?.[periodKey]?.amountPaid || 0;
-      const amount = Math.max(total - paidAmount, 0);
+    for (const periodKey of getInvoicePeriodsWithBalance(
+      card.invoices,
+      Object.keys(totalsByPeriod),
+    )) {
+      const amount = computeInvoiceBalance({
+        purchases: totalsByPeriod[periodKey] || 0,
+        invoices: card.invoices,
+        periodKey,
+      }).remaining;
       if (amount <= 0.01) continue;
 
       results.push({

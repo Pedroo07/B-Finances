@@ -492,8 +492,14 @@ function buildPaidInvoiceCardBreakdown(
   const cardByPaymentTransaction = cards.reduce<Map<string, string>>(
     (references, card) => {
       for (const payment of Object.values(card.invoices ?? {})) {
-        if (payment.transactionId) {
-          references.set(payment.transactionId, cardDisplayName(card));
+        const transactionIds = [
+          payment.transactionId,
+          ...(payment.payments ?? []).map((entry) => entry.transactionId),
+        ];
+        for (const transactionId of transactionIds) {
+          if (transactionId) {
+            references.set(transactionId, cardDisplayName(card));
+          }
         }
       }
       return references;
