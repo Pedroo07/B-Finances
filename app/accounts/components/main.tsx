@@ -49,8 +49,10 @@ import { formatCurrency } from "@/lib/utils";
 import { UserCreditCard } from "@/lib/entities/userCreditCard";
 import { Transaction } from "@/lib/entities/transaction";
 import {
+  getCardPaidPeriodKeys,
   getInvoiceDueDate,
   getInvoicePeriodKeyForDate,
+  getTransactionInvoicePeriodKey,
   isValidBillingDay,
 } from "@/lib/creditCards/billing";
 import {
@@ -154,13 +156,15 @@ const getCreditCardInvoiceSummaries = (
     const cardItems = transactions.filter((transaction) => {
       return getCreditCardBankKey(transaction.card) === card.bankKey;
     });
+    const cardPaidPeriodKeys = getCardPaidPeriodKeys(card.invoices, cardItems);
 
     const totalsByPeriod = cardItems.reduce<Record<string, number>>(
       (totals, item) => {
-        const itemPeriodKey = getInvoicePeriodKeyForDate(
-          item.date,
+        const itemPeriodKey = getTransactionInvoicePeriodKey(
+          item,
           closingDay,
           dueDay,
+          cardPaidPeriodKeys,
         );
         totals[itemPeriodKey] =
           (totals[itemPeriodKey] || 0) + Math.abs(item.amount);
@@ -173,18 +177,32 @@ const getCreditCardInvoiceSummaries = (
       card.invoices,
       Object.keys(totalsByPeriod),
     ).map((periodKey) => {
+      const itemsInPeriod = cardItems.filter(
+        (item) =>
+          getTransactionInvoicePeriodKey(
+            item,
+            closingDay,
+            dueDay,
+            cardPaidPeriodKeys,
+          ) === periodKey,
+      );
+      const allItemsPaid =
+        itemsInPeriod.length > 0 &&
+        itemsInPeriod.every((item) => item.invoicePaid);
       const balance = computeInvoiceBalance({
         purchases: totalsByPeriod[periodKey] || 0,
         invoices: card.invoices,
         periodKey,
       });
       const lastPayment = balance.payments.at(-1);
+      const isPaid =
+        cardPaidPeriodKeys.has(periodKey) || balance.isPaid || allItemsPaid;
 
       return {
         card,
-        invoiceAmount: balance.remaining,
+        invoiceAmount: isPaid ? 0 : balance.remaining,
         totalAmount: balance.total,
-        isPaid: balance.isPaid,
+        isPaid,
         periodKey,
         dueDate: getInvoiceDueDate(periodKey, closingDay, dueDay),
         paymentTransactionId: lastPayment?.transactionId,

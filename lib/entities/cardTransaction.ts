@@ -8,4 +8,9 @@ export type CardTransaction = {
   installmentGroupId?: string;
   installmentNumber?: number;
   installmentCount?: number;
+  invoicePeriodKey?: string;
+  invoicePaid?: boolean;
+  invoicePaidAt?: string;
+  invoicePaymentTransactionId?: string;
+  invoicePeriodLabel?: string;
 };

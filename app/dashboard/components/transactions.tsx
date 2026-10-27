@@ -14,6 +14,9 @@ export type Item = {
   card?: string;
   installmentNumber?: number;
   installmentCount?: number;
+  invoicePaid?: boolean;
+  invoicePeriodKey?: string;
+  invoicePeriodLabel?: string;
 };
 
 type TransactionItemProps = {
@@ -53,9 +56,16 @@ export const TransactionItem: React.FC<TransactionItemProps> = ({
               isIncome={item.amount > 0}
             />
             <div>
-              <p className="text-sm font-medium text-[#0F172A] dark:text-[#E2E8F0]">
-                {item.description}
-              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-sm font-medium text-[#0F172A] dark:text-[#E2E8F0]">
+                  {item.description}
+                </p>
+                {item.invoicePaid ? (
+                  <span className="inline-flex items-center rounded-full border border-[#22C55E]/30 bg-[#22C55E]/10 px-2 py-0.5 text-[11px] font-semibold text-[#15803D] dark:text-[#4ADE80]">
+                    Paga
+                  </span>
+                ) : null}
+              </div>
               {showInstallment &&
               item.installmentNumber &&
               item.installmentCount ? (

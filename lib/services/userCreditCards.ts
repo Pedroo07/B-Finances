@@ -1,17 +1,22 @@
 import {
   collection,
-  deleteDoc,
   doc,
+  getDoc,
   getDocs,
+  query,
   runTransaction,
   setDoc,
+  where,
 } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 import { db } from "../firebase";
-import { UserCreditCard } from "../entities/userCreditCard";
+import {
+  CreditCardInvoicePayment,
+  UserCreditCard,
+} from "../entities/userCreditCard";
 import { Transaction } from "../entities/transaction";
 import { getInvoiceDueDate, isValidBillingDay } from "../creditCards/billing";
-import { getCreditCardName } from "../creditCards/catalog";
+import { getCreditCardBankKey, getCreditCardName } from "../creditCards/catalog";
 import {
   appendInvoicePayment,
   buildInvoicePaymentEntry,
@@ -21,6 +26,7 @@ import {
   findCreditCardInvoiceBill,
   getCreditCardInvoiceBillId,
 } from "./billAccounts";
+import { markCardTransactionsAsPaid } from "./cardTransactions";
 
 const auth = getAuth();
 
@@ -41,6 +47,104 @@ function assertValidBilling(data: UserCreditCardBillingDto): void {
   }
 }
 
+async function hydrateInvoicesFromHistory(
+  userId: string,
+  bankKey: string,
+  existingInvoices: Record<string, CreditCardInvoicePayment>,
+): Promise<Record<string, CreditCardInvoicePayment>> {
+  const mergedInvoices: Record<string, CreditCardInvoicePayment> = {
+    ...existingInvoices,
+  };
+
+  try {
+    // 1. Inspeciona billAccounts pagas deste cartão
+    const billsRef = collection(db, `users/${userId}/billAccounts`);
+    const billsSnap = await getDocs(
+      query(
+        billsRef,
+        where("creditCardId", "==", bankKey),
+        where("status", "==", "paid"),
+      ),
+    );
+
+    for (const bDoc of billsSnap.docs) {
+      const bData = bDoc.data();
+      const periodKey = bData.creditCardInvoicePeriodKey;
+      if (periodKey && !mergedInvoices[periodKey]) {
+        const amount = Number(bData.amount) || 0;
+        const paidAt =
+          bData.paidAt ||
+          bData.dueDate ||
+          new Date().toISOString().split("T")[0];
+        const txId = bData.paymentTransactionId || bDoc.id;
+        mergedInvoices[periodKey] = {
+          amountPaid: amount,
+          paidAt,
+          transactionId: txId,
+          payments: [
+            {
+              id: bDoc.id,
+              amount,
+              paidAt,
+              transactionId: txId,
+            },
+          ],
+        };
+      }
+    }
+
+    // 2. Inspeciona cardTransactions pagas deste cartão
+    const cardTxRef = collection(db, `users/${userId}/cardTransactions`);
+    const cardTxSnap = await getDocs(cardTxRef);
+
+    const paidTxByPeriod: Record<
+      string,
+      { total: number; paidAt: string; txId: string }
+    > = {};
+    for (const txDoc of cardTxSnap.docs) {
+      const txData = txDoc.data();
+      if (
+        getCreditCardBankKey(txData.card) === bankKey &&
+        txData.invoicePaid &&
+        txData.invoicePeriodKey
+      ) {
+        const pk = txData.invoicePeriodKey;
+        if (!paidTxByPeriod[pk]) {
+          paidTxByPeriod[pk] = {
+            total: 0,
+            paidAt:
+              txData.invoicePaidAt || new Date().toISOString().split("T")[0],
+            txId: txData.invoicePaymentTransactionId || txDoc.id,
+          };
+        }
+        paidTxByPeriod[pk].total += Math.abs(Number(txData.amount) || 0);
+      }
+    }
+
+    for (const [pk, summary] of Object.entries(paidTxByPeriod)) {
+      if (!mergedInvoices[pk]) {
+        mergedInvoices[pk] = {
+          amountPaid: summary.total,
+          paidAt: summary.paidAt,
+          transactionId: summary.txId,
+          payments: [
+            {
+              id: summary.txId,
+              amount: summary.total,
+              paidAt: summary.paidAt,
+              transactionId: summary.txId,
+            },
+          ],
+        };
+      }
+    }
+  } catch (err) {
+    console.warn("Could not hydrate invoices from history:", err);
+  }
+
+  return mergedInvoices;
+}
+
 export async function createUserCreditCard(
   bankKey: string,
   billing: UserCreditCardBillingDto,
@@ -51,14 +155,26 @@ export async function createUserCreditCard(
   assertValidBilling(billing);
 
   const cardRef = doc(db, `users/${user.uid}/creditCards`, bankKey);
+  const existingCard = await getDoc(cardRef);
+  let existingInvoices = existingCard.exists()
+    ? ((existingCard.data() as UserCreditCard).invoices ?? {})
+    : {};
+
+  // Auto-recupera histórico de faturas pagas caso invoices esteja vazio/incompleto
+  existingInvoices = await hydrateInvoicesFromHistory(
+    user.uid,
+    bankKey,
+    existingInvoices,
+  );
+
   const data = {
     bankKey,
     closingDay: billing.closingDay,
     dueDay: billing.dueDay,
-    invoices: {},
+    invoices: existingInvoices,
   };
 
-  await setDoc(cardRef, data);
+  await setDoc(cardRef, { ...data, removed: false }, { merge: true });
 
   return {
     id: cardRef.id,
@@ -69,11 +185,34 @@ export async function createUserCreditCard(
 export async function getUserCreditCards(): Promise<UserCreditCard[]> {
   const cardsRef = getUserCreditCardCollection();
   const foundCards = await getDocs(cardsRef);
+  const user = auth.currentUser;
 
-  return foundCards.docs.map((cardDoc) => ({
-    id: cardDoc.id,
-    ...cardDoc.data(),
-  })) as UserCreditCard[];
+  const cards = (
+    foundCards.docs.map((cardDoc) => ({
+      id: cardDoc.id,
+      ...cardDoc.data(),
+    })) as UserCreditCard[]
+  ).filter((card) => !card.removed);
+
+  if (user) {
+    for (const card of cards) {
+      const currentInvoices = card.invoices ?? {};
+      const hydrated = await hydrateInvoicesFromHistory(
+        user.uid,
+        card.bankKey,
+        currentInvoices,
+      );
+      if (Object.keys(hydrated).length > Object.keys(currentInvoices).length) {
+        card.invoices = hydrated;
+        const cardRef = doc(db, `users/${user.uid}/creditCards`, card.bankKey);
+        setDoc(cardRef, { invoices: hydrated }, { merge: true }).catch(
+          () => {},
+        );
+      }
+    }
+  }
+
+  return cards;
 }
 
 export async function updateUserCreditCardBilling(
@@ -105,7 +244,8 @@ export async function deleteUserCreditCard(bankKey: string): Promise<void> {
   if (!user) throw new Error("User not authenticated");
 
   const cardRef = doc(db, `users/${user.uid}/creditCards`, bankKey);
-  await deleteDoc(cardRef);
+  // Apenas oculta o cartão: o histórico de pagamentos das faturas é mantido.
+  await setDoc(cardRef, { removed: true }, { merge: true });
 }
 
 export type PayCreditCardInvoiceDto = {
@@ -146,13 +286,17 @@ export async function payCreditCardInvoice(
 
   const normalizedAmount = Math.abs(data.amountPaid);
   const cardName = getCreditCardName(data.bankKey);
+  let resolvedClosingDay: number | undefined;
+  let resolvedDueDay: number | undefined;
 
-  return runTransaction(db, async (firestoreTransaction) => {
+  const result = await runTransaction(db, async (firestoreTransaction) => {
     const cardDoc = await firestoreTransaction.get(cardRef);
     const cardData = cardDoc.exists()
       ? (cardDoc.data() as UserCreditCard)
       : null;
     const invoices = cardData?.invoices ?? {};
+    resolvedClosingDay = cardData?.closingDay;
+    resolvedDueDay = cardData?.dueDay;
 
     const balance = computeInvoiceBalance({
       purchases: data.periodPurchases,
@@ -231,4 +375,25 @@ export async function payCreditCardInvoice(
       transaction: { id: transactionRef.id, ...transactionData },
     };
   });
+
+  if (
+    isValidBillingDay(resolvedClosingDay) &&
+    isValidBillingDay(resolvedDueDay)
+  ) {
+    try {
+      await markCardTransactionsAsPaid({
+        bankKey: data.bankKey,
+        periodKey: data.periodKey,
+        paymentTransactionId: transactionRef.id,
+        paidAt: data.paidAt,
+        closingDay: resolvedClosingDay,
+        dueDay: resolvedDueDay,
+        periodLabel: `Fatura ${data.periodKey}`,
+      });
+    } catch (err) {
+      console.error("Error marking card transactions as paid:", err);
+    }
+  }
+
+  return result;
 }

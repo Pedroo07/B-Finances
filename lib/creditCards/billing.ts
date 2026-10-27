@@ -287,3 +287,64 @@ export function getInvoicePeriodKeyForDueDate(
   } = parseDateParts(dueDate);
   return getPeriodKeyForDueDateParts(dueYear, dueMonth, dueDateDay);
 }
+
+export function getNextPeriodKey(periodKey: string): string {
+  const { year, month } = parsePeriodKey(periodKey);
+  const next = addMonths(year, month, 1);
+  return getInvoicePeriodKey(next.year, next.month);
+}
+
+export function getCardPaidPeriodKeys(
+  cardInvoices?: Record<string, { amountPaid?: number; payments?: Array<unknown>; transactionId?: string } | undefined> | null,
+  transactions?: Array<{ invoicePaid?: boolean; invoicePeriodKey?: string }> | null,
+): Set<string> {
+  const paid = new Set<string>();
+
+  if (cardInvoices) {
+    for (const [periodKey, invoice] of Object.entries(cardInvoices)) {
+      if (!invoice) continue;
+      const hasAmount = typeof invoice.amountPaid === "number" && invoice.amountPaid > 0;
+      const hasPayments = Array.isArray(invoice.payments) && invoice.payments.length > 0;
+      const hasTx = Boolean(invoice.transactionId);
+      if (hasAmount || hasPayments || hasTx) {
+        paid.add(periodKey);
+      }
+    }
+  }
+
+  if (transactions) {
+    for (const item of transactions) {
+      if (item.invoicePaid && item.invoicePeriodKey) {
+        paid.add(item.invoicePeriodKey);
+      }
+    }
+  }
+
+  return paid;
+}
+
+export function getTransactionInvoicePeriodKey(
+  item: { date: string; invoicePeriodKey?: string; invoicePaid?: boolean },
+  closingDay: number,
+  dueDay: number,
+  paidPeriodKeys?: Set<string> | Iterable<string>,
+): string {
+  if (item.invoicePeriodKey) {
+    return item.invoicePeriodKey;
+  }
+
+  let periodKey = getInvoicePeriodKeyForDate(item.date, closingDay, dueDay);
+
+  if (paidPeriodKeys && !item.invoicePaid) {
+    const paidSet =
+      paidPeriodKeys instanceof Set ? paidPeriodKeys : new Set(paidPeriodKeys);
+    if (paidSet.size > 0) {
+      while (paidSet.has(periodKey)) {
+        periodKey = getNextPeriodKey(periodKey);
+      }
+    }
+  }
+
+  return periodKey;
+}
+

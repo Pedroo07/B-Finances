@@ -36,6 +36,10 @@ import {
   getInvoicePayments,
   removeInvoicePayment,
 } from "../creditCards/invoiceBalance";
+import {
+  markCardTransactionsAsPaid,
+  unmarkCardTransactionsAsPaid,
+} from "./cardTransactions";
 
 const auth = getAuth();
 
@@ -535,13 +539,16 @@ export async function payBillAccount(
     billAccountId: id,
   };
 
+  let cardData: UserCreditCard | null = null;
+  let periodKey: string | null = null;
+
   if (bill.creditCardId) {
     const cardRef = doc(db, `users/${user.uid}/creditCards`, bill.creditCardId);
     const cardDoc = await getDoc(cardRef);
-    const cardData = cardDoc.exists()
+    cardData = cardDoc.exists()
       ? (cardDoc.data() as UserCreditCard)
       : null;
-    const periodKey =
+    periodKey =
       bill.creditCardInvoicePeriodKey ??
       (cardData &&
       isValidBillingDay(cardData.closingDay) &&
@@ -618,6 +625,28 @@ export async function payBillAccount(
 
   await batch.commit();
 
+  if (
+    bill.creditCardId &&
+    cardData &&
+    isValidBillingDay(cardData.closingDay) &&
+    isValidBillingDay(cardData.dueDay) &&
+    periodKey
+  ) {
+    try {
+      await markCardTransactionsAsPaid({
+        bankKey: bill.creditCardId,
+        periodKey,
+        paymentTransactionId,
+        paidAt: paymentDate,
+        closingDay: cardData.closingDay,
+        dueDay: cardData.dueDay,
+        periodLabel: `Fatura ${periodKey}`,
+      });
+    } catch (err) {
+      console.error("Error marking card transactions as paid in payBillAccount:", err);
+    }
+  }
+
   return {
     ...bill,
     status: "paid",
@@ -652,9 +681,10 @@ export async function unpayBillAccount(
     linkedLegacyBills?.docs.some(
       (currentBillDoc) => currentBillDoc.id !== id,
     ) ?? false;
-  let result: UnpayBillAccountResult | null = null;
 
-  await runTransaction(db, async (firestoreTransaction) => {
+  const result = await runTransaction(
+    db,
+    async (firestoreTransaction): Promise<UnpayBillAccountResult> => {
     const billDoc = await firestoreTransaction.get(billRef);
     if (!billDoc.exists()) throw new Error("Bill not found");
 
@@ -768,7 +798,7 @@ export async function unpayBillAccount(
           },
     );
 
-    result = {
+    return {
       bill: {
         ...bill,
         status: stillHasPayments ? "paid" : "pending",
@@ -779,6 +809,13 @@ export async function unpayBillAccount(
     };
   });
 
-  if (!result) throw new Error("Unable to undo bill payment");
+  for (const txId of result.removedTransactionIds) {
+    try {
+      await unmarkCardTransactionsAsPaid(txId);
+    } catch (err) {
+      console.error("Error unmarking card transactions in unpayBillAccount:", err);
+    }
+  }
+
   return result;
 }

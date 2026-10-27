@@ -58,10 +58,12 @@ import { BANKS, BankKey, isBankKey } from "@/app/CreditCard/banks";
 import { UserCreditCard } from "@/lib/entities/userCreditCard";
 import { EXPENSE_CATEGORIES } from "@/lib/transactionCategories";
 import {
+  getCardPaidPeriodKeys,
   getInvoiceDateRange,
   getInvoiceDueDate,
   getInvoicePeriodKey,
   getInvoicePeriodKeyForDate,
+  getTransactionInvoicePeriodKey,
   isValidBillingDay,
 } from "@/lib/creditCards/billing";
 import { computeInvoiceBalance } from "@/lib/creditCards/invoiceBalance";
@@ -334,14 +336,20 @@ export const Main = () => {
         )
       : null;
 
+  const currentCardPaidPeriodKeys = getCardPaidPeriodKeys(
+    currentUserCard?.invoices,
+    currentCardItems,
+  );
+
   const filterItems = sortItemByDate(
     currentCardItems.filter((item) => {
       if (!currentCardClosingDay) return false;
       if (!currentCardDueDay) return false;
-      const periodKey = getInvoicePeriodKeyForDate(
-        item.date,
+      const periodKey = getTransactionInvoicePeriodKey(
+        item,
         currentCardClosingDay,
         currentCardDueDay,
+        currentCardPaidPeriodKeys,
       );
 
       if (activeFilter === "year") {
@@ -365,21 +373,34 @@ export const Main = () => {
   const currentInvoiceAmount = invoiceBalance
     ? invoiceBalance.total
     : invoicePurchasesAmount;
-  const invoiceRemainingAmount = invoiceBalance?.remaining ?? 0;
-  const invoicePaidAmount = invoiceBalance?.paid ?? 0;
+  const allItemsPaid =
+    filterItems.length > 0 && filterItems.every((item) => item.invoicePaid);
   const invoicePayments = invoiceBalance?.payments ?? [];
   const currentInvoicePayment = invoicePayments.at(-1);
+  const isPeriodExplicitlyPaid = Boolean(
+    currentInvoicePeriodKey &&
+      currentCardPaidPeriodKeys.has(currentInvoicePeriodKey),
+  );
   const isInvoicePaid =
     Boolean(currentInvoicePeriodKey) &&
     hasCurrentCardBilling &&
-    Boolean(invoiceBalance?.isPaid);
-  const isInvoicePartiallyPaid = isInvoicePaid && Boolean(currentInvoicePayment?.rolledOver);
+    (isPeriodExplicitlyPaid || Boolean(invoiceBalance?.isPaid) || allItemsPaid);
+  const invoiceRemainingAmount = isInvoicePaid
+    ? 0
+    : (invoiceBalance?.remaining ?? 0);
+  const invoicePaidAmount =
+    isInvoicePaid && (invoiceBalance?.paid ?? 0) === 0
+      ? currentInvoiceAmount
+      : (invoiceBalance?.paid ?? 0);
+  const isInvoicePartiallyPaid =
+    isInvoicePaid && Boolean(currentInvoicePayment?.rolledOver);
   const hasInvoiceDifference =
     !isInvoicePaid && invoicePaidAmount > 0 && invoiceRemainingAmount > 0;
   const canPayInvoice =
     Boolean(currentCard) &&
     hasCurrentCardBilling &&
     Boolean(currentInvoicePeriodKey) &&
+    !isInvoicePaid &&
     invoiceRemainingAmount > 0.005;
   const invoicePaymentAmountIsValid =
     invoicePaymentAmount > 0 &&
@@ -636,6 +657,20 @@ export const Main = () => {
             },
           };
         }),
+      );
+
+      const paidTxIds = new Set(filterItems.map((i) => i.id));
+      setItems((currentItems) =>
+        currentItems.map((item) =>
+          paidTxIds.has(item.id)
+            ? {
+                ...item,
+                invoicePaid: true,
+                invoicePeriodKey: currentInvoicePeriodKey,
+                invoicePaidAt: invoicePaymentDate,
+              }
+            : item,
+        ),
       );
 
       setIsPayInvoiceDialogOpen(false);

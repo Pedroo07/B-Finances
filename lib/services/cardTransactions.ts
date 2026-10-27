@@ -3,13 +3,18 @@ import {
   doc,
   addDoc,
   deleteDoc,
+  deleteField,
   getDocs,
+  query,
+  where,
   writeBatch,
 } from "firebase/firestore";
 import { db } from "../firebase";
 import { CardTransaction } from "../entities/cardTransaction";
 import { getAuth } from "firebase/auth";
 import { buildInstallmentSchedule } from "../creditCards/installments";
+import { getCreditCardBankKey } from "../creditCards/catalog";
+import { getTransactionInvoicePeriodKey } from "../creditCards/billing";
 
 export type CardTransactionDto = {
   description: string;
@@ -113,4 +118,82 @@ export async function getCardTransaction(): Promise<CardTransaction[]> {
     id: doc.id,
     ...doc.data(),
   })) as CardTransaction[];
+}
+
+export async function markCardTransactionsAsPaid(params: {
+  bankKey: string;
+  periodKey: string;
+  paymentTransactionId: string;
+  paidAt: string;
+  closingDay: number;
+  dueDay: number;
+  periodLabel?: string;
+}): Promise<string[]> {
+  const user = auth.currentUser;
+  if (!user) throw new Error("User not authenticated");
+
+  const cardsRef = getUserCardCollection();
+  const snapshot = await getDocs(cardsRef);
+  const batch = writeBatch(db);
+  const updatedIds: string[] = [];
+
+  for (const docSnap of snapshot.docs) {
+    const data = docSnap.data() as CardTransaction;
+    if (getCreditCardBankKey(data.card) !== params.bankKey) continue;
+
+    const txPeriod = getTransactionInvoicePeriodKey(
+      data,
+      params.closingDay,
+      params.dueDay,
+    );
+    if (txPeriod !== params.periodKey) continue;
+
+    batch.update(docSnap.ref, {
+      invoicePaid: true,
+      invoicePeriodKey: params.periodKey,
+      invoicePaidAt: params.paidAt,
+      invoicePaymentTransactionId: params.paymentTransactionId,
+      ...(params.periodLabel && { invoicePeriodLabel: params.periodLabel }),
+    });
+    updatedIds.push(docSnap.id);
+  }
+
+  if (updatedIds.length > 0) {
+    await batch.commit();
+  }
+
+  return updatedIds;
+}
+
+export async function unmarkCardTransactionsAsPaid(
+  paymentTransactionId: string,
+): Promise<string[]> {
+  const user = auth.currentUser;
+  if (!user) throw new Error("User not authenticated");
+
+  const cardsRef = getUserCardCollection();
+  const snapshot = await getDocs(
+    query(
+      cardsRef,
+      where("invoicePaymentTransactionId", "==", paymentTransactionId),
+    ),
+  );
+
+  if (snapshot.empty) return [];
+
+  const batch = writeBatch(db);
+  const updatedIds: string[] = [];
+
+  for (const docSnap of snapshot.docs) {
+    batch.update(docSnap.ref, {
+      invoicePaid: deleteField(),
+      invoicePaymentTransactionId: deleteField(),
+      invoicePaidAt: deleteField(),
+      invoicePeriodLabel: deleteField(),
+    });
+    updatedIds.push(docSnap.id);
+  }
+
+  await batch.commit();
+  return updatedIds;
 }

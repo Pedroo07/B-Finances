@@ -20,4 +20,5 @@ export type UserCreditCard = {
   closingDay?: number;
   dueDay?: number;
   invoices?: Record<string, CreditCardInvoicePayment>;
+  removed?: boolean;
 };
