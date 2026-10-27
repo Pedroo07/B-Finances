@@ -603,6 +603,14 @@ export const Main: FC = () => {
                 <ul className="divide-y divide-border/40">
                   {investments.map((investment) => {
                     const yields = getCurrentMonthYields(investment.id);
+                    const investedAmount =
+                      (investment.balance || 0) +
+                      (investment.rescued_amount || 0) -
+                      (investment.total_yield || 0);
+                    const totalWithYield =
+                      investedAmount + (investment.total_yield || 0);
+                    const hasRescued = (investment.rescued_amount || 0) > 0;
+
                     return (
                       <li
                         key={investment.id}
@@ -618,18 +626,23 @@ export const Main: FC = () => {
                                 <p className="text-sm text-[#64748B] dark:text-[#94A3BB]">
                                   Valor investido:{" "}
                                   <span className="font-medium text-[#0F172A] dark:text-white">
-                                    {formatCurrency(
-                                      investment.balance -
-                                        (investment.total_yield || 0),
-                                    )}
+                                    {formatCurrency(investedAmount)}
                                   </span>
                                 </p>
                                 <p className="text-sm text-[#64748B] dark:text-[#94A3BB]">
                                   Total com rendimentos:{" "}
                                   <span className="font-medium text-[#0F172A] dark:text-white">
-                                    {formatCurrency(investment.balance)}
+                                    {formatCurrency(totalWithYield)}
                                   </span>
                                 </p>
+                                {hasRescued && (
+                                  <p className="text-sm text-[#64748B] dark:text-[#94A3BB]">
+                                    Saldo atual:{" "}
+                                    <span className="font-medium text-[#16A34A] dark:text-[#4ADE80]">
+                                      {formatCurrency(investment.balance)}
+                                    </span>
+                                  </p>
+                                )}
                               </div>
                             </div>
                             <span className="inline-flex rounded-full border border-[#22C55E]/20 bg-[#22C55E]/10 px-3 py-1 text-xs font-medium text-[#15803D] dark:text-[#4ADE80] whitespace-nowrap">
