@@ -67,7 +67,17 @@ import {
 
 const getTodayDate = () => {
   const now = new Date();
-  return now.toISOString().split("T")[0];
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const formatDisplayDate = (date: string) => {
+  if (!date) return "";
+  const [year, month, day] = date.split("-");
+  if (!year || !month || !day) return date;
+  return `${day}/${month}/${year}`;
 };
 
 const getBillStatus = (
@@ -80,10 +90,10 @@ const getBillStatus = (
 
   if (dueDate < today) return "overdue";
 
-  const todayDate = new Date(today);
-  const dueDateObj = new Date(dueDate);
+  const todayDate = new Date(`${today}T00:00:00`);
+  const dueDateObj = new Date(`${dueDate}T00:00:00`);
   const diffTime = dueDateObj.getTime() - todayDate.getTime();
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
 
   if (diffDays <= 5 && diffDays >= 0) return "due-soon";
 
@@ -261,12 +271,19 @@ export const Main: FC = () => {
     );
   };
 
+  const formatLocalDate = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
   const getCurrentMonthRange = () => {
     const now = new Date();
     const year = now.getFullYear();
     const month = now.getMonth();
-    const start = new Date(year, month, 1).toISOString().split("T")[0];
-    const end = new Date(year, month + 1, 0).toISOString().split("T")[0];
+    const start = formatLocalDate(new Date(year, month, 1));
+    const end = formatLocalDate(new Date(year, month + 1, 0));
     return { start, end };
   };
 
@@ -274,8 +291,8 @@ export const Main: FC = () => {
     const now = new Date();
     const year = now.getFullYear();
     const month = now.getMonth() + 1;
-    const start = new Date(year, month, 1).toISOString().split("T")[0];
-    const end = new Date(year, month + 1, 0).toISOString().split("T")[0];
+    const start = formatLocalDate(new Date(year, month, 1));
+    const end = formatLocalDate(new Date(year, month + 1, 0));
     return { start, end };
   };
 
@@ -298,8 +315,8 @@ export const Main: FC = () => {
       end = range.end;
     } else if (period === "custom" && customMonthStr) {
       const [year, month] = customMonthStr.split("-").map(Number);
-      start = new Date(year, month - 1, 1).toISOString().split("T")[0];
-      end = new Date(year, month, 0).toISOString().split("T")[0];
+      start = formatLocalDate(new Date(year, month - 1, 1));
+      end = formatLocalDate(new Date(year, month, 0));
     } else {
       return bills;
     }
@@ -1316,8 +1333,7 @@ export const Main: FC = () => {
                         {bill.description}
                       </p>
                       <p className="text-sm text-[#64748B] dark:text-[#94A3BB]">
-                        Vence em{" "}
-                        {new Date(bill.dueDate).toLocaleDateString("pt-BR")}
+                        Vence em {formatDisplayDate(bill.dueDate)}
                       </p>
                     </div>
                   </div>
