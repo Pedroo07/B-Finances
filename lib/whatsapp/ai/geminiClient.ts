@@ -29,33 +29,25 @@ export interface GenerateAiOptions {
 // Model configurations per task: Primary followed by fallback reserves
 const TASK_MODEL_CHAINS: Record<AiTaskType, string[]> = {
   AUDIO_TRANSCRIPTION: [
-    "gemini-3.5-transcribe", // Modelo dedicado para áudio (~1.8s, pool de cota isolado)
-    "gemini-flash-latest",   // Reserva 1 (rápido e compatível com áudio, ~3s)
-    "gemini-3.6-flash",      // Reserva 2 (alta precisão)
+    "gemini-3.5-transcribe", // Modelo dedicado e ultra-rápido para áudio (~540ms)
+    "gemini-2.5-flash",      // Reserva 1
   ],
   INTENT_CLASSIFICATION: [
-    "gemini-3.5-flash-lite", // Preferido do usuário para qualidade em tarefas leves
-    "gemini-2.5-flash",      // Reserva 1 (rápido e alta precisão)
-    "gemini-3.1-flash-lite", // Reserva 2
-    "gemini-3.6-flash",      // Reserva 3
+    "gemini-2.5-flash",      // Primário estável e rápido (~950ms)
+    "gemini-3.1-flash-lite", // Reserva 1
   ],
   COMMAND_INTERPRETATION: [
-    "gemini-flash-latest",   // Modelo mais estável e com alta disponibilidade (~1s)
-    "gemini-2.5-flash",      // Reserva rápida e altamente estável
-    "gemini-3.5-flash",      // Reserva com alta precisão
-    "gemini-3.5-flash-lite", // Reserva leve
+    "gemini-2.5-flash",      // Primário altamente estável (~950ms)
+    "gemini-3.1-flash-lite", // Reserva 1
+    "gemini-3.5-flash",      // Reserva 2
   ],
   TRANSACTION_EXTRACTION: [
-    "gemini-3.5-flash-lite", // Primário
-    "gemini-3.6-flash",      // Reserva 1
-    "gemini-flash-latest",   // Reserva 2
-    "gemini-3.1-flash-lite", // Reserva 3
+    "gemini-2.5-flash",
+    "gemini-3.1-flash-lite",
   ],
   TOOL_PLANNING: [
-    "gemini-2.5-flash",      // Primário
-    "gemini-3.6-flash",      // Reserva 1
-    "gemini-3.5-flash-lite", // Reserva 2
-    "gemini-3.1-flash-lite", // Reserva 3
+    "gemini-2.5-flash",
+    "gemini-3.1-flash-lite",
   ],
 };
 
@@ -244,12 +236,12 @@ export async function generateContentWithTaskRouting({
   const remainingTimeMs = deadline - Date.now();
   if (attemptedModels.length === 0 && remainingTimeMs >= MIN_ATTEMPT_TIME_MS) {
     console.warn(
-      `[GeminiClient] Todos os modelos de ${task} estavam em cooldown. Forçando tentativa de emergência em gemini-flash-latest...`,
+      `[GeminiClient] Todos os modelos de ${task} estavam em cooldown. Forçando tentativa de emergência em gemini-2.5-flash...`,
     );
     try {
       const emergencyModel = getGenAI().getGenerativeModel(
         {
-          model: "gemini-flash-latest",
+          model: "gemini-2.5-flash",
           systemInstruction: systemInstruction || undefined,
           generationConfig: generationConfig || undefined,
         },

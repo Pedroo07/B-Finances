@@ -4,6 +4,7 @@ import type { ShortTermMemorySnapshot } from "../utils/shortTermMemory";
 import { getBrasiliaDate } from "../utils/brasiliaDate";
 import { parseMoney } from "../utils/moneyParser";
 import { buildLocalFallbackCommand } from "./localCommandFallback";
+import { resolveFastRoute } from "./fastRouter";
 import type {
   BFinanceAction,
   BFinanceCommand,
@@ -505,6 +506,16 @@ export async function interpretBFinanceCommand({
       JSON.stringify(fastLocalCommand),
     );
     return fastLocalCommand;
+  }
+
+  // Fast-route determinístico para consultas rápidas comuns (saldo, faturas, gastos hoje)
+  const fastRoute = resolveFastRoute(messageText);
+  if (fastRoute.type === "command") {
+    console.info(
+      "[CommandInterpreter] Fast-route determinístico executado com sucesso (0ms):",
+      JSON.stringify(fastRoute.command),
+    );
+    return fastRoute.command;
   }
 
   // 2. IA (Gemini): para consultas, relatórios, resumos, edições, exclusões e frases complexas.

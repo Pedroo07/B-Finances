@@ -16,6 +16,7 @@ import {
   type UpdateTransactionTarget,
 } from "@/lib/whatsapp/handlers/updateTransactionHandler";
 import { clearlyStartsNewCommand } from "@/lib/whatsapp/handlers/updateTransactionFlow";
+import { resolveFastRoute } from "@/lib/whatsapp/commands/fastRouter";
 import { interpretBFinanceCommand } from "@/lib/whatsapp/commands/commandInterpreter";
 import { executeBFinanceCommand } from "@/lib/whatsapp/commands/commandExecutor";
 import { formatBFinanceResponse } from "@/lib/whatsapp/commands/responseFormatter";
@@ -981,23 +982,49 @@ export async function POST(req: Request) {
       }
     }
 
-    const session = await getSession(fromPhoneNumber);
-    const conversationHistory = buildHistoryString(
-      session?.history,
-      messageText,
-    );
+    // 1. Fast-Route Determinístico (Tier 1: 0ms de IA): Ping, Saudações, Menu e Consultas Diretas
+    const fastRoute = resolveFastRoute(messageText, requestStartedAt);
+    if (fastRoute.type === "instant_reply") {
+      await sendWhatsAppMessage(fromPhoneNumber, fastRoute.message);
+      await updateSessionHistory(fromPhoneNumber, "assistant", fastRoute.message);
+      if (currentMessageId) {
+        await markMessageCompleted(currentMessageId, {
+          userId,
+          action: "fast_instant_reply",
+        });
+      }
+      return NextResponse.json({
+        status: "success",
+        type: "fast_instant_reply",
+        latencyMs: Date.now() - requestStartedAt,
+      });
+    }
+
     const currentDate = getBrasiliaDate();
-    const previousCommand = getPreviousBFinanceCommand(shortTermMemory);
-    const interpretedCommand = await interpretBFinanceCommand({
-      messageText,
-      conversationHistory,
-      shortTermMemory,
-      currentDate,
-      maxGenerationTimeMs: Math.max(
-        MIN_INTERPRETER_BUDGET_MS,
-        REQUEST_AI_BUDGET_MS - (Date.now() - requestStartedAt),
-      ),
-    });
+    let interpretedCommand: BFinanceCommand;
+    let conversationHistory = "";
+    let previousCommand: BFinanceCommand | null = null;
+
+    if (fastRoute.type === "command") {
+      interpretedCommand = fastRoute.command;
+    } else {
+      const session = await getSession(fromPhoneNumber);
+      conversationHistory = buildHistoryString(
+        session?.history,
+        messageText,
+      );
+      previousCommand = getPreviousBFinanceCommand(shortTermMemory);
+      interpretedCommand = await interpretBFinanceCommand({
+        messageText,
+        conversationHistory,
+        shortTermMemory,
+        currentDate,
+        maxGenerationTimeMs: Math.max(
+          MIN_INTERPRETER_BUDGET_MS,
+          REQUEST_AI_BUDGET_MS - (Date.now() - requestStartedAt),
+        ),
+      });
+    }
     const normalizerContext = { previousCommand };
 
     let command = normalizeCommandUpdate(messageText, interpretedCommand);
