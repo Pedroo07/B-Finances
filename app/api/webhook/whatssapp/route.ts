@@ -65,7 +65,14 @@ export const maxDuration = 60;
 const REQUEST_AI_BUDGET_MS = 30000;
 const MIN_INTERPRETER_BUDGET_MS = 10000;
 
+const userPhoneCache = new Map<string, { userId: string; expiresAt: number }>();
+
 async function getUserIdByPhone(phoneNumber: string): Promise<string | null> {
+  const cached = userPhoneCache.get(phoneNumber);
+  if (cached && Date.now() < cached.expiresAt) {
+    return cached.userId;
+  }
+
   try {
     const variations = getPhoneVariations(phoneNumber);
     const snapshot = await db
@@ -74,7 +81,14 @@ async function getUserIdByPhone(phoneNumber: string): Promise<string | null> {
       .limit(1)
       .get();
 
-    if (!snapshot.empty) return snapshot.docs[0].id;
+    if (!snapshot.empty) {
+      const id = snapshot.docs[0].id;
+      userPhoneCache.set(phoneNumber, {
+        userId: id,
+        expiresAt: Date.now() + 60 * 60 * 1000, // 1 hora de cache
+      });
+      return id;
+    }
   } catch (err) {
     console.error("Erro ao buscar usuario por telefone:", err);
   }
@@ -857,6 +871,21 @@ export async function POST(req: Request) {
       return NextResponse.json({ status: "ignored_no_sender" });
     }
 
+    // 0. Interceptação ultra-rápida do PING (sem bloqueio de Firestore, responde em milissegundos)
+    const initialText = messageEntry.type === "text" ? messageEntry.text?.body?.trim() : "";
+    if (initialText && /^!?ping\b/i.test(initialText)) {
+      const pingMs = Date.now() - requestStartedAt;
+      await sendWhatsAppMessage(
+        fromPhoneNumber,
+        `🏓 *Pong!*\n⏱️ *Tempo de processamento:* ${pingMs}ms\n⚡ *Status:* Online e veloz!\n🚀 *Motor:* Fast-Path Instantâneo`,
+      );
+      return NextResponse.json({
+        status: "success",
+        type: "fast_ping",
+        latencyMs: pingMs,
+      });
+    }
+
     if (isMessageStale(messageTimestamp)) {
       console.warn(
         `[WhatsApp Webhook] Mensagem ignorada por ser muito antiga: id=${currentMessageId}, timestamp=${messageTimestamp}`,
@@ -958,9 +987,13 @@ export async function POST(req: Request) {
       return NextResponse.json({ status: "unsupported_or_empty_message" });
     }
 
-    await updateSessionHistory(fromPhoneNumber, "user", messageText);
+    // Busca a sessão uma única vez para pendingAction e histórico (elimina múltiplas leituras ao Firestore)
+    const session = await getSession(fromPhoneNumber);
+    const pendingAction = session?.pendingAction || null;
     const shortTermMemory = getShortTermMemory(fromPhoneNumber);
-    const pendingAction = await getPendingAction(fromPhoneNumber);
+
+    // Registra mensagem do usuário em segundo plano (não bloqueia o tempo de resposta)
+    updateSessionHistory(fromPhoneNumber, "user", messageText).catch(console.error);
 
     if (pendingAction) {
       const handledPending = await handlePendingActionIfApplicable(
@@ -973,10 +1006,10 @@ export async function POST(req: Request) {
 
       if (handledPending) {
         if (currentMessageId) {
-          await markMessageCompleted(currentMessageId, {
+          markMessageCompleted(currentMessageId, {
             userId,
             action: "pending_action",
-          });
+          }).catch(console.error);
         }
         return NextResponse.json({ status: "success" });
       }
@@ -986,12 +1019,12 @@ export async function POST(req: Request) {
     const fastRoute = resolveFastRoute(messageText, requestStartedAt);
     if (fastRoute.type === "instant_reply") {
       await sendWhatsAppMessage(fromPhoneNumber, fastRoute.message);
-      await updateSessionHistory(fromPhoneNumber, "assistant", fastRoute.message);
+      updateSessionHistory(fromPhoneNumber, "assistant", fastRoute.message).catch(console.error);
       if (currentMessageId) {
-        await markMessageCompleted(currentMessageId, {
+        markMessageCompleted(currentMessageId, {
           userId,
           action: "fast_instant_reply",
-        });
+        }).catch(console.error);
       }
       return NextResponse.json({
         status: "success",
@@ -1008,7 +1041,6 @@ export async function POST(req: Request) {
     if (fastRoute.type === "command") {
       interpretedCommand = fastRoute.command;
     } else {
-      const session = await getSession(fromPhoneNumber);
       conversationHistory = buildHistoryString(
         session?.history,
         messageText,
@@ -1122,17 +1154,17 @@ export async function POST(req: Request) {
       assistantReply: reply,
     });
 
-    await updateSessionHistory(fromPhoneNumber, "assistant", reply);
+    updateSessionHistory(fromPhoneNumber, "assistant", reply).catch(console.error);
 
     if (currentMessageId) {
-      await markMessageCompleted(currentMessageId, {
+      markMessageCompleted(currentMessageId, {
         userId,
         action: command.action,
         transactionId:
           commandResult.success && "item" in commandResult
             ? commandResult.item?.id
             : undefined,
-      });
+      }).catch(console.error);
     }
 
     return NextResponse.json({ status: "success" });
