@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/firebaseAdmin";
 import { generateContentWithTaskRouting } from "@/lib/whatsapp/ai/geminiClient";
 import { getPhoneVariations } from "@/lib/utils";
-import { sendWhatsAppMessage } from "@/lib/whatsapp";
+import { sendWhatsAppMessage, markWhatsAppMessageAsRead } from "@/lib/whatsapp";
 import { confirmDeleteTool } from "@/lib/whatsapp/tools";
 import { resolveFindTransactionSelection } from "@/lib/whatsapp/handlers/findTransactionHandler";
 import {
@@ -869,6 +869,11 @@ export async function POST(req: Request) {
 
     if (!fromPhoneNumber) {
       return NextResponse.json({ status: "ignored_no_sender" });
+    }
+
+    // Marca como lido na Meta em segundo plano (tracinhos azuis imediatos para o usuário)
+    if (currentMessageId) {
+      markWhatsAppMessageAsRead(currentMessageId).catch(console.error);
     }
 
     // 0. Interceptação ultra-rápida do PING (sem bloqueio de Firestore, responde em milissegundos)
