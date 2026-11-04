@@ -152,7 +152,7 @@ async function transcribeAudio(
       },
     },
     {
-      text: "Transcreva apenas o conteudo deste audio em portugues. Retorne somente a transcricao, sem explicacoes.",
+      text: "Transcreva com precisao apenas o conteudo deste audio em portugues do Brasil. Este e um assistente de controle financeiro pessoal. Se o usuario falar valores monetarios coloquiais em reais e centavos (como 'vinte e sete e dez', 'quinze e cinquenta', 'dois e cinquenta'), transcreva no formato monetario em reais (ex: '27,10', '15,50' ou '27 reais e 10 centavos') e nunca como milhares (nao transcreva como 2710 ou 2.710). Mantenha nomes de bancos e cartoes como Inter, Nubank, Itau, C6. Retorne somente a transcricao, sem explicacoes adicionais.",
     },
   ];
 
@@ -206,7 +206,9 @@ function isNumericSelectionResponse(messageText: string): boolean {
 }
 function isCancelPendingResponse(messageText: string): boolean {
   const normalized = normalizeFreeText(messageText);
-  return /^(cancelar|cancela|nao|n)$/.test(normalized);
+  return /^(cancelar|cancela|cancelado|nao|n|nenhuma?|nenhum|nenhuma delas|deixa|deixa pra la|deixa quieto|sair|voltar|esquece|ignora)$/i.test(
+    normalized,
+  );
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
