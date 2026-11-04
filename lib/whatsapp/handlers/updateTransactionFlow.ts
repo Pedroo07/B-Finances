@@ -71,6 +71,54 @@ export function selectCandidateByNumber<T>(
     : null;
 }
 
+export function isCancellationMessage(messageText: string): boolean {
+  const normalized = messageText
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+  return /^(cancelar|cancela|cancelado|nao|n|nenhuma?|nenhum|nenhuma delas|deixa|deixa pra la|deixa quieto|sair|voltar|esquece|ignora)$/i.test(
+    normalized,
+  );
+}
+
+export function selectCandidate<T extends { description?: string }>(
+  candidates: T[],
+  messageText: string,
+): T | null {
+  const byNumber = selectCandidateByNumber(candidates, messageText);
+  if (byNumber) return byNumber;
+
+  const normalized = messageText
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+
+  if (!normalized || normalized.length < 2) return null;
+
+  const exactMatch = candidates.find((candidate) => {
+    const desc = (candidate.description ?? "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .trim();
+    return desc === normalized;
+  });
+  if (exactMatch) return exactMatch;
+
+  const partialMatches = candidates.filter((candidate) => {
+    const desc = (candidate.description ?? "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .trim();
+    return desc.includes(normalized) || normalized.includes(desc);
+  });
+
+  return partialMatches.length === 1 ? partialMatches[0] : null;
+}
+
 export function getNextUpdateStep(
   update?: UpdateFlowRequest,
 ): UpdateFlowNextStep {

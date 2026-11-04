@@ -19,6 +19,8 @@ import { extractMoney } from "@/lib/whatsapp/utils/moneyParser";
 import {
   getNextUpdateStep,
   getNextUpdateStepAfterFieldSelection,
+  isCancellationMessage,
+  selectCandidate,
   selectCandidateByNumber,
 } from "./updateTransactionFlow";
 
@@ -641,22 +643,42 @@ export async function handleUpdateTransactionPendingAction(
   }
 
   if (pendingAction.step === "transaction") {
-    const candidates = pendingAction.candidates ?? [];
-    const target =
-      selectCandidateByNumber(candidates, messageText) ?? undefined;
-    if (!target) {
+    if (isCancellationMessage(messageText)) {
       return {
-        completed: false,
-        message: `Número inválido.\n\n${buildTransactionSelectionMessage(candidates)}`,
-        pendingAction,
+        completed: true,
+        message: "Alteração cancelada.",
       };
     }
-    return beginUpdateForTarget(
-      userId,
-      target,
-      pendingAction.update,
-      pendingAction.command,
-    );
+
+    const candidates = pendingAction.candidates ?? [];
+    const target = selectCandidate(candidates, messageText) ?? undefined;
+    if (target) {
+      return beginUpdateForTarget(
+        userId,
+        target,
+        pendingAction.update,
+        pendingAction.command,
+      );
+    }
+
+    const isPureNumber = /^\s*#?\d+\s*$/.test(messageText);
+    if (!isPureNumber) {
+      return {
+        completed: false,
+        needsCriteria: true,
+        message: "",
+        pendingAction: {
+          ...pendingAction,
+          step: "criteria",
+        },
+      };
+    }
+
+    return {
+      completed: false,
+      message: `Número inválido.\n\n${buildTransactionSelectionMessage(candidates)}`,
+      pendingAction,
+    };
   }
 
   const target = pendingAction.target;
