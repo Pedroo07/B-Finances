@@ -42,8 +42,21 @@ export function parseMoney(value: string | number): number | null {
     return Number.isFinite(value) ? value : null;
   }
 
-  const compact = value
-    .trim()
+  const trimmed = value.trim();
+  const spokenMatch =
+    /^(?:r\$|rs)?\s*([+-]?\d+)\s*(?:reais|real)?\s+e\s+(\d{1,2})(?:\s*centavos?)?$/i.exec(
+      trimmed,
+    );
+  if (spokenMatch) {
+    const whole = Number(spokenMatch[1]);
+    const centsStr = spokenMatch[2];
+    const cents =
+      centsStr.length === 1 ? Number(centsStr) * 10 : Number(centsStr);
+    const sign = whole < 0 || spokenMatch[1].startsWith("-") ? -1 : 1;
+    return sign * (Math.abs(whole) + cents / 100);
+  }
+
+  const compact = trimmed
     .replace(/^(?:r\$|rs)\s*/i, "")
     .replace(/\s+/g, "");
 
@@ -58,6 +71,26 @@ export function parseMoney(value: string | number): number | null {
 }
 
 export function extractMoney(text: string): MoneyMatch | null {
+  const spokenMatcher =
+    /(?<![\d.,/])(?:r\$|rs)?\s*([+-]?\d+)\s*(?:reais|real)?\s+e\s+(\d{1,2})(?:\s*centavos?)?\b(?!\s*x\b|\s*(?:vezes|parcelas)\b)/i;
+  const spokenMatch = spokenMatcher.exec(text);
+  if (spokenMatch && spokenMatch.index !== undefined) {
+    const whole = Number(spokenMatch[1]);
+    const centsStr = spokenMatch[2];
+    const cents =
+      centsStr.length === 1 ? Number(centsStr) * 10 : Number(centsStr);
+    const sign = whole < 0 || spokenMatch[1].startsWith("-") ? -1 : 1;
+    const value = sign * (Math.abs(whole) + cents / 100);
+    const raw = spokenMatch[0].trim();
+    const index = text.indexOf(raw, spokenMatch.index);
+    return {
+      raw,
+      value,
+      index,
+      end: index + raw.length,
+    };
+  }
+
   const matcher = new RegExp(
     `(?<![\\d.,/])(?:r\\$|rs)?\\s*([+-]?${MONEY_VALUE_PATTERN})(?![\\d.,/])`,
     "i",
