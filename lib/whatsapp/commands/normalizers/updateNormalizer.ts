@@ -69,7 +69,7 @@ function cleanTargetText(value: string): string {
   return value
     .trim()
     .replace(/^[,;:\s-]+|[,;:\s-]+$/g, "")
-    .replace(/^(?:d[oa]s?|n[oa]s?|de|em)\s+/iu, "")
+    .replace(/^(?:d[oa]s?|n[oa]s?|de|em|pra|pro|para|por)\s+/iu, "")
     .replace(/^(?:minha?s?|meus?|suas?)\s+/iu, "")
     .replace(/\s+/g, " ")
     .trim()
@@ -86,7 +86,7 @@ function cleanValueText(value: string): string {
 }
 
 function findLastValueSeparator(value: string): RegExpExecArray | null {
-  const matcher = /\b(?:para|por)\b/giu;
+  const matcher = /\b(?:para|pra|pro|por|p\/)\b/giu;
   let lastMatch: RegExpExecArray | null = null;
   let match: RegExpExecArray | null;
   while ((match = matcher.exec(value))) lastMatch = match;
@@ -114,10 +114,19 @@ function extractUpdateParts(messageText: string): UpdateParts | null {
     ? body.slice(separator.index + separator[0].length)
     : "";
 
+  const cleanTarget = cleanTargetText(targetRaw);
+  const cleanValue = cleanValueText(valueRaw);
+
+  if (!field && cleanValue) {
+    if (extractMoney(cleanValue) !== null) {
+      field = "amount";
+    }
+  }
+
   return {
     field,
-    targetText: cleanTargetText(targetRaw),
-    valueText: cleanValueText(valueRaw),
+    targetText: cleanTarget,
+    valueText: cleanValue,
   };
 }
 
@@ -278,6 +287,10 @@ function descriptionFromTarget(targetText: string): string | null {
     "nas",
     "no",
     "nos",
+    "para",
+    "pra",
+    "pro",
+    "por",
     "receita",
     "receitas",
     "recente",
