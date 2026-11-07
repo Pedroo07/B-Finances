@@ -13,4 +13,7 @@ export type CardTransaction = {
   invoicePaidAt?: string;
   invoicePaymentTransactionId?: string;
   invoicePeriodLabel?: string;
+  importBatchId?: string;
+  importKey?: string;
+  importExternalId?: string;
 };
