@@ -21,11 +21,7 @@ export function collectRulesToLearn(
     if (!input) continue;
 
     const previous = learned.get(input.matchText);
-    learned.set(input.matchText, {
-      matchText: input.matchText,
-      ...previous,
-      ...input,
-    });
+    learned.set(input.matchText, { ...previous, ...input });
   }
 
   return [...learned.values()].map((input) => mergeRule(existingRules, input));
