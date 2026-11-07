@@ -777,10 +777,11 @@ export const Main = () => {
   };
 
   const results = separateAmountByCategory(filterItems);
-  const filterButtonClass = "surface-chip inline-flex items-center px-4 py-2";
+  const filterButtonClass =
+    "surface-chip inline-flex shrink-0 items-center px-3.5 py-2 text-xs sm:px-4 sm:text-sm";
 
   return (
-    <div className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6">
+    <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-4 sm:gap-6 sm:px-6 sm:py-6">
       <Dialog open={isAddCardDialogOpen} onOpenChange={setIsAddCardDialogOpen}>
         <DialogContent className="sm:max-w-106">
           <DialogHeader>
@@ -1221,32 +1222,43 @@ export const Main = () => {
         </DialogContent>
       </Dialog>
 
-      <section className="surface-card p-6 sm:p-7">
-        <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
-          <div className="space-y-2">
-            <span className="inline-flex rounded-full border border-[#22C55E]/20 bg-[#22C55E]/10 px-4 py-2 text-sm font-medium text-[#15803D] dark:text-[#4ADE80]">
-              Gestão de cartões
-            </span>
-            <h1 className="text-3xl font-semibold tracking-tight text-[#0F172A] dark:text-white">
-              Cartões de crédito
-            </h1>
-            <p className="max-w-2xl text-sm leading-6 text-[#64748B] dark:text-[#94A3BB]">
-              Acompanhe gastos do seu cartão e compare os resultados mês a mês
-              em uma visualização mais limpa.
-            </p>
+      <section className="surface-card p-4 sm:p-7">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+          <div className="flex items-start justify-between gap-3 xl:block">
+            <div className="space-y-1.5 sm:space-y-2">
+              <span className="inline-flex rounded-full border border-[#22C55E]/20 bg-[#22C55E]/10 px-3 py-1 text-xs font-medium text-[#15803D] sm:px-4 sm:py-2 sm:text-sm dark:text-[#4ADE80]">
+                Gestão de cartões
+              </span>
+              <h1 className="text-2xl font-semibold tracking-tight text-[#0F172A] sm:text-3xl dark:text-white">
+                Cartões de crédito
+              </h1>
+              <p className="hidden max-w-2xl text-sm leading-6 text-[#64748B] sm:block dark:text-[#94A3BB]">
+                Acompanhe gastos do seu cartão e compare os resultados mês a mês
+                em uma visualização mais limpa.
+              </p>
+            </div>
+            <Button
+              onClick={() => setIsAddCardDialogOpen(true)}
+              disabled={isPageLoading || availableCardKeys.length === 0}
+              size="sm"
+              className="shrink-0 xl:hidden"
+            >
+              <FiPlusCircle className="text-base" />
+              <span>Adicionar</span>
+            </Button>
           </div>
           <div className="flex flex-col gap-3 xl:items-end">
             <Button
               onClick={() => setIsAddCardDialogOpen(true)}
               disabled={isPageLoading || availableCardKeys.length === 0}
-              className="w-full sm:w-auto"
+              className="hidden w-full sm:w-auto xl:inline-flex"
             >
               <FiPlusCircle className="text-base" />
               <span>Adicionar cartão</span>
             </Button>
             {hasCards ? (
-              <ul className="flex gap-2 max-sm:flex-wrap">
-                <li>
+              <ul className="flex items-center gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible sm:pb-0">
+                <li className="shrink-0">
                   <button
                     className={filterButtonClass}
                     onClick={lastYearFilter}
@@ -1254,7 +1266,7 @@ export const Main = () => {
                     Ultimo ano
                   </button>
                 </li>
-                <li>
+                <li className="shrink-0">
                   <button
                     className={filterButtonClass}
                     onClick={lastMonthSelected}
@@ -1262,7 +1274,7 @@ export const Main = () => {
                     Ultimo mes
                   </button>
                 </li>
-                <li>
+                <li className="shrink-0">
                   <button
                     className={filterButtonClass}
                     onClick={thisMonthSelected}
@@ -1286,19 +1298,19 @@ export const Main = () => {
       </section>
 
       {isPageLoading ? (
-        <section className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
-          <div className="surface-card p-6">
+        <section className="grid gap-4 sm:gap-6 xl:grid-cols-[1.15fr_0.85fr]">
+          <div className="surface-card p-5 sm:p-6">
             <Skeleton className="h-36 w-full" />
           </div>
-          <div className="surface-card p-6">
+          <div className="surface-card p-5 sm:p-6">
             <Skeleton className="h-36 w-full" />
           </div>
-          <div className="surface-card p-6 xl:col-span-2">
+          <div className="surface-card p-5 sm:p-6 xl:col-span-2">
             <Skeleton className="h-80 w-full" />
           </div>
         </section>
       ) : !hasCards ? (
-        <section className="surface-card flex flex-col items-start gap-4 p-6 sm:p-8">
+        <section className="surface-card flex flex-col items-start gap-4 p-5 sm:p-8">
           <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#22C55E]/12 text-[#16A34A] dark:bg-[#22C55E]/18 dark:text-[#4ADE80]">
             <FiPlusCircle className="text-2xl" />
           </div>
@@ -1322,22 +1334,36 @@ export const Main = () => {
         </section>
       ) : (
         <>
-          <section className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
-            <div className="surface-card p-6">
-              <div className="flex flex-col gap-6 xl:flex-row xl:items-center xl:justify-between">
-                <div className="space-y-2">
-                  <p className="text-sm uppercase tracking-[0.28em] text-[#94A3BB]">
-                    Cartao selecionado
-                  </p>
-                  <h2 className="text-2xl font-semibold text-[#0F172A] dark:text-white">
-                    {currentCard?.name}
-                  </h2>
-                  <p className="text-sm text-[#64748B] dark:text-[#94A3BB]">
+          <section className="grid gap-4 sm:gap-6 xl:grid-cols-[1.15fr_0.85fr]">
+            <div className="surface-card p-4 sm:p-6">
+              <div className="flex flex-col gap-4 sm:gap-6 xl:flex-row xl:items-center xl:justify-between">
+                <div className="order-2 space-y-2 xl:order-1">
+                  <div className="flex items-center justify-between gap-2 xl:block">
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.22em] text-[#94A3BB] sm:text-sm sm:tracking-[0.28em]">
+                        Cartao selecionado
+                      </p>
+                      <h2 className="mt-0.5 text-xl font-semibold text-[#0F172A] sm:mt-1 sm:text-2xl dark:text-white">
+                        {currentCard?.name}
+                      </h2>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsRemoveCardDialogOpen(true)}
+                      className="w-fit text-rose-600 hover:text-rose-600 xl:hidden dark:text-rose-300 dark:hover:text-rose-300"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      <span>Remover</span>
+                    </Button>
+                  </div>
+                  <p className="hidden text-sm text-[#64748B] sm:block dark:text-[#94A3BB]">
                     Remova este cartão da lista se nao quiser mais exibi-lo
                     nesta tela.
                   </p>
                   {hasCurrentCardBilling ? (
-                    <p className="text-sm font-medium text-[#334155] dark:text-[#E2E8F0]">
+                    <p className="text-xs font-medium text-[#334155] sm:text-sm dark:text-[#E2E8F0]">
                       Fecha dia {currentCardClosingDay} e vence dia{" "}
                       {currentCardDueDay}.
                     </p>
@@ -1362,15 +1388,15 @@ export const Main = () => {
                     variant="outline"
                     size="sm"
                     onClick={() => setIsRemoveCardDialogOpen(true)}
-                    className="w-fit text-rose-600 hover:text-rose-600 dark:text-rose-300 dark:hover:text-rose-300"
+                    className="hidden w-fit text-rose-600 hover:text-rose-600 xl:inline-flex dark:text-rose-300 dark:hover:text-rose-300"
                   >
                     <Trash2 className="h-4 w-4" />
                     <span>Remover cartão</span>
                   </Button>
                 </div>
-                <div className="flex items-center justify-center gap-4 rounded-[28px] border border-border/60 bg-white/50 px-4 py-4 backdrop-blur-sm dark:bg-white/5">
+                <div className="order-1 flex items-center justify-between gap-4 rounded-[24px] border border-border/60 bg-white/50 px-4 py-3 backdrop-blur-sm sm:justify-center sm:rounded-[28px] sm:py-4 xl:order-2 dark:bg-white/5">
                   <button
-                    className="flex h-11 w-11 items-center justify-center rounded-full border border-border/60 text-[#334155] transition-all hover:border-[#22C55E]/40 hover:text-[#22C55E] disabled:cursor-not-allowed disabled:opacity-50 dark:text-[#CBD5E1]"
+                    className="flex h-10 w-10 items-center justify-center rounded-full border border-border/60 text-[#334155] transition-all hover:border-[#22C55E]/40 hover:text-[#22C55E] disabled:cursor-not-allowed disabled:opacity-50 sm:h-11 sm:w-11 dark:text-[#CBD5E1]"
                     onClick={handlePrev}
                     disabled={cards.length < 2}
                   >
@@ -1382,11 +1408,11 @@ export const Main = () => {
                       alt="cartao"
                       width={140}
                       height={140}
-                      className="h-auto w-27 -rotate-90 sm:w-32"
+                      className="h-auto w-24 -rotate-90 sm:w-32"
                     />
                   )}
                   <button
-                    className="flex h-11 w-11 items-center justify-center rounded-full border border-border/60 text-[#334155] transition-all hover:border-[#22C55E]/40 hover:text-[#22C55E] disabled:cursor-not-allowed disabled:opacity-50 dark:text-[#CBD5E1]"
+                    className="flex h-10 w-10 items-center justify-center rounded-full border border-border/60 text-[#334155] transition-all hover:border-[#22C55E]/40 hover:text-[#22C55E] disabled:cursor-not-allowed disabled:opacity-50 sm:h-11 sm:w-11 dark:text-[#CBD5E1]"
                     onClick={handleNext}
                     disabled={cards.length < 2}
                   >
@@ -1395,17 +1421,17 @@ export const Main = () => {
                 </div>
               </div>
             </div>
-            <div className="surface-card flex flex-col justify-between gap-5 p-6">
-              <div className="space-y-4">
+            <div className="surface-card flex flex-col justify-between gap-4 p-4 sm:gap-5 sm:p-6">
+              <div className="space-y-3 sm:space-y-4">
                 <div>
                   <p className="text-xs uppercase tracking-[0.22em] text-[#94A3BB]">
                     Fatura do periodo
                   </p>
-                  <h2 className="mt-3 text-4xl font-semibold text-rose-500 dark:text-rose-300">
+                  <h2 className="mt-2 text-2xl font-semibold text-rose-500 sm:mt-3 sm:text-4xl dark:text-rose-300">
                     {formatCurrency(currentInvoiceAmount)}
                   </h2>
                   {currentInvoiceRange && currentInvoiceDueDate ? (
-                    <p className="mt-2 text-sm text-[#64748B] dark:text-[#94A3BB]">
+                    <p className="mt-1.5 text-xs text-[#64748B] sm:mt-2 sm:text-sm dark:text-[#94A3BB]">
                       Compras de{" "}
                       {formatDisplayDate(currentInvoiceRange.startDate)} a{" "}
                       {formatDisplayDate(currentInvoiceRange.endDate)}. Vence em{" "}
@@ -1413,13 +1439,13 @@ export const Main = () => {
                     </p>
                   ) : null}
                   {invoiceBalance && invoiceBalance.carryIn > 0 ? (
-                    <p className="mt-2 text-sm text-[#64748B] dark:text-[#94A3BB]">
+                    <p className="mt-1.5 text-xs text-[#64748B] sm:mt-2 sm:text-sm dark:text-[#94A3BB]">
                       Inclui {formatCurrency(invoiceBalance.carryIn)} de saldo da
                       fatura anterior.
                     </p>
                   ) : null}
                   {invoicePaidAmount > 0 ? (
-                    <p className="mt-2 text-sm font-medium text-[#334155] dark:text-[#E2E8F0]">
+                    <p className="mt-1.5 text-xs font-medium text-[#334155] sm:mt-2 sm:text-sm dark:text-[#E2E8F0]">
                       Pago: {formatCurrency(invoicePaidAmount)}
                       {invoiceRemainingAmount > 0
                         ? ` • Restante: ${formatCurrency(invoiceRemainingAmount)}`
@@ -1427,7 +1453,7 @@ export const Main = () => {
                     </p>
                   ) : null}
                   {invoicePayments.length > 0 ? (
-                    <ul className="mt-3 space-y-1 text-xs text-[#64748B] dark:text-[#94A3BB]">
+                    <ul className="mt-2 space-y-1 text-xs text-[#64748B] sm:mt-3 dark:text-[#94A3BB]">
                       {invoicePayments.map((payment) => (
                         <li key={payment.id}>
                           {formatDisplayDate(payment.paidAt)}:{" "}
@@ -1440,23 +1466,23 @@ export const Main = () => {
                     </ul>
                   ) : null}
                 </div>
-                <div className="flex flex-wrap items-center gap-3">
+                <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                   <span
-                    className={`inline-flex rounded-full border px-3 py-2 text-sm font-semibold ${invoiceStatusClass}`}
+                    className={`inline-flex rounded-full border px-3 py-1.5 text-xs font-semibold sm:py-2 sm:text-sm ${invoiceStatusClass}`}
                   >
                     {invoiceStatusLabel}
                   </span>
-                  <div className="flex w-fit items-center rounded-full border border-border/60 px-3 py-2 text-sm font-semibold text-[#334155] dark:text-[#E2E8F0]">
+                  <div className="flex w-fit items-center rounded-full border border-border/60 px-3 py-1.5 text-xs font-semibold text-[#334155] sm:py-2 sm:text-sm dark:text-[#E2E8F0]">
                     {differenceInPorcentage() < 0 ? (
-                      <IoIosArrowRoundUp className="text-[#22C55E] text-lg" />
+                      <IoIosArrowRoundUp className="text-base text-[#22C55E] sm:text-lg" />
                     ) : (
-                      <IoIosArrowRoundDown className="text-rose-500 text-lg" />
+                      <IoIosArrowRoundDown className="text-base text-rose-500 sm:text-lg" />
                     )}
                     {differenceInPorcentage().toFixed(2)}%
                   </div>
                 </div>
               </div>
-              <div className="space-y-3">
+              <div className="space-y-2.5 sm:space-y-3">
                 <Button
                   type="button"
                   onClick={handleOpenPayInvoiceDialog}
@@ -1465,7 +1491,7 @@ export const Main = () => {
                 >
                   <span>Pagar fatura</span>
                 </Button>
-                <p className="text-sm text-[#64748B] dark:text-[#94A3BB]">
+                <p className="text-xs text-[#64748B] sm:text-sm dark:text-[#94A3BB]">
                   {!hasCurrentCardBilling
                     ? "Configure fechamento e vencimento para calcular e pagar esta fatura."
                     : activeFilter === "year"
@@ -1480,8 +1506,8 @@ export const Main = () => {
             </div>
           </section>
 
-          <section className="grid gap-6 xl:grid-cols-[0.8fr_1.2fr]">
-            <div className="surface-card flex items-center gap-4 p-5 sm:p-6">
+          <div className="flex flex-col gap-4 sm:gap-6">
+            <section className="grid gap-4 sm:gap-6 xl:grid-cols-[0.8fr_1.2fr]">
               <button
                 type="button"
                 aria-label="Adicionar despesa"
@@ -1489,20 +1515,70 @@ export const Main = () => {
                   setDate(getTodayDate());
                   setIsAddExpenseDialogOpen(true);
                 }}
-                className="flex h-14 w-14 cursor-pointer items-center justify-center rounded-2xl bg-rose-500/12 text-rose-500 transition-transform hover:scale-[1.03] dark:bg-rose-500/18 dark:text-rose-300"
+                className="surface-card flex w-full cursor-pointer items-center gap-3.5 p-4 text-left transition-all hover:scale-[1.01] hover:border-rose-400/30 active:scale-[0.98] sm:gap-4 sm:p-6"
               >
-                <FiMinusCircle className="text-2xl" />
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-rose-500/12 text-rose-500 sm:h-14 sm:w-14 dark:bg-rose-500/18 dark:text-rose-300">
+                  <FiMinusCircle className="text-xl sm:text-2xl" />
+                </div>
+                <div className="px-1">
+                  <p className="text-sm font-semibold text-[#0F172A] sm:text-base dark:text-white">
+                    Adicionar despesa
+                  </p>
+                  <p className="text-xs text-[#64748B] sm:text-sm dark:text-[#94A3BB]">
+                    Registre uma nova compra no cartão selecionado.
+                  </p>
+                </div>
               </button>
-              <div className="px-1">
-                <p className="font-semibold text-[#0F172A] dark:text-white">
-                  Adicionar despesa
+              <section className="surface-card hidden p-6 xl:block">
+                <p className="text-lg font-semibold text-[#0F172A] dark:text-white">
+                  Despesas por categoria
                 </p>
-                <p className="text-sm text-[#64748B] dark:text-[#94A3BB]">
-                  Registre uma nova compra no cartão selecionado.
+                <p className="mt-1 text-sm text-[#64748B] dark:text-[#94A3BB]">
+                  Veja em quais categorias este cartão esta sendo mais utilizado.
                 </p>
-              </div>
-            </div>
-            <section className="surface-card p-6">
+                <div className="mt-6 flex justify-center">
+                  <DonutChart results={results} />
+                </div>
+                <div className="mt-4">
+                  <GraphicListItem results={results} />
+                </div>
+              </section>
+            </section>
+
+            <section className="surface-card-strong overflow-hidden">
+              <header className="border-b soft-divider px-4 py-4 sm:px-6 sm:py-5">
+                <h4 className="text-lg font-semibold text-[#0F172A] sm:text-xl dark:text-white">
+                  Ultimas transações do cartão
+                </h4>
+                <p className="text-xs text-[#64748B] sm:text-sm dark:text-[#94A3BB]">
+                  Acompanhe os lançamentos recentes do cartão selecionado.
+                </p>
+              </header>
+              <main>
+                <TransactionHeader />
+                <div className="max-h-96 overflow-auto">
+                  {filterItems.length > 0 ? (
+                    <ul className="divide-y divide-border/40">
+                      {filterItems.map((item) => (
+                        <TransactionItem
+                          key={item.id}
+                          item={item}
+                          onDelete={handleDeleteItem}
+                          showInstallment
+                        />
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="px-5 py-8 text-sm text-[#64748B] sm:px-6 dark:text-[#94A3BB]">
+                      Nenhuma transação encontrada para este cartão no periodo
+                      selecionado.
+                    </p>
+                  )}
+                </div>
+              </main>
+            </section>
+
+            <section className="surface-card p-5 sm:p-6 xl:hidden">
               <p className="text-lg font-semibold text-[#0F172A] dark:text-white">
                 Despesas por categoria
               </p>
@@ -1516,40 +1592,7 @@ export const Main = () => {
                 <GraphicListItem results={results} />
               </div>
             </section>
-          </section>
-
-          <section className="surface-card-strong overflow-hidden">
-            <header className="border-b soft-divider px-5 py-5 sm:px-6">
-              <h4 className="text-xl font-semibold text-[#0F172A] dark:text-white">
-                Ultimas transações do cartão
-              </h4>
-              <p className="text-sm text-[#64748B] dark:text-[#94A3BB]">
-                Acompanhe os lançamentos recentes do cartão selecionado.
-              </p>
-            </header>
-            <main>
-              <TransactionHeader />
-              <div className="max-h-96 overflow-auto">
-                {filterItems.length > 0 ? (
-                  <ul className="divide-y divide-border/40">
-                    {filterItems.map((item) => (
-                      <TransactionItem
-                        key={item.id}
-                        item={item}
-                        onDelete={handleDeleteItem}
-                        showInstallment
-                      />
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="px-5 py-8 text-sm text-[#64748B] dark:text-[#94A3BB] sm:px-6">
-                    Nenhuma transação encontrada para este cartão no periodo
-                    selecionado.
-                  </p>
-                )}
-              </div>
-            </main>
-          </section>
+          </div>
         </>
       )}
     </div>
