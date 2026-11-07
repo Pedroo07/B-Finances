@@ -48,75 +48,71 @@ export const TransactionItem: React.FC<TransactionItemProps> = ({
 
   return (
     <li className="w-full border-b border-border/50 last:border-b-0">
-      <div className="flex flex-col gap-4 px-4 py-4 md:grid md:grid-cols-5 md:items-center md:gap-3 md:px-5">
-        <div className="flex items-start justify-between gap-3 md:col-span-2 md:justify-start">
-          <div className="flex items-start gap-3">
-            <PaymentMethodIconBadge
-              method={paymentMethod}
-              isIncome={item.amount > 0}
-            />
-            <div>
-              <div className="flex flex-wrap items-center gap-2">
-                <p className="text-sm font-medium text-[#0F172A] dark:text-[#E2E8F0]">
-                  {item.description}
-                </p>
-                {item.invoicePaid ? (
-                  <span className="inline-flex items-center rounded-full border border-[#22C55E]/30 bg-[#22C55E]/10 px-2 py-0.5 text-[11px] font-semibold text-[#15803D] dark:text-[#4ADE80]">
-                    Paga
-                  </span>
-                ) : null}
-              </div>
+      <div className="flex items-center justify-between gap-3 px-4 py-3.5 md:grid md:grid-cols-5 md:items-center md:gap-3 md:px-5 md:py-4">
+        <div className="flex min-w-0 flex-1 items-center gap-3 md:col-span-2">
+          <PaymentMethodIconBadge
+            method={paymentMethod}
+            isIncome={item.amount > 0}
+          />
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="truncate text-sm font-medium text-[#0F172A] dark:text-[#E2E8F0]">
+                {item.description}
+              </p>
+              {item.invoicePaid ? (
+                <span className="inline-flex items-center rounded-full border border-[#22C55E]/30 bg-[#22C55E]/10 px-2 py-0.5 text-[11px] font-semibold text-[#15803D] dark:text-[#4ADE80]">
+                  Paga
+                </span>
+              ) : null}
+            </div>
+            <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-[#64748B] dark:text-[#94A3BB] md:hidden">
+              <span>{translateCategory(item.category)}</span>
+              <span aria-hidden="true">•</span>
+              <span>{item.date}</span>
               {showInstallment &&
               item.installmentNumber &&
               item.installmentCount ? (
-                <p className="mt-1 text-xs text-[#64748B] dark:text-[#94A3BB]">
-                  Parcela {item.installmentNumber}/{item.installmentCount}
-                </p>
+                <>
+                  <span aria-hidden="true">•</span>
+                  <span>
+                    Parcela {item.installmentNumber}/{item.installmentCount}
+                  </span>
+                </>
               ) : null}
             </div>
+            {showInstallment &&
+            item.installmentNumber &&
+            item.installmentCount ? (
+              <p className="mt-1 hidden text-xs text-[#64748B] dark:text-[#94A3BB] md:block">
+                Parcela {item.installmentNumber}/{item.installmentCount}
+              </p>
+            ) : null}
           </div>
+        </div>
+
+        <p className="hidden text-sm text-[#334155] dark:text-[#CBD5E1] md:block">
+          {translateCategory(item.category)}
+        </p>
+
+        <p className="hidden text-sm text-[#64748B] dark:text-[#94A3BB] md:block">
+          {item.date}
+        </p>
+
+        <div className="flex shrink-0 items-center gap-2.5 text-sm md:justify-between md:gap-3">
+          <span
+            className={`font-semibold whitespace-nowrap ${item.amount > 0 ? "text-[#16A34A] dark:text-[#4ADE80]" : "text-rose-500 dark:text-rose-300"}`}
+          >
+            {item.amount > 0
+              ? `+${formatCurrency(item.amount)}`
+              : formatCurrency(item.amount)}
+          </span>
           <button
             onClick={() => onDelete(item.id)}
-            className="flex h-9 w-9 items-center justify-center rounded-full border border-border/60 text-[#64748B] transition-all hover:border-rose-400/50 hover:text-rose-500 md:hidden dark:text-[#94A3BB]"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border/60 text-[#64748B] transition-all hover:border-rose-400/50 hover:text-rose-500 active:scale-95 md:h-auto md:w-auto md:p-2 dark:text-[#94A3BB]"
             aria-label="Excluir transação"
           >
             <Trash2 className="h-4 w-4" />
           </button>
-        </div>
-        <div className="grid grid-cols-2 gap-3 text-sm md:contents">
-          <div className="space-y-1 md:space-y-0">
-            <p className="text-xs uppercase tracking-[0.22em] text-[#94A3BB] md:hidden">
-              Categoria
-            </p>
-            <p className="text-[#334155] dark:text-[#CBD5E1]">
-              {translateCategory(item.category)}
-            </p>
-          </div>
-          <div className="space-y-1 md:space-y-0">
-            <p className="text-xs uppercase tracking-[0.22em] text-[#94A3BB] md:hidden">
-              Data
-            </p>
-            <p className="text-[#64748B] dark:text-[#94A3BB]">{item.date}</p>
-          </div>
-          <div className="space-y-1 md:flex md:items-center md:justify-between md:gap-3 md:space-y-0">
-            <p className="text-xs uppercase tracking-[0.22em] text-[#94A3BB] md:hidden">
-              Valor
-            </p>
-            <span
-              className={`font-semibold ${item.amount > 0 ? "text-[#16A34A] dark:text-[#4ADE80]" : "text-rose-500 dark:text-rose-300"}`}
-            >
-              {item.amount > 0
-                ? `+${formatCurrency(item.amount)}`
-                : formatCurrency(item.amount)}
-            </span>
-            <button
-              onClick={() => onDelete(item.id)}
-              className="hidden rounded-full border border-border/60 p-2 text-[#64748B] transition-all hover:border-rose-400/50 hover:text-rose-500 md:flex dark:text-[#94A3BB]"
-              aria-label="Excluir transação"
-            >
-              <Trash2 className="h-4 w-4" />
-            </button>
-          </div>
         </div>
       </div>
     </li>
