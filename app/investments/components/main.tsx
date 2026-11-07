@@ -322,7 +322,7 @@ export const Main: FC = () => {
   };
 
   return (
-    <div className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6">
+    <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-4 sm:gap-6 sm:px-6 sm:py-6">
       <Dialog
         open={!!deleteConfirmId}
         onOpenChange={(open) => !open && setDeleteConfirmId(null)}
@@ -368,16 +368,16 @@ export const Main: FC = () => {
         </DialogContent>
       </Dialog>
 
-      <section className="surface-card p-6 sm:p-7">
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-          <div className="space-y-2">
-            <span className="inline-flex rounded-full border border-[#22C55E]/20 bg-[#22C55E]/10 px-4 py-2 text-sm font-medium text-[#15803D] dark:text-[#4ADE80]">
+      <section className="surface-card p-4 sm:p-7">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div className="space-y-1.5 sm:space-y-2">
+            <span className="inline-flex rounded-full border border-[#22C55E]/20 bg-[#22C55E]/10 px-3 py-1 text-xs font-medium text-[#15803D] sm:px-4 sm:py-2 sm:text-sm dark:text-[#4ADE80]">
               Patrimônio
             </span>
-            <h1 className="text-3xl font-semibold tracking-tight text-[#0F172A] dark:text-white">
+            <h1 className="text-2xl font-semibold tracking-tight text-[#0F172A] sm:text-3xl dark:text-white">
               Investimentos
             </h1>
-            <p className="max-w-2xl text-sm leading-6 text-[#64748B] dark:text-[#94A3BB]">
+            <p className="hidden max-w-2xl text-sm leading-6 text-[#64748B] sm:block dark:text-[#94A3BB]">
               Acompanhe seu patrimônio investido, distribua entre categorias e
               controle seus rendimentos mensais.
             </p>
@@ -385,181 +385,184 @@ export const Main: FC = () => {
         </div>
       </section>
 
-      <section className="grid gap-4 md:grid-cols-3">
+      <section className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3">
         {loading ? (
           <>
-            <Skeleton className="h-32" />
-            <Skeleton className="h-32" />
-            <Skeleton className="h-32" />
+            <Skeleton className="h-24 sm:h-32" />
+            <Skeleton className="h-24 sm:h-32" />
+            <Skeleton className="col-span-2 h-20 sm:h-32 md:col-span-1" />
           </>
         ) : (
           <>
-            <div className="surface-card flex flex-col justify-between gap-2 p-5 sm:p-6">
-              <div>
-                <p className="text-xs uppercase tracking-[0.22em] text-[#94A3BB]">
+            <div className="surface-card flex flex-col justify-between gap-2 p-4 sm:p-6">
+              <div className="min-w-0">
+                <p className="text-[11px] uppercase tracking-[0.18em] text-[#94A3BB] sm:text-xs sm:tracking-[0.22em]">
                   Patrimônio Total
                 </p>
-                <h2 className="mt-3 text-3xl font-semibold text-[#0F172A] dark:text-white">
+                <h2 className="mt-1.5 truncate text-lg font-semibold text-[#0F172A] sm:mt-3 sm:text-3xl dark:text-white">
                   {formatCurrency(totalPatrimony)}
                 </h2>
               </div>
-              <p className="text-xs text-[#64748B] dark:text-[#94A3BB]">
+              <p className="hidden text-xs text-[#64748B] sm:block dark:text-[#94A3BB]">
                 Soma de todos os investimentos
               </p>
             </div>
 
-            <div className="surface-card flex flex-col justify-between gap-2 p-5 sm:p-6">
-              <div>
-                <p className="text-xs uppercase tracking-[0.22em] text-[#94A3BB]">
+            <div className="surface-card flex flex-col justify-between gap-2 p-4 sm:p-6">
+              <div className="min-w-0">
+                <p className="text-[11px] uppercase tracking-[0.18em] text-[#94A3BB] sm:text-xs sm:tracking-[0.22em]">
                   Resgate Imediato
                 </p>
-                <h2 className="mt-3 text-3xl font-semibold text-[#16A34A] dark:text-[#4ADE80]">
+                <h2 className="mt-1.5 truncate text-lg font-semibold text-[#16A34A] sm:mt-3 sm:text-3xl dark:text-[#4ADE80]">
                   {formatCurrency(immediateRescue)}
                 </h2>
               </div>
-              <p className="text-xs text-[#64748B] dark:text-[#94A3BB]">
+              <p className="hidden text-xs text-[#64748B] sm:block dark:text-[#94A3BB]">
                 Disponível para resgate imediato
               </p>
             </div>
 
-            <div className="surface-card flex items-center gap-4 p-5 sm:p-6">
-              <Dialog open={isAddingNew} onOpenChange={setIsAddingNew}>
-                <DialogTrigger asChild>
-                  <div className="flex h-14 w-14 cursor-pointer items-center justify-center rounded-2xl bg-[#22C55E]/12 text-[#16A34A] transition-transform hover:scale-[1.03] dark:bg-[#22C55E]/18 dark:text-[#4ADE80]">
-                    <FiPlusCircle className="text-2xl" />
+            <Dialog open={isAddingNew} onOpenChange={setIsAddingNew}>
+              <DialogTrigger asChild>
+                <button
+                  type="button"
+                  className="surface-card col-span-2 flex w-full cursor-pointer items-center gap-3.5 p-4 text-left transition-all hover:scale-[1.01] hover:border-[#22C55E]/30 active:scale-[0.98] sm:gap-4 sm:p-6 md:col-span-1"
+                >
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#22C55E]/12 text-[#16A34A] sm:h-14 sm:w-14 dark:bg-[#22C55E]/18 dark:text-[#4ADE80]">
+                    <FiPlusCircle className="text-xl sm:text-2xl" />
                   </div>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-106">
-                  <DialogHeader>
-                    <DialogTitle>Adicionar novo investimento</DialogTitle>
-                  </DialogHeader>
-                  <div className="grid gap-4 py-4 relative">
-                    {investments.length > 0 && (
-                      <Select
-                        value={selectedExistingCategory}
-                        onValueChange={(val) => {
-                          if (val === "none") {
-                            setSelectedExistingCategory("");
-                            setCategoryInput("");
-                            setLiquidez("imediata");
-                          } else {
-                            setSelectedExistingCategory(val);
-                            setCategoryInput(val);
-                            const existingInv = investments.find(
-                              (inv) => inv.category === val,
-                            );
-                            if (existingInv) {
-                              setLiquidez(existingInv.liquidez);
-                            }
-                          }
-                        }}
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Adicionar a categoria existente (opcional)" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectGroup>
-                            <SelectLabel>Categorias</SelectLabel>
-                            <SelectItem value="none">
-                              -- Nova categoria --
-                            </SelectItem>
-                            {investments.map((inv) => (
-                              <SelectItem key={inv.id} value={inv.category}>
-                                {inv.category} (Atual:{" "}
-                                {formatCurrency(inv.balance)})
-                              </SelectItem>
-                            ))}
-                          </SelectGroup>
-                        </SelectContent>
-                      </Select>
-                    )}
-                    <div>
-                      <Input
-                        type="text"
-                        placeholder="Nome da categoria"
-                        value={categoryInput}
-                        onChange={(e) => handleCategoryInput(e.target.value)}
-                        disabled={!!selectedExistingCategory}
-                      />
-                      {showCategorySuggestions &&
-                        filteredCategories.length > 0 && (
-                          <div className="absolute top-12 left-0 right-0 bg-white dark:bg-[#1E293B] border border-border rounded-lg shadow-lg z-10">
-                            {filteredCategories.map((cat) => (
-                              <button
-                                key={cat}
-                                onClick={() => {
-                                  setCategoryInput(cat);
-                                  setShowCategorySuggestions(false);
-                                }}
-                                className="w-full text-left px-4 py-2 hover:bg-[#22C55E]/10 dark:hover:bg-[#22C55E]/20 text-[#0F172A] dark:text-white"
-                              >
-                                {cat}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                    </div>
-                    <Input
-                      type="number"
-                      placeholder="Saldo"
-                      value={balance}
-                      onChange={(e) => setBalance(+e.target.value)}
-                    />
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-[#0F172A] sm:text-base dark:text-white">
+                      Novo investimento
+                    </p>
+                    <p className="text-xs text-[#64748B] sm:text-sm dark:text-[#94A3BB]">
+                      Crie uma nova categoria de investimento.
+                    </p>
+                  </div>
+                </button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-106">
+                <DialogHeader>
+                  <DialogTitle>Adicionar novo investimento</DialogTitle>
+                </DialogHeader>
+                <div className="relative grid gap-4 py-4">
+                  {investments.length > 0 && (
                     <Select
-                      value={liquidez}
-                      onValueChange={(val) =>
-                        setLiquidez(val as "imediata" | "longo_prazo")
-                      }
-                      disabled={!!selectedExistingCategory}
+                      value={selectedExistingCategory}
+                      onValueChange={(val) => {
+                        if (val === "none") {
+                          setSelectedExistingCategory("");
+                          setCategoryInput("");
+                          setLiquidez("imediata");
+                        } else {
+                          setSelectedExistingCategory(val);
+                          setCategoryInput(val);
+                          const existingInv = investments.find(
+                            (inv) => inv.category === val,
+                          );
+                          if (existingInv) {
+                            setLiquidez(existingInv.liquidez);
+                          }
+                        }
+                      }}
                     >
                       <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Liquidez" />
+                        <SelectValue placeholder="Adicionar a categoria existente (opcional)" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectGroup>
-                          <SelectLabel>Tipo de liquidez</SelectLabel>
-                          <SelectItem value="imediata">Imediata</SelectItem>
-                          <SelectItem value="longo_prazo">
-                            Longo prazo
+                          <SelectLabel>Categorias</SelectLabel>
+                          <SelectItem value="none">
+                            -- Nova categoria --
                           </SelectItem>
+                          {investments.map((inv) => (
+                            <SelectItem key={inv.id} value={inv.category}>
+                              {inv.category} (Atual:{" "}
+                              {formatCurrency(inv.balance)})
+                            </SelectItem>
+                          ))}
                         </SelectGroup>
                       </SelectContent>
                     </Select>
+                  )}
+                  <div>
+                    <Input
+                      type="text"
+                      placeholder="Nome da categoria"
+                      value={categoryInput}
+                      onChange={(e) => handleCategoryInput(e.target.value)}
+                      disabled={!!selectedExistingCategory}
+                    />
+                    {showCategorySuggestions &&
+                      filteredCategories.length > 0 && (
+                        <div className="absolute top-12 right-0 left-0 z-10 rounded-lg border border-border bg-white shadow-lg dark:bg-[#1E293B]">
+                          {filteredCategories.map((cat) => (
+                            <button
+                              key={cat}
+                              onClick={() => {
+                                setCategoryInput(cat);
+                                setShowCategorySuggestions(false);
+                              }}
+                              className="w-full px-4 py-2 text-left text-[#0F172A] hover:bg-[#22C55E]/10 dark:text-white dark:hover:bg-[#22C55E]/20"
+                            >
+                              {cat}
+                            </button>
+                          ))}
+                        </div>
+                      )}
                   </div>
-                  <DialogFooter>
-                    <Button
-                      onClick={handleAddNewInvestment}
-                      type="button"
-                      disabled={!categoryInput.trim() || balance <= 0}
-                      className="w-full sm:w-auto"
-                    >
-                      <span>Adicionar investimento</span>
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-              <div>
-                <p className="font-semibold text-[#0F172A] dark:text-white">
-                  Novo investimento
-                </p>
-                <p className="text-sm text-[#64748B] dark:text-[#94A3BB]">
-                  Crie uma nova categoria de investimento.
-                </p>
-              </div>
-            </div>
+                  <Input
+                    type="number"
+                    placeholder="Saldo"
+                    value={balance || ""}
+                    onChange={(e) => setBalance(+e.target.value)}
+                  />
+                  <Select
+                    value={liquidez}
+                    onValueChange={(val) =>
+                      setLiquidez(val as "imediata" | "longo_prazo")
+                    }
+                    disabled={!!selectedExistingCategory}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Liquidez" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        <SelectLabel>Tipo de liquidez</SelectLabel>
+                        <SelectItem value="imediata">Imediata</SelectItem>
+                        <SelectItem value="longo_prazo">
+                          Longo prazo
+                        </SelectItem>
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <DialogFooter>
+                  <Button
+                    onClick={handleAddNewInvestment}
+                    type="button"
+                    disabled={!categoryInput.trim() || balance <= 0}
+                    className="w-full sm:w-auto"
+                  >
+                    <span>Adicionar investimento</span>
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </>
         )}
       </section>
 
-      <div className="flex flex-col gap-6 xl:flex-row xl:items-stretch">
-        <section className="surface-card w-full p-6 xl:max-w-105">
+      <div className="flex flex-col gap-4 sm:gap-6 xl:flex-row xl:items-stretch">
+        <section className="surface-card order-2 w-full p-5 sm:p-6 xl:order-1 xl:max-w-105">
           <p className="text-lg font-semibold text-[#0F172A] dark:text-white">
             Alocação Patrimonial
           </p>
           <p className="mt-1 text-sm text-[#64748B] dark:text-[#94A3BB]">
             Veja como seu patrimônio está distribuído.
           </p>
-          <div className="mt-6 flex justify-center items-center max-md:max-w-82">
+          <div className="mx-auto mt-6 flex items-center justify-center max-md:max-w-82">
             {loading ? (
               <AiOutlineLoading3Quarters className="h-24 w-24 animate-spin p-6 text-[#22C55E]" />
             ) : results.chartData.length > 0 ? (
@@ -583,19 +586,19 @@ export const Main: FC = () => {
           </div>
         </section>
 
-        <div className="w-full xl:relative xl:flex-1">
-          <section className="surface-card-strong w-full flex flex-col xl:absolute xl:inset-0 overflow-hidden">
-            <header className="border-b soft-divider px-5 py-5 sm:px-6">
-              <h4 className="text-xl font-semibold text-[#0F172A] dark:text-white">
+        <div className="order-1 w-full xl:order-2 xl:relative xl:flex-1">
+          <section className="surface-card-strong flex w-full flex-col overflow-hidden xl:absolute xl:inset-0">
+            <header className="border-b soft-divider px-4 py-4 sm:px-6 sm:py-5">
+              <h4 className="text-lg font-semibold text-[#0F172A] sm:text-xl dark:text-white">
                 Categorias e Rendimentos
               </h4>
-              <p className="text-sm text-[#64748B] dark:text-[#94A3BB]">
+              <p className="text-xs text-[#64748B] sm:text-sm dark:text-[#94A3BB]">
                 Controle seus investimentos e rendimentos mensais.
               </p>
             </header>
             <main className="flex min-h-0 flex-1 flex-col overflow-auto">
               {loading ? (
-                <div className="p-5 sm:p-6 space-y-3">
+                <div className="space-y-3 p-4 sm:p-6">
                   <Skeleton className="h-24" />
                   <Skeleton className="h-24" />
                 </div>
@@ -614,29 +617,29 @@ export const Main: FC = () => {
                     return (
                       <li
                         key={investment.id}
-                        className="p-5 sm:p-6 hover:bg-surface-card/50 dark:hover:bg-surface-card/20 transition-colors"
+                        className="p-4 transition-colors hover:bg-surface-card/50 sm:p-6 dark:hover:bg-surface-card/20"
                       >
-                        <div className="flex flex-col gap-4">
+                        <div className="flex flex-col gap-3.5 sm:gap-4">
                           <div className="flex items-start justify-between gap-3">
                             <div>
-                              <h5 className="font-semibold text-[#0F172A] dark:text-white capitalize">
+                              <h5 className="font-semibold text-[#0F172A] capitalize dark:text-white">
                                 {investment.category}
                               </h5>
-                              <div className="mt-2 space-y-1">
-                                <p className="text-sm text-[#64748B] dark:text-[#94A3BB]">
+                              <div className="mt-1.5 space-y-1 sm:mt-2">
+                                <p className="text-xs text-[#64748B] sm:text-sm dark:text-[#94A3BB]">
                                   Valor investido:{" "}
                                   <span className="font-medium text-[#0F172A] dark:text-white">
                                     {formatCurrency(investedAmount)}
                                   </span>
                                 </p>
-                                <p className="text-sm text-[#64748B] dark:text-[#94A3BB]">
+                                <p className="text-xs text-[#64748B] sm:text-sm dark:text-[#94A3BB]">
                                   Total com rendimentos:{" "}
                                   <span className="font-medium text-[#0F172A] dark:text-white">
                                     {formatCurrency(totalWithYield)}
                                   </span>
                                 </p>
                                 {hasRescued && (
-                                  <p className="text-sm text-[#64748B] dark:text-[#94A3BB]">
+                                  <p className="text-xs text-[#64748B] sm:text-sm dark:text-[#94A3BB]">
                                     Saldo atual:{" "}
                                     <span className="font-medium text-[#16A34A] dark:text-[#4ADE80]">
                                       {formatCurrency(investment.balance)}
@@ -645,52 +648,52 @@ export const Main: FC = () => {
                                 )}
                               </div>
                             </div>
-                            <span className="inline-flex rounded-full border border-[#22C55E]/20 bg-[#22C55E]/10 px-3 py-1 text-xs font-medium text-[#15803D] dark:text-[#4ADE80] whitespace-nowrap">
+                            <span className="inline-flex rounded-full border border-[#22C55E]/20 bg-[#22C55E]/10 px-2.5 py-1 text-xs font-medium whitespace-nowrap text-[#15803D] sm:px-3 dark:text-[#4ADE80]">
                               {investment.liquidez === "imediata"
                                 ? "Imediata"
                                 : "Longo prazo"}
                             </span>
                           </div>
 
-                          <div className="grid grid-cols-2 gap-3 text-sm">
-                            <div className="rounded-lg bg-[#22C55E]/5 dark:bg-[#22C55E]/10 p-3">
-                              <p className="text-[#64748B] dark:text-[#94A3BB] text-xs uppercase tracking-wider">
+                          <div className="grid grid-cols-2 gap-2.5 text-sm sm:gap-3">
+                            <div className="rounded-lg bg-[#22C55E]/5 p-2.5 sm:p-3 dark:bg-[#22C55E]/10">
+                              <p className="text-[11px] uppercase tracking-wider text-[#64748B] sm:text-xs dark:text-[#94A3BB]">
                                 Rendimento do mês
                               </p>
-                              <p className="mt-2 font-semibold text-[#22C55E] dark:text-[#4ADE80]">
+                              <p className="mt-1.5 text-xs font-semibold text-[#22C55E] sm:mt-2 sm:text-sm dark:text-[#4ADE80]">
                                 {formatCurrency(yields.total)} (
                                 {yields.percentage.toFixed(2)}%)
                               </p>
                             </div>
-                            <div className="rounded-lg bg-[#16A34A]/5 dark:bg-[#16A34A]/10 p-3">
-                              <p className="text-[#64748B] dark:text-[#94A3BB] text-xs uppercase tracking-wider">
+                            <div className="rounded-lg bg-[#16A34A]/5 p-2.5 sm:p-3 dark:bg-[#16A34A]/10">
+                              <p className="text-[11px] uppercase tracking-wider text-[#64748B] sm:text-xs dark:text-[#94A3BB]">
                                 Rendimento total
                               </p>
-                              <p className="mt-2 font-semibold text-[#16A34A] dark:text-[#86EFAC]">
+                              <p className="mt-1.5 text-xs font-semibold text-[#16A34A] sm:mt-2 sm:text-sm dark:text-[#86EFAC]">
                                 {formatCurrency(investment.total_yield || 0)}
                               </p>
                             </div>
                             {!!investment.rescued_amount &&
                               investment.rescued_amount > 0 && (
-                                <div className="col-span-2 rounded-lg bg-rose-500/5 dark:bg-rose-500/10 p-3">
-                                  <p className="text-[#64748B] dark:text-[#94A3BB] text-xs uppercase tracking-wider">
+                                <div className="col-span-2 rounded-lg bg-rose-500/5 p-2.5 sm:p-3 dark:bg-rose-500/10">
+                                  <p className="text-[11px] uppercase tracking-wider text-[#64748B] sm:text-xs dark:text-[#94A3BB]">
                                     Valor já resgatado
                                   </p>
-                                  <p className="mt-2 font-semibold text-rose-500 dark:text-rose-300">
+                                  <p className="mt-1.5 text-xs font-semibold text-rose-500 sm:mt-2 sm:text-sm dark:text-rose-300">
                                     {formatCurrency(investment.rescued_amount)}
                                   </p>
                                 </div>
                               )}
                           </div>
 
-                          <div className="flex flex-wrap items-center gap-2 mt-4 sm:mt-0">
+                          <div className="flex flex-wrap items-center gap-2">
                             <Dialog>
                               <DialogTrigger asChild>
                                 <button
                                   onClick={() =>
                                     setSelectedInvestmentId(investment.id)
                                   }
-                                  className="inline-flex items-center justify-center px-3 py-2 rounded-lg bg-[#22C55E]/10 text-[#16A34A] hover:bg-[#22C55E]/20 dark:bg-[#22C55E]/18 dark:text-[#4ADE80] dark:hover:bg-[#22C55E]/25 transition-colors text-sm font-medium w-fit"
+                                  className="inline-flex flex-1 items-center justify-center rounded-lg bg-[#22C55E]/10 px-3 py-2 text-xs font-medium text-[#16A34A] transition-colors hover:bg-[#22C55E]/20 sm:flex-initial sm:text-sm dark:bg-[#22C55E]/18 dark:text-[#4ADE80] dark:hover:bg-[#22C55E]/25"
                                 >
                                   Adicionar Rendimento
                                 </button>
@@ -704,7 +707,7 @@ export const Main: FC = () => {
                                 <div className="grid gap-4 py-4">
                                   <p className="text-sm text-[#64748B] dark:text-[#94A3BB]">
                                     Categoria:{" "}
-                                    <span className="font-semibold text-[#0F172A] dark:text-white capitalize">
+                                    <span className="font-semibold text-[#0F172A] capitalize dark:text-white">
                                       {investment.category}
                                     </span>
                                   </p>
@@ -724,7 +727,7 @@ export const Main: FC = () => {
                                   <Input
                                     type="number"
                                     placeholder="Valor do rendimento"
-                                    value={yieldValue}
+                                    value={yieldValue || ""}
                                     onChange={(e) =>
                                       setYieldValue(+e.target.value)
                                     }
@@ -759,7 +762,7 @@ export const Main: FC = () => {
                               }}
                             >
                               <DialogTrigger asChild>
-                                <button className="inline-flex items-center justify-center px-3 py-2 rounded-lg bg-rose-500/10 text-rose-700 hover:bg-rose-500/20 dark:bg-rose-500/18 dark:text-rose-400 dark:hover:bg-rose-500/25 transition-colors text-sm font-medium w-fit">
+                                <button className="inline-flex flex-1 items-center justify-center rounded-lg bg-rose-500/10 px-3 py-2 text-xs font-medium text-rose-700 transition-colors hover:bg-rose-500/20 sm:flex-initial sm:text-sm dark:bg-rose-500/18 dark:text-rose-400 dark:hover:bg-rose-500/25">
                                   Resgatar Saldo
                                 </button>
                               </DialogTrigger>
@@ -770,7 +773,7 @@ export const Main: FC = () => {
                                 <div className="grid gap-4 py-4">
                                   <p className="text-sm text-[#64748B] dark:text-[#94A3BB]">
                                     Categoria:{" "}
-                                    <span className="font-semibold text-[#0F172A] dark:text-white capitalize">
+                                    <span className="font-semibold text-[#0F172A] capitalize dark:text-white">
                                       {investment.category}
                                     </span>
                                   </p>
@@ -781,7 +784,7 @@ export const Main: FC = () => {
                                   <Input
                                     type="number"
                                     placeholder="Valor a ser resgatado"
-                                    value={redeemAmount}
+                                    value={redeemAmount || ""}
                                     onChange={(e) =>
                                       setRedeemAmount(+e.target.value)
                                     }
@@ -807,7 +810,7 @@ export const Main: FC = () => {
                               variant="outline"
                               size="sm"
                               onClick={() => setDeleteConfirmId(investment.id)}
-                              className="h-9 w-9 p-0 text-rose-600 hover:text-rose-600 hover:bg-rose-50 dark:text-rose-400 dark:hover:text-rose-400 dark:hover:bg-rose-950/50 border-rose-200 dark:border-rose-900"
+                              className="h-9 w-9 shrink-0 border-rose-200 p-0 text-rose-600 hover:bg-rose-50 hover:text-rose-600 dark:border-rose-900 dark:text-rose-400 dark:hover:bg-rose-950/50 dark:hover:text-rose-400"
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -818,7 +821,7 @@ export const Main: FC = () => {
                   })}
                 </ul>
               ) : (
-                <li className="px-5 py-8 text-center text-sm text-[#64748B] dark:text-[#94A3BB] sm:px-6 flex items-center justify-center">
+                <li className="flex items-center justify-center px-5 py-8 text-center text-sm text-[#64748B] sm:px-6 dark:text-[#94A3BB]">
                   Nenhum investimento cadastrado. Crie um novo para começar.
                 </li>
               )}
