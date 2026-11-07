@@ -197,6 +197,8 @@ export const Main: FC = () => {
     () => new Date().getMonth() + 1,
   );
   const [activeFilter, setActiveFilter] = useState("month");
+  const [isIncomeDialogOpen, setIsIncomeDialogOpen] = useState(false);
+  const [isExpenseDialogOpen, setIsExpenseDialogOpen] = useState(false);
 
   const visibleAddedCardKeys = userCards.reduce<BankKey[]>((keys, c) => {
     if (isBankKey(c.bankKey)) keys.push(c.bankKey);
@@ -360,6 +362,7 @@ export const Main: FC = () => {
         );
         setBills(syncedBills);
         resetForm();
+        setIsExpenseDialogOpen(false);
       } catch (error) {
         console.error("Error adding card transaction:", error);
       }
@@ -381,6 +384,11 @@ export const Main: FC = () => {
         sortItemByDate([newTransaction, ...currentItems]),
       );
       resetForm();
+      if (IsIncomeDialog) {
+        setIsIncomeDialogOpen(false);
+      } else {
+        setIsExpenseDialogOpen(false);
+      }
     } catch (error) {
       console.error("Error adding transaction:", error);
     }
@@ -513,36 +521,37 @@ export const Main: FC = () => {
   };
 
   const results = separateAmountByCategory(filterItems);
-  const filterButtonClass = "surface-chip inline-flex items-center px-4 py-2";
+  const filterButtonClass =
+    "surface-chip inline-flex shrink-0 items-center px-3.5 py-2 text-xs sm:px-4 sm:text-sm";
 
   return (
-    <div className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6">
-      <section className="surface-card p-6 sm:p-7">
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-          <div className="space-y-2">
-            <span className="inline-flex rounded-full border border-[#22C55E]/20 bg-[#22C55E]/10 px-4 py-2 text-sm font-medium text-[#15803D] dark:text-[#4ADE80]">
+    <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-4 sm:gap-6 sm:px-6 sm:py-6">
+      <section className="surface-card p-4 sm:p-7">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div className="space-y-1.5 sm:space-y-2">
+            <span className="inline-flex rounded-full border border-[#22C55E]/20 bg-[#22C55E]/10 px-3 py-1 text-xs font-medium text-[#15803D] sm:px-4 sm:py-2 sm:text-sm dark:text-[#4ADE80]">
               Painel financeiro
             </span>
-            <h1 className="text-3xl font-semibold tracking-tight text-[#0F172A] dark:text-white">
+            <h1 className="text-2xl font-semibold tracking-tight text-[#0F172A] sm:text-3xl dark:text-white">
               Olá!
             </h1>
-            <p className="max-w-2xl text-sm leading-6 text-[#64748B] dark:text-[#94A3BB]">
+            <p className="hidden max-w-2xl text-sm leading-6 text-[#64748B] sm:block dark:text-[#94A3BB]">
               Visualize seu saldo, acompanhe entradas e despesas e registre
               novos lançamentos com mais clareza.
             </p>
           </div>
-          <ul className="flex max-sm:flex-wrap gap-2">
-            <li>
+          <ul className="flex items-center gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible sm:pb-0">
+            <li className="shrink-0">
               <button className={filterButtonClass} onClick={lastYearFilter}>
                 Último ano
               </button>
             </li>
-            <li>
+            <li className="shrink-0">
               <button className={filterButtonClass} onClick={lastMonthSelected}>
                 Último mês
               </button>
             </li>
-            <li>
+            <li className="shrink-0">
               <button className={filterButtonClass} onClick={thisMonthSelected}>
                 Este mês
               </button>
@@ -554,24 +563,24 @@ export const Main: FC = () => {
           </ul>
         </div>
       </section>
-      <section className="grid gap-4 grid-cols-1 md:grid-cols-2 xl:grid-cols-4 grid-rows-2 h-full">
+      <section className="grid h-full grid-cols-2 gap-3 sm:gap-4 md:grid-cols-2 xl:grid-cols-4">
         {loading ? (
           <ValuesLoadings />
         ) : (
-          <div className="surface-card flex flex-col justify-between gap-2 p-5 sm:p-6">
-            <div>
-              <p className="text-xs uppercase tracking-[0.22em] text-[#94A3BB]">
+          <div className="surface-card flex flex-col justify-between gap-2.5 p-4 sm:p-6">
+            <div className="min-w-0">
+              <p className="text-[11px] uppercase tracking-[0.18em] text-[#94A3BB] sm:text-xs sm:tracking-[0.22em]">
                 Saldo
               </p>
-              <h2 className="mt-3 text-3xl font-semibold text-[#0F172A] dark:text-white sm:text-3xl">
+              <h2 className="mt-1.5 truncate text-lg font-semibold text-[#0F172A] sm:mt-3 sm:text-3xl dark:text-white">
                 {formatCurrency(balance)}
               </h2>
             </div>
-            <div className="flex w-fit items-center rounded-full border border-border/60 px-3 py-2 text-sm font-semibold text-[#334155] dark:text-[#E2E8F0]">
+            <div className="flex w-fit items-center rounded-full border border-border/60 px-2.5 py-1 text-xs font-semibold text-[#334155] sm:px-3 sm:py-2 sm:text-sm dark:text-[#E2E8F0]">
               {differenceInPorcentage() > 0 ? (
-                <IoIosArrowRoundUp className="text-[#22C55E] text-lg" />
+                <IoIosArrowRoundUp className="text-base text-[#22C55E] sm:text-lg" />
               ) : (
-                <IoIosArrowRoundDown className="text-rose-500 text-lg" />
+                <IoIosArrowRoundDown className="text-base text-rose-500 sm:text-lg" />
               )}
               {differenceInPorcentage().toFixed(2)}%
             </div>
@@ -580,20 +589,20 @@ export const Main: FC = () => {
         {loading ? (
           <ValuesLoadings />
         ) : (
-          <div className="surface-card flex flex-col justify-between gap-5 p-2 sm:p-6">
-            <div>
-              <p className="text-xs uppercase tracking-[0.22em] text-[#94A3BB]">
+          <div className="surface-card flex flex-col justify-between gap-2.5 p-4 sm:gap-5 sm:p-6">
+            <div className="min-w-0">
+              <p className="text-[11px] uppercase tracking-[0.18em] text-[#94A3BB] sm:text-xs sm:tracking-[0.22em]">
                 Entradas
               </p>
-              <h2 className="mt-3 text-3xl font-semibold text-[#16A34A] sm:text-3xl dark:text-[#4ADE80]">
+              <h2 className="mt-1.5 truncate text-lg font-semibold text-[#16A34A] sm:mt-3 sm:text-3xl dark:text-[#4ADE80]">
                 {formatCurrency(income)}
               </h2>
             </div>
-            <div className="flex w-fit items-center rounded-full border border-border/60 px-3 py-2 text-sm font-semibold text-[#334155] dark:text-[#E2E8F0]">
+            <div className="flex w-fit items-center rounded-full border border-border/60 px-2.5 py-1 text-xs font-semibold text-[#334155] sm:px-3 sm:py-2 sm:text-sm dark:text-[#E2E8F0]">
               {differenceInPorcentageIncome() > 0 ? (
-                <IoIosArrowRoundUp className="text-[#22C55E] text-lg" />
+                <IoIosArrowRoundUp className="text-base text-[#22C55E] sm:text-lg" />
               ) : (
-                <IoIosArrowRoundDown className="text-rose-500 text-lg" />
+                <IoIosArrowRoundDown className="text-base text-rose-500 sm:text-lg" />
               )}
               {differenceInPorcentageIncome().toFixed(2)}%
             </div>
@@ -602,20 +611,20 @@ export const Main: FC = () => {
         {loading ? (
           <ValuesLoadings />
         ) : (
-          <div className="surface-card flex flex-col justify-between gap-5 p-5 sm:p-6">
-            <div>
-              <p className="text-xs uppercase tracking-[0.22em] text-[#94A3BB]">
+          <div className="surface-card flex flex-col justify-between gap-2.5 p-4 sm:gap-5 sm:p-6">
+            <div className="min-w-0">
+              <p className="text-[11px] uppercase tracking-[0.18em] text-[#94A3BB] sm:text-xs sm:tracking-[0.22em]">
                 Despesas
               </p>
-              <h2 className="mt-3 text-3xl font-semibold text-rose-500 sm:text-3xl dark:text-rose-300">
+              <h2 className="mt-1.5 truncate text-lg font-semibold text-rose-500 sm:mt-3 sm:text-3xl dark:text-rose-300">
                 {formatCurrency(expense)}
               </h2>
             </div>
-            <div className="flex w-fit items-center rounded-full border border-border/60 px-3 py-2 text-sm font-semibold text-[#334155] dark:text-[#E2E8F0]">
+            <div className="flex w-fit items-center rounded-full border border-border/60 px-2.5 py-1 text-xs font-semibold text-[#334155] sm:px-3 sm:py-2 sm:text-sm dark:text-[#E2E8F0]">
               {differenceInPorcentageExpense() < 0 ? (
-                <IoIosArrowRoundUp className="text-[#22C55E] text-lg" />
+                <IoIosArrowRoundUp className="text-base text-[#22C55E] sm:text-lg" />
               ) : (
-                <IoIosArrowRoundDown className="text-rose-500 text-lg" />
+                <IoIosArrowRoundDown className="text-base text-rose-500 sm:text-lg" />
               )}
               {differenceInPorcentageExpense().toFixed(2)}%
             </div>
@@ -624,240 +633,251 @@ export const Main: FC = () => {
         {loading ? (
           <ValuesLoadings />
         ) : (
-          <div className="surface-card flex flex-col justify-between gap-5 p-5 sm:p-6">
-            <div>
-              <p className="text-xs uppercase tracking-[0.22em] text-[#94A3BB]">
+          <div className="surface-card flex flex-col justify-between gap-2.5 p-4 sm:gap-5 sm:p-6">
+            <div className="min-w-0">
+              <p className="text-[11px] uppercase tracking-[0.18em] text-[#94A3BB] sm:text-xs sm:tracking-[0.22em]">
                 Contas a Pagar
               </p>
-              <h2 className="mt-3 text-3xl font-semibold text-amber-600 sm:text-3xl dark:text-amber-400">
+              <h2 className="mt-1.5 truncate text-lg font-semibold text-amber-600 sm:mt-3 sm:text-3xl dark:text-amber-400">
                 {formatCurrency(calculatePendingBills())}
               </h2>
             </div>
-            <div className="flex w-fit items-center rounded-full border border-border/60 px-3 py-2 text-sm font-semibold text-[#334155] dark:text-[#E2E8F0]">
+            <div className="flex w-fit items-center rounded-full border border-border/60 px-2.5 py-1 text-xs font-semibold text-[#334155] sm:px-3 sm:py-2 sm:text-sm dark:text-[#E2E8F0]">
               {differenceInPorcentagePendingBills() > 0 ? (
-                <IoIosArrowRoundUp className="text-rose-500 text-lg" />
+                <IoIosArrowRoundUp className="text-base text-rose-500 sm:text-lg" />
               ) : (
-                <IoIosArrowRoundDown className="text-[#22C55E] text-lg" />
+                <IoIosArrowRoundDown className="text-base text-[#22C55E] sm:text-lg" />
               )}
               {differenceInPorcentagePendingBills().toFixed(2)}%
             </div>
           </div>
         )}
 
-        <div className="surface-card flex items-center gap-4 p-5 sm:p-6 md:col-span-1 xl:col-span-1">
-          <Dialog>
-            <DialogTrigger asChild>
-              <div className="flex h-14 w-14 cursor-pointer items-center justify-center rounded-2xl bg-[#22C55E]/12 text-[#16A34A] transition-transform hover:scale-[1.03] dark:bg-[#22C55E]/18 dark:text-[#4ADE80]">
-                <FiPlusCircle className="text-2xl" />
+        <Dialog open={isIncomeDialogOpen} onOpenChange={setIsIncomeDialogOpen}>
+          <DialogTrigger asChild>
+            <button
+              type="button"
+              className="surface-card flex w-full cursor-pointer items-center gap-3 p-3.5 text-left transition-all hover:scale-[1.01] hover:border-[#22C55E]/30 active:scale-[0.98] sm:gap-4 sm:p-6 md:col-span-1 xl:col-span-1"
+            >
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#22C55E]/12 text-[#16A34A] sm:h-14 sm:w-14 dark:bg-[#22C55E]/18 dark:text-[#4ADE80]">
+                <FiPlusCircle className="text-xl sm:text-2xl" />
               </div>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-106">
-              <DialogHeader>
-                <DialogTitle>Adicionar nova receita</DialogTitle>
-              </DialogHeader>
-              <div className="grid gap-4 py-4 ">
-                <Input
-                  type="text"
-                  placeholder="Descrição"
-                  value={text}
-                  onChange={handleTextChange}
-                ></Input>
-                <Input
-                  type="number"
-                  placeholder="Valor"
-                  value={price}
-                  onChange={handlePriceChange}
-                ></Input>
-                <Input
-                  type="date"
-                  placeholder="Data"
-                  value={date}
-                  onChange={handleDateChange}
-                ></Input>
-                <Select value={category} onValueChange={handleCategoryChange}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Selecione uma categoria" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectGroup>
-                      <SelectLabel>Categorias</SelectLabel>
-                      {INCOME_CATEGORIES.map(({ value, label }) => (
-                        <SelectItem key={value} value={value}>
-                          {label}
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-[#0F172A] sm:text-base dark:text-white">
+                  Adicionar receita
+                </p>
+                <p className="hidden text-sm text-[#64748B] sm:block dark:text-[#94A3BB]">
+                  Cadastre uma entrada manualmente.
+                </p>
               </div>
-              <DialogFooter>
-                <Button
-                  onClick={() => handleAddNewItem(true)}
-                  type="button"
-                  disabled={!text || !price || !category || !date}
-                  className="w-full sm:w-auto"
-                >
-                  <span>Criar lançamento</span>
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-          <div>
-            <p className="font-semibold text-[#0F172A] dark:text-white">
-              Adicionar receita
-            </p>
-            <p className="text-sm text-[#64748B] dark:text-[#94A3BB]">
-              Cadastre uma entrada manualmente.
-            </p>
-          </div>
-        </div>
-        <div className="surface-card flex items-center gap-4 p-5 sm:p-6 md:col-span-1 xl:col-span-1">
-          <Dialog>
-            <DialogTrigger asChild>
-              <div className="flex h-14 w-14 cursor-pointer items-center justify-center rounded-2xl bg-rose-500/12 text-rose-500 transition-transform hover:scale-[1.03] dark:bg-rose-500/18 dark:text-rose-300">
-                <FiMinusCircle className="text-2xl" />
-              </div>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-106">
-              <DialogHeader>
-                <DialogTitle>Adicionar nova despesa</DialogTitle>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <Input
-                  type="text"
-                  placeholder="Descrição"
-                  value={text}
-                  onChange={handleTextChange}
-                ></Input>
-                <Input
-                  type="number"
-                  placeholder="Valor"
-                  value={price}
-                  onChange={handlePriceChange}
-                ></Input>
-                <Input
-                  type="date"
-                  placeholder="Data"
-                  value={date}
-                  onChange={handleDateChange}
-                ></Input>
-                <Select value={category} onValueChange={handleCategoryChange}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Selecione uma categoria" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectGroup>
-                      <SelectLabel>Categorias</SelectLabel>
-                      {EXPENSE_CATEGORIES.map(({ value, label }) => (
-                        <SelectItem key={value} value={value}>
-                          {label}
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
-                <Select value={paymentMethod} onValueChange={setPaymentMethod}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Método de pagamento" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectGroup>
-                      <SelectLabel>Método de pagamento</SelectLabel>
-                      <SelectItem value="cash">Dinheiro</SelectItem>
-                      <SelectItem value="pix">Pix</SelectItem>
-                      <SelectItem value="debit">Cartão de Débito</SelectItem>
-                      <SelectItem value="credit_card">
-                        Cartão de Crédito
+            </button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-106">
+            <DialogHeader>
+              <DialogTitle>Adicionar nova receita</DialogTitle>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <Input
+                type="text"
+                placeholder="Descrição"
+                value={text}
+                onChange={handleTextChange}
+              />
+              <Input
+                type="number"
+                placeholder="Valor"
+                value={price || ""}
+                onChange={handlePriceChange}
+              />
+              <Input
+                type="date"
+                placeholder="Data"
+                value={date}
+                onChange={handleDateChange}
+              />
+              <Select value={category} onValueChange={handleCategoryChange}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Selecione uma categoria" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectLabel>Categorias</SelectLabel>
+                    {INCOME_CATEGORIES.map(({ value, label }) => (
+                      <SelectItem key={value} value={value}>
+                        {label}
                       </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            </div>
+            <DialogFooter>
+              <Button
+                onClick={() => handleAddNewItem(true)}
+                type="button"
+                disabled={!text || !price || !category || !date}
+                className="w-full sm:w-auto"
+              >
+                <span>Criar lançamento</span>
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog
+          open={isExpenseDialogOpen}
+          onOpenChange={setIsExpenseDialogOpen}
+        >
+          <DialogTrigger asChild>
+            <button
+              type="button"
+              className="surface-card flex w-full cursor-pointer items-center gap-3 p-3.5 text-left transition-all hover:scale-[1.01] hover:border-rose-400/30 active:scale-[0.98] sm:gap-4 sm:p-6 md:col-span-1 xl:col-span-1"
+            >
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-rose-500/12 text-rose-500 sm:h-14 sm:w-14 dark:bg-rose-500/18 dark:text-rose-300">
+                <FiMinusCircle className="text-xl sm:text-2xl" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-[#0F172A] sm:text-base dark:text-white">
+                  Adicionar despesa
+                </p>
+                <p className="hidden text-sm text-[#64748B] sm:block dark:text-[#94A3BB]">
+                  Cadastre uma saída manualmente.
+                </p>
+              </div>
+            </button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-106">
+            <DialogHeader>
+              <DialogTitle>Adicionar nova despesa</DialogTitle>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <Input
+                type="text"
+                placeholder="Descrição"
+                value={text}
+                onChange={handleTextChange}
+              />
+              <Input
+                type="number"
+                placeholder="Valor"
+                value={price || ""}
+                onChange={handlePriceChange}
+              />
+              <Input
+                type="date"
+                placeholder="Data"
+                value={date}
+                onChange={handleDateChange}
+              />
+              <Select value={category} onValueChange={handleCategoryChange}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Selecione uma categoria" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectLabel>Categorias</SelectLabel>
+                    {EXPENSE_CATEGORIES.map(({ value, label }) => (
+                      <SelectItem key={value} value={value}>
+                        {label}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+              <Select value={paymentMethod} onValueChange={setPaymentMethod}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Método de pagamento" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectLabel>Método de pagamento</SelectLabel>
+                    <SelectItem value="cash">Dinheiro</SelectItem>
+                    <SelectItem value="pix">Pix</SelectItem>
+                    <SelectItem value="debit">Cartão de Débito</SelectItem>
+                    <SelectItem value="credit_card">
+                      Cartão de Crédito
+                    </SelectItem>
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+              {paymentMethod === "credit_card" && (
+                <Select
+                  value={selectedCreditCard}
+                  onValueChange={setSelectedCreditCard}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Selecione o cartão" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      <SelectLabel>Cartões adicionados</SelectLabel>
+                      {userCreditCards.length > 0 ? (
+                        userCreditCards.map(([bankKey, bank]) => (
+                          <SelectItem key={bankKey} value={bank.name}>
+                            {bank.name}
+                          </SelectItem>
+                        ))
+                      ) : (
+                        <SelectItem value="__none__" disabled>
+                          Nenhum cartão adicionado
+                        </SelectItem>
+                      )}
                     </SelectGroup>
                   </SelectContent>
                 </Select>
-                {paymentMethod === "credit_card" && (
-                  <Select
-                    value={selectedCreditCard}
-                    onValueChange={setSelectedCreditCard}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Selecione o cartão" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectGroup>
-                        <SelectLabel>Cartões adicionados</SelectLabel>
-                        {userCreditCards.length > 0 ? (
-                          userCreditCards.map(([bankKey, bank]) => (
-                            <SelectItem key={bankKey} value={bank.name}>
-                              {bank.name}
-                            </SelectItem>
-                          ))
-                        ) : (
-                          <SelectItem value="__none__" disabled>
-                            Nenhum cartão adicionado
-                          </SelectItem>
-                        )}
-                      </SelectGroup>
-                    </SelectContent>
-                  </Select>
-                )}
-              </div>
-              <DialogFooter>
-                <Button
-                  onClick={() => handleAddNewItem(false)}
-                  type="button"
-                  disabled={
-                    !text ||
-                    !price ||
-                    !category ||
-                    !date ||
-                    !paymentMethod ||
-                    (paymentMethod === "credit_card" && !selectedCreditCard)
-                  }
-                  className="w-full sm:w-auto"
-                >
-                  <span>Criar lançamento</span>
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-          <div>
-            <p className="font-semibold text-[#0F172A] dark:text-white">
-              Adicionar despesa
-            </p>
-            <p className="text-sm text-[#64748B] dark:text-[#94A3BB]">
-              Cadastre uma saída manualmente.
-            </p>
-          </div>
-        </div>
+              )}
+            </div>
+            <DialogFooter>
+              <Button
+                onClick={() => handleAddNewItem(false)}
+                type="button"
+                disabled={
+                  !text ||
+                  !price ||
+                  !category ||
+                  !date ||
+                  !paymentMethod ||
+                  (paymentMethod === "credit_card" && !selectedCreditCard)
+                }
+                className="w-full sm:w-auto"
+              >
+                <span>Criar lançamento</span>
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
         <a
           href={`https://wa.me/${process.env.NEXT_PUBLIC_WHATSAPP_BOT_NUMBER || "5538991245175"}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="surface-card flex items-center gap-4 p-5 sm:p-6 md:col-span-2 xl:col-span-2 transition-all hover:scale-[1.01] hover:border-[#22C55E]/30 active:scale-[0.99]"
+          className="surface-card col-span-2 flex items-center gap-3.5 p-4 transition-all hover:scale-[1.01] hover:border-[#22C55E]/30 active:scale-[0.99] sm:gap-4 sm:p-6 md:col-span-2 xl:col-span-2"
         >
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#22C55E]/12 text-[#16A34A] dark:bg-[#22C55E]/18 dark:text-[#4ADE80]">
-            <FaWhatsapp className="text-2xl" />
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#22C55E]/12 text-[#16A34A] sm:h-14 sm:w-14 dark:bg-[#22C55E]/18 dark:text-[#4ADE80]">
+            <FaWhatsapp className="text-xl sm:text-2xl" />
           </div>
-          <div>
-            <p className="font-semibold text-[#0F172A] dark:text-white flex items-center gap-2">
+          <div className="min-w-0">
+            <p className="flex flex-wrap items-center gap-2 text-sm font-semibold text-[#0F172A] sm:text-base dark:text-white">
               Teste o nosso Bot do WhatsApp
-              <span className="inline-flex rounded-full bg-[#22C55E]/10 px-2 py-0.5 text-xs font-semibold text-[#16A34A] dark:text-[#4ADE80] animate-pulse">
+              <span className="inline-flex rounded-full bg-[#22C55E]/10 px-2 py-0.5 text-xs font-semibold text-[#16A34A] animate-pulse dark:text-[#4ADE80]">
                 Novo
               </span>
             </p>
-            <p className="text-sm text-[#64748B] dark:text-[#94A3BB]">
+            <p className="text-xs text-[#64748B] sm:text-sm dark:text-[#94A3BB]">
               Cadastre transações enviando uma mensagem ou áudio.
             </p>
           </div>
         </a>
       </section>
-      <div className="flex flex-col gap-6 xl:flex-row xl:items-stretch">
-        <section className="surface-card w-full p-6 xl:max-w-105">
+      <div className="flex flex-col gap-4 sm:gap-6 xl:flex-row xl:items-stretch">
+        <section className="surface-card order-2 w-full p-5 sm:p-6 xl:order-1 xl:max-w-105">
           <p className="text-lg font-semibold text-[#0F172A] dark:text-white">
             Despesas por categoria
           </p>
           <p className="mt-1 text-sm text-[#64748B] dark:text-[#94A3BB]">
             Entenda rapidamente a distribuição das saídas.
           </p>
-          <div className="mt-6 flex justify-center items-center max-md:max-w-82">
+          <div className="mx-auto mt-6 flex items-center justify-center max-md:max-w-82">
             {loading ? (
               <AiOutlineLoading3Quarters className="h-24 w-24 animate-spin p-6 text-[#22C55E]" />
             ) : (
@@ -872,19 +892,19 @@ export const Main: FC = () => {
             )}
           </div>
         </section>
-        <div className="w-full xl:relative xl:flex-1">
-          <section className="surface-card-strong w-full flex flex-col xl:absolute xl:inset-0 overflow-hidden">
-            <header className="border-b soft-divider px-5 py-5 sm:px-6">
-              <h4 className="text-xl font-semibold text-[#0F172A] dark:text-white">
+        <div className="order-1 w-full xl:order-2 xl:relative xl:flex-1">
+          <section className="surface-card-strong flex w-full flex-col overflow-hidden xl:absolute xl:inset-0">
+            <header className="border-b soft-divider px-4 py-4 sm:px-6 sm:py-5">
+              <h4 className="text-lg font-semibold text-[#0F172A] sm:text-xl dark:text-white">
                 Últimas transações
               </h4>
-              <p className="text-sm text-[#64748B] dark:text-[#94A3BB]">
+              <p className="text-xs text-[#64748B] sm:text-sm dark:text-[#94A3BB]">
                 Acompanhe seus lançamentos recentes com leitura mais limpa.
               </p>
             </header>
             <main className="flex min-h-0 flex-1 flex-col">
               <TransactionHeader />
-              <div className="min-h-0 flex-1 overflow-auto">
+              <div className="max-h-112 min-h-0 flex-1 overflow-auto xl:max-h-none">
                 <ul className="divide-y divide-border/40">
                   {filterItems.map((item) =>
                     loading ? (
