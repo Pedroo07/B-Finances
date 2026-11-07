@@ -141,6 +141,26 @@ export function countSimilarRows(rows: ReviewRow[], id: string): number {
   ).length;
 }
 
+export function countSimilarRowsOutOfSync(
+  rows: ReviewRow[],
+  id: string,
+): number {
+  const source = rows.find((row) => row.id === id);
+  if (!source?.original) return 0;
+
+  const key = normalizeForMatch(source.original.rawDescription);
+  if (!key) return 0;
+
+  return rows.filter(
+    (row) =>
+      row.id !== id &&
+      row.original &&
+      normalizeForMatch(row.original.rawDescription) === key &&
+      (row.values.description !== source.values.description ||
+        row.values.category !== source.values.category),
+  ).length;
+}
+
 export function reviewReducer(
   state: ReviewState,
   action: ReviewAction,
