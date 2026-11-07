@@ -13,7 +13,7 @@ import Period from "../../dashboard/components/period";
 import { CardTransaction } from "@/lib/entities/cardTransaction";
 import { IoIosArrowRoundDown, IoIosArrowRoundUp } from "react-icons/io";
 import { FaChevronRight, FaChevronLeft } from "react-icons/fa";
-import { Trash2 } from "lucide-react";
+import { FileUp, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DialogHeader,
@@ -67,6 +67,7 @@ import {
   isValidBillingDay,
 } from "@/lib/creditCards/billing";
 import { computeInvoiceBalance } from "@/lib/creditCards/invoiceBalance";
+import { ImportInvoiceDialog } from "./import/ImportInvoiceDialog";
 
 const getTodayDate = () => {
   const now = new Date();
@@ -90,6 +91,7 @@ export const Main = () => {
   const [date, setDate] = useState("");
   const [installmentCount, setInstallmentCount] = useState(1);
   const [isAddExpenseDialogOpen, setIsAddExpenseDialogOpen] = useState(false);
+  const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
   const [isSavingExpense, setIsSavingExpense] = useState(false);
   const [expenseFormError, setExpenseFormError] = useState("");
   const [installmentToDelete, setInstallmentToDelete] =
@@ -438,6 +440,11 @@ export const Main = () => {
     setItems((currentItems) => currentItems.filter((item) => item.id !== id));
   };
 
+  const handleInvoiceImported = async () => {
+    const transactions = await getCardTransaction();
+    setItems(sortItemByDate(transactions || []));
+  };
+
   const handleAddNewItem = async () => {
     if (!selectedTransactionCard || isSavingExpense) return;
 
@@ -782,6 +789,20 @@ export const Main = () => {
 
   return (
     <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-4 sm:gap-6 sm:px-6 sm:py-6">
+      {currentCard && effectiveSelectedCardKey ? (
+        <ImportInvoiceDialog
+          open={isImportDialogOpen}
+          onOpenChange={setIsImportDialogOpen}
+          bankKey={effectiveSelectedCardKey}
+          cardName={currentCard.name}
+          cardItems={currentCardItems}
+          closingDay={currentCardClosingDay}
+          dueDay={currentCardDueDay}
+          paidPeriodKeys={currentCardPaidPeriodKeys}
+          onImported={handleInvoiceImported}
+        />
+      ) : null}
+
       <Dialog open={isAddCardDialogOpen} onOpenChange={setIsAddCardDialogOpen}>
         <DialogContent className="sm:max-w-106">
           <DialogHeader>
@@ -1508,27 +1529,47 @@ export const Main = () => {
 
           <div className="flex flex-col gap-4 sm:gap-6">
             <section className="grid gap-4 sm:gap-6 xl:grid-cols-[0.8fr_1.2fr]">
-              <button
-                type="button"
-                aria-label="Adicionar despesa"
-                onClick={() => {
-                  setDate(getTodayDate());
-                  setIsAddExpenseDialogOpen(true);
-                }}
-                className="surface-card flex w-full cursor-pointer items-center gap-3.5 p-4 text-left transition-all hover:scale-[1.01] hover:border-rose-400/30 active:scale-[0.98] sm:gap-4 sm:p-6"
-              >
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-rose-500/12 text-rose-500 sm:h-14 sm:w-14 dark:bg-rose-500/18 dark:text-rose-300">
-                  <FiMinusCircle className="text-xl sm:text-2xl" />
-                </div>
-                <div className="px-1">
-                  <p className="text-sm font-semibold text-[#0F172A] sm:text-base dark:text-white">
-                    Adicionar despesa
-                  </p>
-                  <p className="text-xs text-[#64748B] sm:text-sm dark:text-[#94A3BB]">
-                    Registre uma nova compra no cartão selecionado.
-                  </p>
-                </div>
-              </button>
+              <div className="flex flex-col gap-4 sm:gap-6">
+                <button
+                  type="button"
+                  aria-label="Adicionar despesa"
+                  onClick={() => {
+                    setDate(getTodayDate());
+                    setIsAddExpenseDialogOpen(true);
+                  }}
+                  className="surface-card flex w-full cursor-pointer items-center gap-3.5 p-4 text-left transition-all hover:scale-[1.01] hover:border-rose-400/30 active:scale-[0.98] sm:gap-4 sm:p-6"
+                >
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-rose-500/12 text-rose-500 sm:h-14 sm:w-14 dark:bg-rose-500/18 dark:text-rose-300">
+                    <FiMinusCircle className="text-xl sm:text-2xl" />
+                  </div>
+                  <div className="px-1">
+                    <p className="text-sm font-semibold text-[#0F172A] sm:text-base dark:text-white">
+                      Adicionar despesa
+                    </p>
+                    <p className="text-xs text-[#64748B] sm:text-sm dark:text-[#94A3BB]">
+                      Registre uma nova compra no cartão selecionado.
+                    </p>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  aria-label="Importar fatura"
+                  onClick={() => setIsImportDialogOpen(true)}
+                  className="surface-card flex w-full cursor-pointer items-center gap-3.5 p-4 text-left transition-all hover:scale-[1.01] hover:border-[#22C55E]/30 active:scale-[0.98] sm:gap-4 sm:p-6"
+                >
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#22C55E]/12 text-[#16A34A] sm:h-14 sm:w-14 dark:bg-[#22C55E]/18 dark:text-[#4ADE80]">
+                    <FileUp className="h-5 w-5 sm:h-6 sm:w-6" />
+                  </div>
+                  <div className="px-1">
+                    <p className="text-sm font-semibold text-[#0F172A] sm:text-base dark:text-white">
+                      Importar fatura
+                    </p>
+                    <p className="text-xs text-[#64748B] sm:text-sm dark:text-[#94A3BB]">
+                      Adicione várias compras de uma vez a partir do arquivo do banco.
+                    </p>
+                  </div>
+                </button>
+              </div>
               <section className="surface-card hidden p-6 xl:block">
                 <p className="text-lg font-semibold text-[#0F172A] dark:text-white">
                   Despesas por categoria
