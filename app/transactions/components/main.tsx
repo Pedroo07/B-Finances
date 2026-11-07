@@ -27,7 +27,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { translateCategory } from "@/lib/utils";
+import { ChevronDown, SlidersHorizontal } from "lucide-react";
+import { cn, translateCategory } from "@/lib/utils";
 import { BANKS, BankKey, isBankKey } from "@/app/CreditCard/banks";
 import { UserCreditCard } from "@/lib/entities/userCreditCard";
 
@@ -154,6 +155,7 @@ export const Main = () => {
   const [selectedCardFilter, setSelectedCardFilter] = useState("all");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [showMobileFilters, setShowMobileFilters] = useState(false);
 
   const isCreditCardMode = paymentMethodFilter === "credit_card";
 
@@ -320,7 +322,8 @@ export const Main = () => {
     ? separateCardAmountByCategory(filteredCardItems)
     : separateAmountByCategoryAndType(filterItems, selectedTransactionType);
 
-  const filterButtonClass = "surface-chip inline-flex items-center px-4 py-2";
+  const filterButtonClass =
+    "surface-chip inline-flex shrink-0 items-center px-3.5 py-2 text-xs sm:px-4 sm:text-sm";
   const hasExtraFilters =
     selectedTransactionType !== "all" ||
     currentSelectedCategory !== "all" ||
@@ -354,190 +357,217 @@ export const Main = () => {
         : "Nenhuma transação encontrada para os filtros selecionados.";
 
   return (
-    <div className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6 xl:flex-row xl:items-stretch">
-      <section className="flex w-full flex-col gap-6 xl:w-90 xl:flex-none">
-        <div className="surface-card p-6">
-          <div className="space-y-2">
-            <span className="inline-flex rounded-full border border-[#22C55E]/20 bg-[#22C55E]/10 px-4 py-2 text-sm font-medium text-[#15803D] dark:text-[#4ADE80]">
+    <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-4 sm:gap-6 sm:px-6 sm:py-6 xl:grid xl:grid-cols-[22.5rem_1fr] xl:items-stretch">
+      <div className="surface-card order-1 p-4 sm:p-6 xl:col-start-1 xl:row-start-1">
+        <div className="flex items-start justify-between gap-3">
+          <div className="space-y-1.5 sm:space-y-2">
+            <span className="inline-flex rounded-full border border-[#22C55E]/20 bg-[#22C55E]/10 px-3 py-1 text-xs font-medium text-[#15803D] sm:px-4 sm:py-2 sm:text-sm dark:text-[#4ADE80]">
               Historico financeiro
             </span>
-            <h1 className="text-3xl font-semibold tracking-tight text-[#0F172A] dark:text-white">
+            <h1 className="text-2xl font-semibold tracking-tight text-[#0F172A] sm:text-3xl dark:text-white">
               Transações
             </h1>
-            <p className="text-sm leading-6 text-[#64748B] dark:text-[#94A3BB]">
+            <p className="hidden text-sm leading-6 text-[#64748B] sm:block dark:text-[#94A3BB]">
               Filtre seu historico e acompanhe a distribuição das transações por
               categoria.
             </p>
           </div>
-          <ul className="mt-6 flex flex-wrap gap-2">
-            <li>
-              <button className={filterButtonClass} onClick={lastYearFilter}>
-                Ultimo ano
-              </button>
-            </li>
-            <li>
-              <button className={filterButtonClass} onClick={lastMonthSelected}>
-                Ultimo mes
-              </button>
-            </li>
-            <li>
-              <button className={filterButtonClass} onClick={thisMonthSelected}>
-                Este mes
-              </button>
-            </li>
-            <Period
-              onMonthChange={handleMonthChange}
-              selectedMonth={selectedMonth}
+          <button
+            type="button"
+            onClick={() => setShowMobileFilters((prev) => !prev)}
+            className={cn(
+              "surface-chip inline-flex shrink-0 items-center gap-1.5 px-3 py-2 text-xs md:hidden",
+              (showMobileFilters || hasExtraFilters) &&
+                "border-[#22C55E]/40 bg-[#22C55E]/12 text-[#15803D] dark:border-[#22C55E]/40 dark:bg-[#22C55E]/18 dark:text-[#4ADE80]",
+            )}
+          >
+            <SlidersHorizontal className="h-3.5 w-3.5" />
+            <span>Filtros</span>
+            <ChevronDown
+              className={cn(
+                "h-3.5 w-3.5 transition-transform",
+                showMobileFilters && "rotate-180",
+              )}
             />
-          </ul>
-          <div className="mt-6 space-y-3">
-            <div className="grid gap-2 md:grid-cols-2">
+          </button>
+        </div>
+
+        <ul className="mt-4 flex items-center gap-2 overflow-x-auto pb-1 sm:mt-6 sm:flex-wrap sm:overflow-visible sm:pb-0">
+          <li className="shrink-0">
+            <button className={filterButtonClass} onClick={lastYearFilter}>
+              Ultimo ano
+            </button>
+          </li>
+          <li className="shrink-0">
+            <button className={filterButtonClass} onClick={lastMonthSelected}>
+              Ultimo mes
+            </button>
+          </li>
+          <li className="shrink-0">
+            <button className={filterButtonClass} onClick={thisMonthSelected}>
+              Este mes
+            </button>
+          </li>
+          <Period
+            onMonthChange={handleMonthChange}
+            selectedMonth={selectedMonth}
+          />
+        </ul>
+
+        <div
+          className={cn(
+            "mt-4 space-y-3 sm:mt-6",
+            showMobileFilters ? "block" : "hidden md:block",
+          )}
+        >
+          <div className="grid gap-2 md:grid-cols-2">
+            <Select
+              value={paymentMethodFilter}
+              onValueChange={handlePaymentMethodChange}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Método de pagamento" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os métodos</SelectItem>
+                <SelectItem value="cash">Dinheiro</SelectItem>
+                <SelectItem value="pix">Pix</SelectItem>
+                <SelectItem value="debit">Cartão de Débito</SelectItem>
+                <SelectItem value="credit_card">Cartão de Crédito</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {isCreditCardMode ? (
               <Select
-                value={paymentMethodFilter}
-                onValueChange={handlePaymentMethodChange}
+                value={selectedCardFilter}
+                onValueChange={setSelectedCardFilter}
               >
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Método de pagamento" />
+                  <SelectValue placeholder="Selecionar cartão" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Todos os métodos</SelectItem>
-                  <SelectItem value="cash">Dinheiro</SelectItem>
-                  <SelectItem value="pix">Pix</SelectItem>
-                  <SelectItem value="debit">Cartão de Débito</SelectItem>
-                  <SelectItem value="credit_card">Cartão de Crédito</SelectItem>
+                  <SelectItem value="all">Todos os cartões</SelectItem>
+                  {availableUserCards.map(([bankKey, bank]) => (
+                    <SelectItem key={bankKey} value={bank.name}>
+                      {bank.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
+            ) : (
+              <Select
+                value={selectedTransactionType}
+                onValueChange={(value) =>
+                  setSelectedTransactionType(value as TransactionTypeFilter)
+                }
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Tipo da transação" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas</SelectItem>
+                  <SelectItem value="expense">Despesas</SelectItem>
+                  <SelectItem value="income">Receitas</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
 
-              {isCreditCardMode ? (
-                <Select
-                  value={selectedCardFilter}
-                  onValueChange={setSelectedCardFilter}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Selecionar cartão" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos os cartões</SelectItem>
-                    {availableUserCards.map(([bankKey, bank]) => (
-                      <SelectItem key={bankKey} value={bank.name}>
-                        {bank.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              ) : (
-                <Select
-                  value={selectedTransactionType}
-                  onValueChange={(value) =>
-                    setSelectedTransactionType(value as TransactionTypeFilter)
-                  }
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Tipo da transação" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todas</SelectItem>
-                    <SelectItem value="expense">Despesas</SelectItem>
-                    <SelectItem value="income">Receitas</SelectItem>
-                  </SelectContent>
-                </Select>
-              )}
+            {!isCreditCardMode && (
+              <Select
+                value={currentSelectedCategory}
+                onValueChange={setSelectedCategory}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Categoria" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas as categorias</SelectItem>
+                  {availableCategories.map((category) => (
+                    <SelectItem key={category} value={category}>
+                      {translateCategory(category)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
 
-              {!isCreditCardMode && (
-                <Select
-                  value={currentSelectedCategory}
-                  onValueChange={setSelectedCategory}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Categoria" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todas as categorias</SelectItem>
-                    {availableCategories.map((category) => (
-                      <SelectItem key={category} value={category}>
-                        {translateCategory(category)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-
-              <Input
-                type="date"
-                aria-label="Data inicial"
-                value={startDate}
-                onChange={(event) => setStartDate(event.target.value)}
-              />
-              <Input
-                type="date"
-                aria-label="Data final"
-                value={endDate}
-                onChange={(event) => setEndDate(event.target.value)}
-              />
-            </div>
-            <div className="flex flex-wrap items-center gap-3">
-              {hasExtraFilters ? (
-                <button
-                  className={filterButtonClass}
-                  onClick={clearExtraFilters}
-                >
-                  Limpar filtros
-                </button>
-              ) : null}
-              <p className="text-xs leading-5 text-[#64748B] dark:text-[#94A3BB]">
-                Ao preencher as datas, o intervalo abaixo substitui os atalhos
-                acima.
-              </p>
-            </div>
+            <Input
+              type="date"
+              aria-label="Data inicial"
+              value={startDate}
+              onChange={(event) => setStartDate(event.target.value)}
+            />
+            <Input
+              type="date"
+              aria-label="Data final"
+              value={endDate}
+              onChange={(event) => setEndDate(event.target.value)}
+            />
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            {hasExtraFilters ? (
+              <button
+                className={filterButtonClass}
+                onClick={clearExtraFilters}
+              >
+                Limpar filtros
+              </button>
+            ) : null}
+            <p className="text-xs leading-5 text-[#64748B] dark:text-[#94A3BB]">
+              Ao preencher as datas, o intervalo abaixo substitui os atalhos
+              acima.
+            </p>
           </div>
         </div>
-        <section className="surface-card p-6">
-          <p className="text-lg font-semibold text-[#0F172A] dark:text-white">
-            {chartTitle}
-          </p>
-          <p className="mt-1 text-sm text-[#64748B] dark:text-[#94A3BB]">
-            {chartDescription}
-          </p>
-          <div className="mt-6 flex justify-center">
-            {loading ? (
-              <AiOutlineLoading3Quarters className="h-24 w-24 animate-spin p-6 text-[#22C55E]" />
-            ) : results.chartData.length > 0 ? (
-              <DonutChart results={results} />
-            ) : (
-              <p className="rounded-2xl border border-dashed border-border/70 px-4 py-8 text-center text-sm text-[#64748B] dark:text-[#94A3BB]">
-                {emptyChartMessage}
-              </p>
-            )}
-          </div>
-          <div className="mt-4 text-xl">
-            {loading ? (
-              <Skeleton className="h-28 w-full" />
-            ) : results.percentageData.length > 0 ? (
-              <GraphicListItem results={results} />
-            ) : (
-              <p className="text-sm text-[#64748B] dark:text-[#94A3BB]">
-                Ajuste os filtros para visualizar a distribuição por categoria.
-              </p>
-            )}
-          </div>
-        </section>
+      </div>
+
+      <section className="surface-card order-3 p-5 sm:p-6 xl:col-start-1 xl:row-start-2">
+        <p className="text-lg font-semibold text-[#0F172A] dark:text-white">
+          {chartTitle}
+        </p>
+        <p className="mt-1 text-sm text-[#64748B] dark:text-[#94A3BB]">
+          {chartDescription}
+        </p>
+        <div className="mt-6 flex justify-center">
+          {loading ? (
+            <AiOutlineLoading3Quarters className="h-24 w-24 animate-spin p-6 text-[#22C55E]" />
+          ) : results.chartData.length > 0 ? (
+            <DonutChart results={results} />
+          ) : (
+            <p className="rounded-2xl border border-dashed border-border/70 px-4 py-8 text-center text-sm text-[#64748B] dark:text-[#94A3BB]">
+              {emptyChartMessage}
+            </p>
+          )}
+        </div>
+        <div className="mt-4 text-xl">
+          {loading ? (
+            <Skeleton className="h-28 w-full" />
+          ) : results.percentageData.length > 0 ? (
+            <GraphicListItem results={results} />
+          ) : (
+            <p className="text-sm text-[#64748B] dark:text-[#94A3BB]">
+              Ajuste os filtros para visualizar a distribuição por categoria.
+            </p>
+          )}
+        </div>
       </section>
-      <div className="w-full xl:relative xl:flex-1">
-        <section className="surface-card-strong w-full flex flex-col xl:absolute xl:inset-0 overflow-hidden">
-          <div className="border-b soft-divider px-5 py-5 sm:px-6 flex-none">
-            <h2 className="text-xl font-semibold text-[#0F172A] dark:text-white">
+
+      <div className="order-2 w-full xl:col-start-2 xl:row-span-2 xl:row-start-1 xl:relative xl:h-full">
+        <section className="surface-card-strong flex w-full flex-col overflow-hidden xl:absolute xl:inset-0">
+          <div className="border-b soft-divider flex-none px-4 py-4 sm:px-6 sm:py-5">
+            <h2 className="text-lg font-semibold text-[#0F172A] sm:text-xl dark:text-white">
               {isCreditCardMode
                 ? "Transações de cartão de crédito"
                 : "Ultimas transações"}
             </h2>
-            <p className="mt-1 text-sm text-[#64748B] dark:text-[#94A3BB]">
+            <p className="mt-0.5 text-xs text-[#64748B] sm:mt-1 sm:text-sm dark:text-[#94A3BB]">
               {isCreditCardMode
                 ? `${selectedCardFilter === "all" ? "Todos os cartões" : selectedCardFilter} - gastos registrados`
                 : "Consulte suas movimentações mais recentes."}
             </p>
           </div>
           <TransactionHeader />
-          <div className="min-h-0 flex-1 overflow-auto">
+          <div className="max-h-120 min-h-0 flex-1 overflow-auto xl:max-h-none">
             {isCreditCardMode ? (
               <ul className="w-full divide-y divide-border/40">
                 {loading ? (
