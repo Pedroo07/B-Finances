@@ -797,7 +797,7 @@ export const Main: FC = () => {
   };
 
   return (
-    <div className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6">
+    <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-4 sm:gap-6 sm:px-6 sm:py-6">
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="sm:max-w-106">
           <DialogHeader>
@@ -1123,23 +1123,23 @@ export const Main: FC = () => {
         </DialogContent>
       </Dialog>
 
-      <section className="surface-card p-6 sm:p-7">
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-          <div className="space-y-2">
-            <span className="inline-flex rounded-full border border-[#22C55E]/20 bg-[#22C55E]/10 px-4 py-2 text-sm font-medium text-[#15803D] dark:text-[#4ADE80]">
+      <section className="surface-card p-4 sm:p-7">
+        <div className="flex items-center justify-between gap-4 lg:items-end">
+          <div className="space-y-1.5 sm:space-y-2">
+            <span className="inline-flex rounded-full border border-[#22C55E]/20 bg-[#22C55E]/10 px-3 py-1 text-xs font-medium text-[#15803D] sm:px-4 sm:py-2 sm:text-sm dark:text-[#4ADE80]">
               Agenda financeira
             </span>
-            <h1 className="text-3xl font-semibold tracking-tight text-[#0F172A] dark:text-white">
+            <h1 className="text-2xl font-semibold tracking-tight text-[#0F172A] sm:text-3xl dark:text-white">
               Contas a Pagar
             </h1>
-            <p className="max-w-2xl text-sm leading-6 text-[#64748B] dark:text-[#94A3BB]">
+            <p className="hidden max-w-2xl text-sm leading-6 text-[#64748B] sm:block dark:text-[#94A3BB]">
               Acompanhe suas contas a pagar, visualize seu saldo projetado e
               registre novos compromissos financeiros.
             </p>
           </div>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
-              <Button className="w-fit">
+              <Button className="shrink-0">
                 <FiPlusCircle className="text-base" />
                 <span>Nova conta</span>
               </Button>
@@ -1148,13 +1148,13 @@ export const Main: FC = () => {
         </div>
       </section>
 
-      <section className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-wrap items-center gap-2">
+      <section className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible sm:pb-0">
           <Button
             variant={statusFilter === "all" ? "default" : "outline"}
             onClick={() => setStatusFilter("all")}
             size="sm"
-            className="rounded-full"
+            className="shrink-0 rounded-full"
           >
             Todas
           </Button>
@@ -1162,7 +1162,7 @@ export const Main: FC = () => {
             variant={statusFilter === "paid" ? "default" : "outline"}
             onClick={() => setStatusFilter("paid")}
             size="sm"
-            className="rounded-full"
+            className="shrink-0 rounded-full"
           >
             Pagas
           </Button>
@@ -1170,7 +1170,7 @@ export const Main: FC = () => {
             variant={statusFilter === "pending" ? "default" : "outline"}
             onClick={() => setStatusFilter("pending")}
             size="sm"
-            className="rounded-full"
+            className="shrink-0 rounded-full"
           >
             A Pagar
           </Button>
@@ -1178,17 +1178,17 @@ export const Main: FC = () => {
             variant={statusFilter === "overdue" ? "default" : "outline"}
             onClick={() => setStatusFilter("overdue")}
             size="sm"
-            className="rounded-full"
+            className="shrink-0 rounded-full"
           >
             Vencidas
           </Button>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible sm:pb-0">
           <Button
             variant={periodFilter === "current" ? "default" : "outline"}
             onClick={() => setPeriodFilter("current")}
             size="sm"
-            className="rounded-full"
+            className="shrink-0 rounded-full"
           >
             Mês Atual
           </Button>
@@ -1196,7 +1196,7 @@ export const Main: FC = () => {
             variant={periodFilter === "next" ? "default" : "outline"}
             onClick={() => setPeriodFilter("next")}
             size="sm"
-            className="rounded-full"
+            className="shrink-0 rounded-full"
           >
             Próximo Mês
           </Button>
@@ -1204,7 +1204,7 @@ export const Main: FC = () => {
             variant={periodFilter === "all" ? "default" : "outline"}
             onClick={() => setPeriodFilter("all")}
             size="sm"
-            className="rounded-full"
+            className="shrink-0 rounded-full"
           >
             Todos os Meses
           </Button>
@@ -1215,7 +1215,7 @@ export const Main: FC = () => {
               setCustomMonth(val);
             }}
           >
-            <SelectTrigger className="h-9 w-37 rounded-full">
+            <SelectTrigger className="h-9 w-37 shrink-0 rounded-full">
               <SelectValue placeholder="Mês específico" />
             </SelectTrigger>
             <SelectContent>
@@ -1239,44 +1239,44 @@ export const Main: FC = () => {
         </div>
       </section>
 
-      <section className="grid gap-4 md:grid-cols-3">
+      <section className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3">
         {loading || isLoading ? (
           <>
-            <Skeleton className="h-32" />
-            <Skeleton className="h-32" />
-            <Skeleton className="h-32" />
+            <Skeleton className="h-24 sm:h-32" />
+            <Skeleton className="h-24 sm:h-32" />
+            <Skeleton className="col-span-2 h-24 sm:h-32 md:col-span-1" />
           </>
         ) : (
           <>
-            <div className="surface-card flex flex-col justify-between gap-2 p-5 sm:p-6">
-              <div>
-                <p className="text-xs uppercase tracking-[0.22em] text-[#94A3BB]">
+            <div className="surface-card flex flex-col justify-between gap-2 p-4 sm:p-6">
+              <div className="min-w-0">
+                <p className="text-[11px] uppercase tracking-[0.18em] text-[#94A3BB] sm:text-xs sm:tracking-[0.22em]">
                   Saldo do mês Atual
                 </p>
-                <h2 className="mt-3 text-3xl font-semibold text-[#0F172A] dark:text-white">
+                <h2 className="mt-1.5 truncate text-lg font-semibold text-[#0F172A] sm:mt-3 sm:text-3xl dark:text-white">
                   {formatCurrency(totalBalance)}
                 </h2>
               </div>
             </div>
 
-            <div className="surface-card flex flex-col justify-between gap-2 p-5 sm:p-6">
-              <div>
-                <p className="text-xs uppercase tracking-[0.22em] text-[#94A3BB]">
+            <div className="surface-card flex flex-col justify-between gap-2 p-4 sm:p-6">
+              <div className="min-w-0">
+                <p className="text-[11px] uppercase tracking-[0.18em] text-[#94A3BB] sm:text-xs sm:tracking-[0.22em]">
                   Total a Pagar
                 </p>
-                <h2 className="mt-3 text-3xl font-semibold text-rose-500 dark:text-rose-300">
+                <h2 className="mt-1.5 truncate text-lg font-semibold text-rose-500 sm:mt-3 sm:text-3xl dark:text-rose-300">
                   {formatCurrency(totalPending)}
                 </h2>
               </div>
             </div>
 
-            <div className="surface-card flex flex-col justify-between gap-2 p-5 sm:p-6">
-              <div>
-                <p className="text-xs uppercase tracking-[0.22em] text-[#94A3BB]">
+            <div className="surface-card col-span-2 flex flex-col justify-between gap-2 p-4 sm:p-6 md:col-span-1">
+              <div className="min-w-0">
+                <p className="text-[11px] uppercase tracking-[0.18em] text-[#94A3BB] sm:text-xs sm:tracking-[0.22em]">
                   Saldo do mês Projetado
                 </p>
                 <h2
-                  className={`mt-3 text-3xl font-semibold ${
+                  className={`mt-1.5 truncate text-xl font-semibold sm:mt-3 sm:text-3xl ${
                     projectedBalance >= 0
                       ? "text-[#22C55E] dark:text-[#4ADE80]"
                       : "text-rose-500 dark:text-rose-300"
@@ -1290,9 +1290,9 @@ export const Main: FC = () => {
         )}
       </section>
 
-      <section className="surface-card p-6">
+      <section className="surface-card p-4 sm:p-6">
         {loading || isLoading ? (
-          <div className="space-y-4">
+          <div className="space-y-3 sm:space-y-4">
             <Skeleton className="h-24" />
             <Skeleton className="h-24" />
             <Skeleton className="h-24" />
@@ -1314,49 +1314,62 @@ export const Main: FC = () => {
               return (
                 <div
                   key={bill.id}
-                  className="flex items-center justify-between rounded-xl border border-border/40 p-4 hover:bg-white/50 transition-colors dark:hover:bg-white/5"
+                  className="flex flex-col gap-3 rounded-2xl border border-border/40 p-3.5 transition-colors hover:bg-white/50 sm:flex-row sm:items-center sm:justify-between sm:rounded-xl sm:p-4 dark:hover:bg-white/5"
                 >
-                  <div className="flex flex-1 items-center gap-4">
-                    <div
-                      className={`h-3 w-3 rounded-full ${
-                        billStatus === "paid"
-                          ? "bg-[#22C55E]"
-                          : billStatus === "overdue"
-                            ? "bg-rose-500"
-                            : billStatus === "due-soon"
-                              ? "bg-amber-500"
-                              : "bg-border"
-                      }`}
-                    />
-                    <div className="flex-1">
-                      <p className="font-semibold text-[#0F172A] dark:text-white">
-                        {bill.description}
+                  <div className="flex items-start justify-between gap-3 sm:flex-1 sm:items-center sm:gap-4">
+                    <div className="flex min-w-0 flex-1 items-center gap-3 sm:gap-4">
+                      <div
+                        className={`h-2.5 w-2.5 shrink-0 rounded-full sm:h-3 sm:w-3 ${
+                          billStatus === "paid"
+                            ? "bg-[#22C55E]"
+                            : billStatus === "overdue"
+                              ? "bg-rose-500"
+                              : billStatus === "due-soon"
+                                ? "bg-amber-500"
+                                : "bg-border"
+                        }`}
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold text-[#0F172A] sm:text-base dark:text-white">
+                          {bill.description}
+                        </p>
+                        <p className="text-xs text-[#64748B] sm:text-sm dark:text-[#94A3BB]">
+                          Vence em {formatDisplayDate(bill.dueDate)}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="shrink-0 text-right sm:hidden">
+                      <p className="text-base font-semibold text-[#0F172A] dark:text-white">
+                        {formatCurrency(bill.amount)}
                       </p>
-                      <p className="text-sm text-[#64748B] dark:text-[#94A3BB]">
-                        Vence em {formatDisplayDate(bill.dueDate)}
-                      </p>
+                      <span
+                        className={`mt-0.5 inline-flex rounded-full border px-2 py-0.5 text-[11px] font-semibold ${statusColor}`}
+                      >
+                        {statusLabel}
+                      </span>
                     </div>
                   </div>
 
-                  <div className="flex gap-3 max-sm:gap-0.5 items-end max-sm:flex-col">
-                    <div className="text-right">
+                  <div className="flex items-center justify-end gap-3 border-t border-border/40 pt-2.5 sm:border-t-0 sm:pt-0">
+                    <div className="hidden text-right sm:block">
                       <p className="text-lg font-semibold text-[#0F172A] dark:text-white">
                         {formatCurrency(bill.amount)}
                       </p>
                       <span
-                        className={`inline-flex rounded-full border px-2 max-sm:px-1 py-1 text-xs font-semibold ${statusColor}`}
+                        className={`inline-flex rounded-full border px-2 py-1 text-xs font-semibold ${statusColor}`}
                       >
                         {statusLabel}
                       </span>
                     </div>
 
-                    <div className="flex gap-2">
+                    <div className="flex w-full gap-2 sm:w-auto">
                       {isPending ? (
                         <>
                           <Button
                             size="sm"
                             onClick={() => openPaymentDialog(bill)}
-                            className="h-8"
+                            className="h-8 flex-1 sm:flex-initial"
                           >
                             Pagar
                           </Button>
@@ -1364,7 +1377,7 @@ export const Main: FC = () => {
                             size="sm"
                             variant="outline"
                             onClick={() => handleDeleteBill(bill)}
-                            className="h-8"
+                            className="h-8 flex-1 sm:flex-initial"
                           >
                             Remover
                           </Button>
@@ -1374,7 +1387,7 @@ export const Main: FC = () => {
                           size="sm"
                           variant="outline"
                           onClick={() => handleUnpayBill(bill.id)}
-                          className="h-8"
+                          className="h-8 w-full sm:w-auto"
                         >
                           Desfazer Pag.
                         </Button>
