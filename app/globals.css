@@ -110,7 +110,7 @@
 
 @layer components {
   .page-shell {
-    @apply min-h-screen text-foreground;
+    @apply min-h-screen pb-24 text-foreground lg:pb-0;
   }
 
   .surface-card {
