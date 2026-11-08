@@ -27,6 +27,7 @@ import {
   deleteCardImportBatch,
   importCardTransactions,
 } from "@/lib/services/cardImports";
+import { updateUserCreditCardBilling } from "@/lib/services/userCreditCards";
 import { getImportRules, saveImportRule } from "@/lib/services/importRules";
 import { ConfirmStep, ResultStep } from "./ConfirmStep";
 import { FileStep } from "./FileStep";
@@ -60,7 +61,21 @@ export const ImportInvoiceDialog = ({
   paidPeriodKeys,
   onImported,
 }: ImportInvoiceDialogProps) => {
-  const review = useImportReview();
+  const [expectedTotal, setExpectedTotal] = useState<number | undefined>(
+    undefined,
+  );
+  const [periodLabel, setPeriodLabel] = useState<string | undefined>(undefined);
+  const [extractedBilling, setExtractedBilling] = useState<{
+    closingDay: number;
+    dueDay: number;
+  } | null>(null);
+  const [appliedBilling, setAppliedBilling] = useState<{
+    closingDay: number;
+    dueDay: number;
+  } | null>(null);
+  const [isApplyingBilling, setIsApplyingBilling] = useState(false);
+
+  const review = useImportReview(expectedTotal);
   const [step, setStep] = useState<Step>("file");
   const [fileError, setFileError] = useState("");
   const [warnings, setWarnings] = useState<string[]>([]);
@@ -75,6 +90,20 @@ export const ImportInvoiceDialog = ({
   const [undoError, setUndoError] = useState("");
   const [isUndoing, setIsUndoing] = useState(false);
 
+  const effectiveClosingDay = appliedBilling?.closingDay ?? closingDay;
+  const effectiveDueDay = appliedBilling?.dueDay ?? dueDay;
+
+  const suggestedBilling = useMemo(() => {
+    if (!extractedBilling) return null;
+    if (
+      effectiveClosingDay === extractedBilling.closingDay &&
+      effectiveDueDay === extractedBilling.dueDay
+    ) {
+      return null;
+    }
+    return extractedBilling;
+  }, [extractedBilling, effectiveClosingDay, effectiveDueDay]);
+
   const includedRows = useMemo(
     () => getIncludedRows(review.rows),
     [review.rows],
@@ -84,18 +113,18 @@ export const ImportInvoiceDialog = ({
     [rememberEdits, review.rows, rules],
   );
   const paidPeriodWarning = useMemo(() => {
-    if (!closingDay || !dueDay) return null;
+    if (!effectiveClosingDay || !effectiveDueDay) return null;
 
     const count = countIncludedRowsInPeriods(
       review.rows,
       paidPeriodKeys,
-      closingDay,
-      dueDay,
+      effectiveClosingDay,
+      effectiveDueDay,
     );
     if (count === 0) return null;
 
     return `${count} ${count === 1 ? "lançamento pertence" : "lançamentos pertencem"} a faturas que já constam como pagas. Confira as datas antes de confirmar.`;
-  }, [review.rows, paidPeriodKeys, closingDay, dueDay]);
+  }, [review.rows, paidPeriodKeys, effectiveClosingDay, effectiveDueDay]);
   const batchCanUndo = useMemo(() => {
     const batch = summarizeImportBatches(cardItems).find(
       (item) => item.batchId === batchId,
@@ -105,6 +134,11 @@ export const ImportInvoiceDialog = ({
 
   const resetAll = () => {
     review.reset();
+    setExpectedTotal(undefined);
+    setPeriodLabel(undefined);
+    setExtractedBilling(null);
+    setAppliedBilling(null);
+    setIsApplyingBilling(false);
     setStep("file");
     setFileError("");
     setWarnings([]);
@@ -142,7 +176,7 @@ export const ImportInvoiceDialog = ({
 
     try {
       const buffer = await file.arrayBuffer();
-      const statement = parseStatementFile(file.name, buffer);
+      const statement = await parseStatementFile(file.name, buffer);
 
       if (statement.entries.length === 0) {
         throw new Error("Não encontrei lançamentos neste arquivo.");
@@ -174,6 +208,13 @@ export const ImportInvoiceDialog = ({
 
       setRules(loadedRules);
       setWarnings(nextWarnings);
+      setExpectedTotal(statement.expectedTotal);
+      setPeriodLabel(statement.periodLabel);
+      setExtractedBilling(
+        statement.closingDay && statement.dueDay
+          ? { closingDay: statement.closingDay, dueDay: statement.dueDay }
+          : null,
+      );
       review.load(
         createReviewState(statement.entries, { rules: loadedRules, existing }),
       );
@@ -185,6 +226,21 @@ export const ImportInvoiceDialog = ({
           : "Não foi possível ler o arquivo.",
       );
       setStep("file");
+    }
+  };
+
+  const handleApplySuggestedBilling = async () => {
+    if (!suggestedBilling || isApplyingBilling) return;
+
+    setIsApplyingBilling(true);
+    try {
+      await updateUserCreditCardBilling(bankKey, suggestedBilling);
+      setAppliedBilling(suggestedBilling);
+      await onImported();
+    } catch (error) {
+      console.error("Error applying suggested billing days:", error);
+    } finally {
+      setIsApplyingBilling(false);
     }
   };
 
@@ -313,6 +369,10 @@ export const ImportInvoiceDialog = ({
             rememberEdits={rememberEdits}
             onRememberEditsChange={setRememberEdits}
             paidPeriodWarning={paidPeriodWarning}
+            periodLabel={periodLabel}
+            suggestedBilling={suggestedBilling}
+            isApplyingBilling={isApplyingBilling}
+            onApplySuggestedBilling={handleApplySuggestedBilling}
           />
         ) : null}
 

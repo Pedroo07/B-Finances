@@ -441,8 +441,12 @@ export const Main = () => {
   };
 
   const handleInvoiceImported = async () => {
-    const transactions = await getCardTransaction();
+    const [transactions, creditCards] = await Promise.all([
+      getCardTransaction(),
+      getUserCreditCards(),
+    ]);
     setItems(sortItemByDate(transactions || []));
+    setUserCards(creditCards || []);
   };
 
   const handleAddNewItem = async () => {

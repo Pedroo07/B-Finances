@@ -17,12 +17,21 @@ import { formatCurrency } from "@/lib/utils";
 import { ReviewRowItem } from "./ReviewRow";
 import type { ImportReview } from "./useImportReview";
 
+type SuggestedBilling = {
+  closingDay: number;
+  dueDay: number;
+};
+
 type ReviewStepProps = {
   review: ImportReview;
   warnings: string[];
   rememberEdits: boolean;
   onRememberEditsChange: (value: boolean) => void;
   paidPeriodWarning?: string | null;
+  periodLabel?: string;
+  suggestedBilling?: SuggestedBilling | null;
+  isApplyingBilling?: boolean;
+  onApplySuggestedBilling?: () => void;
 };
 
 const BULK_FILTERS: {
@@ -48,6 +57,10 @@ export const ReviewStep = ({
   rememberEdits,
   onRememberEditsChange,
   paidPeriodWarning,
+  periodLabel,
+  suggestedBilling,
+  isApplyingBilling,
+  onApplySuggestedBilling,
 }: ReviewStepProps) => {
   const { rows, summary, blockingErrors, dispatch, canUndo } = review;
   const hasDifference =
@@ -79,11 +92,16 @@ export const ReviewStep = ({
             {summary.expectedTotal !== undefined
               ? ` · Fatura: ${formatCurrency(summary.expectedTotal)}`
               : ""}
+            {periodLabel ? ` · Período: ${periodLabel}` : ""}
           </p>
           {hasDifference ? (
             <p className="text-xs font-semibold text-amber-700 dark:text-amber-300">
               Diferença de {formatCurrency(summary.difference ?? 0)} em relação
               à fatura
+            </p>
+          ) : summary.expectedTotal !== undefined ? (
+            <p className="text-xs font-semibold text-[#15803D] dark:text-[#4ADE80]">
+              Total confere com o valor de compras da fatura
             </p>
           ) : null}
         </div>
@@ -109,6 +127,24 @@ export const ReviewStep = ({
           </Button>
         </div>
       </div>
+
+      {suggestedBilling && onApplySuggestedBilling ? (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-[#22C55E]/30 bg-[#22C55E]/10 px-4 py-3 text-xs text-[#15803D] dark:text-[#4ADE80]">
+          <span>
+            O PDF informa fechamento dia {suggestedBilling.closingDay} e
+            vencimento dia {suggestedBilling.dueDay}.
+          </span>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={onApplySuggestedBilling}
+            disabled={isApplyingBilling}
+          >
+            {isApplyingBilling ? "Salvando..." : "Usar estas datas no cartão"}
+          </Button>
+        </div>
+      ) : null}
 
       {warnings.length > 0 ? (
         <ul className="grid gap-1 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-xs text-amber-800 dark:text-amber-200">

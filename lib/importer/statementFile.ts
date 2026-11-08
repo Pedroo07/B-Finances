@@ -1,10 +1,12 @@
 import { parseCsv } from "./csv.ts";
 import { parseOfx } from "./ofx.ts";
+import { parsePdf } from "./pdf/index.ts";
+import type { ParsePdfOptions } from "./pdf/index.ts";
 import type { ParsedStatement } from "./types.ts";
 import { findCreditCardBankKeyInText } from "../creditCards/catalog.ts";
 import type { BankKey } from "../creditCards/catalog.ts";
 
-export const ACCEPTED_STATEMENT_EXTENSIONS = [".csv", ".ofx"] as const;
+export const ACCEPTED_STATEMENT_EXTENSIONS = [".pdf", ".csv", ".ofx"] as const;
 
 const BANK_HINT_ALIASES: { pattern: RegExp; bankKey: BankKey }[] = [
   { pattern: /\bnu\s+pagamentos\b|\bnubank\b/i, bankKey: "nubank" },
@@ -44,21 +46,18 @@ function decodeOfx(buffer: ArrayBuffer): string {
   return decodeText(buffer, "windows-1252");
 }
 
-export function parseStatementFile(
+export async function parseStatementFile(
   fileName: string,
   buffer: ArrayBuffer,
-): ParsedStatement {
+  pdfOptions?: ParsePdfOptions,
+): Promise<ParsedStatement> {
   const extension = getExtension(fileName);
 
   if (extension === ".csv") return parseCsv(decodeCsv(buffer));
   if (extension === ".ofx") return parseOfx(decodeOfx(buffer));
-  if (extension === ".pdf") {
-    throw new Error(
-      "A leitura de PDF ainda não está disponível. Use o arquivo CSV ou OFX da fatura.",
-    );
-  }
+  if (extension === ".pdf") return parsePdf(buffer, pdfOptions);
 
-  throw new Error("Formato não suportado. Envie um arquivo CSV ou OFX.");
+  throw new Error("Formato não suportado. Envie um arquivo PDF, CSV ou OFX.");
 }
 
 export function detectStatementBank(
