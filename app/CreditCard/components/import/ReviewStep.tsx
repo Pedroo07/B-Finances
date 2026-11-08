@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { Plus, Undo2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,7 +14,7 @@ import { EXPENSE_CATEGORIES } from "@/lib/transactionCategories";
 import { countSimilarRowsOutOfSync } from "@/lib/importer/review";
 import type { ImportedEntryKind } from "@/lib/importer/types";
 import { formatCurrency } from "@/lib/utils";
-import { ReviewRowItem } from "./ReviewRow";
+import { ReviewRowItem, ReviewRowSheet } from "./ReviewRow";
 import type { ImportReview } from "./useImportReview";
 
 type SuggestedBilling = {
@@ -63,6 +63,8 @@ export const ReviewStep = ({
   onApplySuggestedBilling,
 }: ReviewStepProps) => {
   const { rows, summary, blockingErrors, dispatch, canUndo } = review;
+  const [editingRowId, setEditingRowId] = useState<string | null>(null);
+  const editingRow = rows.find((row) => row.id === editingRowId) ?? null;
   const hasDifference =
     summary.difference !== undefined && Math.abs(summary.difference) > 0.005;
 
@@ -247,10 +249,44 @@ export const ReviewStep = ({
                   },
                 })
               }
+              onOpenMobileEdit={() => setEditingRowId(row.id)}
             />
           ))}
         </ul>
       )}
+
+      <ReviewRowSheet
+        row={editingRow}
+        summary={summary}
+        errors={editingRow ? blockingErrors.get(editingRow.id) : undefined}
+        outOfSyncCount={
+          editingRow ? countSimilarRowsOutOfSync(rows, editingRow.id) : 0
+        }
+        onClose={() => setEditingRowId(null)}
+        onToggle={() =>
+          editingRow && dispatch({ type: "toggle", id: editingRow.id })
+        }
+        onEdit={(patch) =>
+          editingRow && dispatch({ type: "edit", id: editingRow.id, patch })
+        }
+        onRestore={() =>
+          editingRow && dispatch({ type: "restore", id: editingRow.id })
+        }
+        onRemove={() =>
+          editingRow && dispatch({ type: "remove", id: editingRow.id })
+        }
+        onApplyToSimilar={() =>
+          editingRow &&
+          dispatch({
+            type: "applyToSimilar",
+            id: editingRow.id,
+            patch: {
+              description: editingRow.values.description,
+              category: editingRow.values.category,
+            },
+          })
+        }
+      />
 
       <label className="flex items-start gap-2 text-sm text-[#334155] dark:text-[#E2E8F0]">
         <input
