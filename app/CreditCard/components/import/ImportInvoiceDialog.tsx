@@ -15,7 +15,10 @@ import type { BankKey } from "@/lib/creditCards/catalog";
 import type { CardTransaction } from "@/lib/entities/cardTransaction";
 import { summarizeImportBatches } from "@/lib/importer/batches";
 import { collectRulesToLearn } from "@/lib/importer/learn";
-import { countIncludedRowsInPeriods } from "@/lib/importer/periods";
+import {
+  countIncludedRowsInPeriods,
+  getRowIdsInPeriods,
+} from "@/lib/importer/periods";
 import { createReviewState, getIncludedRows } from "@/lib/importer/review";
 import type { ImportRule } from "@/lib/importer/rules";
 import {
@@ -114,6 +117,15 @@ export const ImportInvoiceDialog = ({
     () => (rememberEdits ? collectRulesToLearn(review.rows, rules) : []),
     [rememberEdits, review.rows, rules],
   );
+  const paidRowIds = useMemo(() => {
+    if (!effectiveClosingDay || !effectiveDueDay) return new Set<string>();
+    return getRowIdsInPeriods(
+      review.rows,
+      paidPeriodKeys,
+      effectiveClosingDay,
+      effectiveDueDay,
+    );
+  }, [review.rows, paidPeriodKeys, effectiveClosingDay, effectiveDueDay]);
   const paidPeriodWarning = useMemo(() => {
     if (!effectiveClosingDay || !effectiveDueDay) return null;
 
@@ -373,6 +385,7 @@ export const ImportInvoiceDialog = ({
             rememberEdits={rememberEdits}
             onRememberEditsChange={setRememberEdits}
             paidPeriodWarning={paidPeriodWarning}
+            paidRowIds={paidRowIds}
             periodLabel={periodLabel}
             suggestedBilling={suggestedBilling}
             isApplyingBilling={isApplyingBilling}

@@ -28,6 +28,7 @@ type ReviewStepProps = {
   rememberEdits: boolean;
   onRememberEditsChange: (value: boolean) => void;
   paidPeriodWarning?: string | null;
+  paidRowIds?: Set<string>;
   periodLabel?: string;
   suggestedBilling?: SuggestedBilling | null;
   isApplyingBilling?: boolean;
@@ -58,6 +59,7 @@ export const ReviewStep = ({
   rememberEdits,
   onRememberEditsChange,
   paidPeriodWarning,
+  paidRowIds,
   periodLabel,
   suggestedBilling,
   isApplyingBilling,
@@ -237,6 +239,7 @@ export const ReviewStep = ({
               row={row}
               errors={blockingErrors.get(row.id)}
               outOfSyncCount={countSimilarRowsOutOfSync(rows, row.id)}
+              inPaidPeriod={paidRowIds?.has(row.id)}
               onToggle={() => dispatch({ type: "toggle", id: row.id })}
               onEdit={(patch) => dispatch({ type: "edit", id: row.id, patch })}
               onRestore={() => dispatch({ type: "restore", id: row.id })}

@@ -32,6 +32,7 @@ type ReviewRowItemProps = {
   row: ReviewRow;
   errors?: string[];
   outOfSyncCount: number;
+  inPaidPeriod?: boolean;
   onToggle: () => void;
   onEdit: (patch: Partial<ReviewValues>) => void;
   onRestore: () => void;
@@ -111,6 +112,7 @@ export const ReviewRowItem = ({
   row,
   errors,
   outOfSyncCount,
+  inPaidPeriod,
   onToggle,
   onEdit,
   onRestore,
@@ -144,6 +146,9 @@ export const ReviewRowItem = ({
       {kindLabel ? <ReviewBadge tone="slate">{kindLabel}</ReviewBadge> : null}
       {duplicateLabel ? (
         <ReviewBadge tone="amber">{duplicateLabel}</ReviewBadge>
+      ) : null}
+      {inPaidPeriod ? (
+        <ReviewBadge tone="amber">fatura paga</ReviewBadge>
       ) : null}
       {row.ruleId ? (
         <ReviewBadge tone="green">regra aplicada</ReviewBadge>
