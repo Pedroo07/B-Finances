@@ -18,6 +18,10 @@ export type ParsedStatement = {
   source: ImportSource;
   accountKind?: "credit-card" | "bank";
   bankHint?: string;
+  expectedTotal?: number;
+  closingDay?: number;
+  dueDay?: number;
+  periodLabel?: string;
   entries: ParsedEntry[];
   warnings: string[];
 };
