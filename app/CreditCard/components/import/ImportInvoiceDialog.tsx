@@ -31,6 +31,7 @@ import { updateUserCreditCardBilling } from "@/lib/services/userCreditCards";
 import { getImportRules, saveImportRule } from "@/lib/services/importRules";
 import { ConfirmStep, ResultStep } from "./ConfirmStep";
 import { FileStep } from "./FileStep";
+import { ImportRulesDialog } from "./ImportRulesDialog";
 import { ReviewStep } from "./ReviewStep";
 import { useImportReview } from "./useImportReview";
 
@@ -89,6 +90,7 @@ export const ImportInvoiceDialog = ({
   const [undone, setUndone] = useState(false);
   const [undoError, setUndoError] = useState("");
   const [isUndoing, setIsUndoing] = useState(false);
+  const [isRulesDialogOpen, setIsRulesDialogOpen] = useState(false);
 
   const effectiveClosingDay = appliedBilling?.closingDay ?? closingDay;
   const effectiveDueDay = appliedBilling?.dueDay ?? dueDay;
@@ -152,6 +154,7 @@ export const ImportInvoiceDialog = ({
     setUndone(false);
     setUndoError("");
     setIsUndoing(false);
+    setIsRulesDialogOpen(false);
   };
 
   const handleOpenChange = (nextOpen: boolean) => {
@@ -352,6 +355,7 @@ export const ImportInvoiceDialog = ({
               error={fileError}
               disabled={step === "processing"}
               onFileSelected={handleFileSelected}
+              onManageRules={() => setIsRulesDialogOpen(true)}
             />
             {step === "processing" ? (
               <p className="flex items-center justify-center gap-2 text-sm text-[#64748B] dark:text-[#94A3BB]">
@@ -373,6 +377,7 @@ export const ImportInvoiceDialog = ({
             suggestedBilling={suggestedBilling}
             isApplyingBilling={isApplyingBilling}
             onApplySuggestedBilling={handleApplySuggestedBilling}
+            onManageRules={() => setIsRulesDialogOpen(true)}
           />
         ) : null}
 
@@ -481,6 +486,12 @@ export const ImportInvoiceDialog = ({
           ) : null}
         </DialogFooter>
       </DialogContent>
+      <ImportRulesDialog
+        open={isRulesDialogOpen}
+        onOpenChange={setIsRulesDialogOpen}
+        initialRules={rules}
+        onRulesChange={setRules}
+      />
     </Dialog>
   );
 };

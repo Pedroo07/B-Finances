@@ -32,6 +32,7 @@ type ReviewStepProps = {
   suggestedBilling?: SuggestedBilling | null;
   isApplyingBilling?: boolean;
   onApplySuggestedBilling?: () => void;
+  onManageRules?: () => void;
 };
 
 const BULK_FILTERS: {
@@ -61,6 +62,7 @@ export const ReviewStep = ({
   suggestedBilling,
   isApplyingBilling,
   onApplySuggestedBilling,
+  onManageRules,
 }: ReviewStepProps) => {
   const { rows, summary, blockingErrors, dispatch, canUndo } = review;
   const [editingRowId, setEditingRowId] = useState<string | null>(null);
@@ -288,17 +290,28 @@ export const ReviewStep = ({
         }
       />
 
-      <label className="flex items-start gap-2 text-sm text-[#334155] dark:text-[#E2E8F0]">
-        <input
-          type="checkbox"
-          checked={rememberEdits}
-          onChange={(event) => onRememberEditsChange(event.target.checked)}
-          className="mt-0.5 h-4 w-4 accent-[#22C55E]"
-        />
-        <span>
-          Lembrar minhas edições de nome e categoria para as próximas faturas
-        </span>
-      </label>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <label className="flex items-start gap-2 text-sm text-[#334155] dark:text-[#E2E8F0]">
+          <input
+            type="checkbox"
+            checked={rememberEdits}
+            onChange={(event) => onRememberEditsChange(event.target.checked)}
+            className="mt-0.5 h-4 w-4 accent-[#22C55E]"
+          />
+          <span>
+            Lembrar minhas edições de nome e categoria para as próximas faturas
+          </span>
+        </label>
+        {onManageRules ? (
+          <button
+            type="button"
+            onClick={onManageRules}
+            className="text-xs font-semibold text-[#15803D] underline underline-offset-2 dark:text-[#4ADE80]"
+          >
+            Gerenciar regras aprendidas
+          </button>
+        ) : null}
+      </div>
     </div>
   );
 };

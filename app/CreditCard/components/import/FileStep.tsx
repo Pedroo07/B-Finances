@@ -10,6 +10,7 @@ type FileStepProps = {
   error: string;
   disabled?: boolean;
   onFileSelected: (file: File) => void;
+  onManageRules?: () => void;
 };
 
 export const FileStep = ({
@@ -17,6 +18,7 @@ export const FileStep = ({
   error,
   disabled,
   onFileSelected,
+  onManageRules,
 }: FileStepProps) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -67,10 +69,22 @@ export const FileStep = ({
           }}
         />
       </label>
-      <p className="text-xs text-[#64748B] dark:text-[#94A3BB]">
-        O arquivo é lido no seu dispositivo. Nada é salvo antes de você revisar
-        e confirmar.
-      </p>
+      <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-[#64748B] dark:text-[#94A3BB]">
+        <p>
+          O arquivo é lido no seu dispositivo. Nada é salvo antes de você
+          revisar e confirmar.
+        </p>
+        {onManageRules ? (
+          <button
+            type="button"
+            onClick={onManageRules}
+            disabled={disabled}
+            className="font-semibold text-[#15803D] underline underline-offset-2 dark:text-[#4ADE80]"
+          >
+            Gerenciar regras aprendidas
+          </button>
+        ) : null}
+      </div>
       {error ? (
         <p
           role="alert"
