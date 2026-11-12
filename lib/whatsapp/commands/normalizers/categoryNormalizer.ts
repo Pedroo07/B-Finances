@@ -319,6 +319,8 @@ const INCOME_RULES: Array<{
       "gorjeta",
       "rendimento",
       "venda",
+      "vendi",
+      "vendido",
       "reembolso",
     ],
   },

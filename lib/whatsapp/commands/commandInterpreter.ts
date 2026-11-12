@@ -485,6 +485,7 @@ EXEMPLOS:
 "minhas contas pendentes" => query bill list
 "como foi meu mes?" => query summary summary current_month
 "Corte de cabelo 40 reais no cartao nubank" => create card_transaction expense, description "Corte de cabelo", amount 40, paymentMethod credit_card, cardName Nubank
+"Vendi um ventilador por 90 reais recebi no pix" => create transaction income, description "Ventilador", amount 90, category extra, paymentMethod pix
 "transferencia 50 no cartao inte" => create card_transaction expense, description "Transferencia", amount 50, paymentMethod credit_card, cardName Inter`;
 }
 

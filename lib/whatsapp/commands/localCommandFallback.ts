@@ -57,9 +57,13 @@ const CARD_OPTIONS: TransactionValidationOption[] = CREDIT_CARD_BANK_KEYS.map(
 type MoneyHit = { value: number; span: Span };
 
 function findAmount(normalized: string): MoneyHit | null {
-  const currencyBefore = new RegExp(`(?:r\\$|rs)\\s*(${MONEY_VALUE_PATTERN})`);
+  const amountPrefix =
+    "(?:\\b(?:no\\s+valor\\s+de|pelo\\s+valor\\s+de|valor\\s+de|custou|custando|por|de)\\s+)?";
+  const currencyBefore = new RegExp(
+    `${amountPrefix}(?:r\\$|rs)\\s*(${MONEY_VALUE_PATTERN})`,
+  );
   const currencyAfter = new RegExp(
-    `(${MONEY_VALUE_PATTERN})\\s*(?:reais|real|conto|contos|pila|pilas)\\b`,
+    `${amountPrefix}(${MONEY_VALUE_PATTERN})\\s*(?:reais|real|conto|contos|pila|pilas)\\b`,
   );
 
   for (const pattern of [currencyBefore, currencyAfter]) {
@@ -82,9 +86,17 @@ function findAmount(normalized: string): MoneyHit | null {
   if (hits.length !== 1 || hits[0].index === undefined) return null;
   const value = parseMoney(hits[0][1]);
   if (value === null || value <= 0) return null;
+  let start = hits[0].index;
+  const prefixMatch =
+    /\b(?:no\s+valor\s+de|pelo\s+valor\s+de|valor\s+de|custou|custando|por|de)\s+$/.exec(
+      normalized.slice(0, start),
+    );
+  if (prefixMatch) {
+    start = prefixMatch.index;
+  }
   return {
     value,
-    span: [hits[0].index, hits[0].index + hits[0][0].length],
+    span: [start, hits[0].index + hits[0][0].length],
   };
 }
 
@@ -94,15 +106,18 @@ type PaymentHit = {
   spans: Span[];
 };
 
+const PAYMENT_VERB_PREFIX =
+  "(?:(?:\\be\\s+)?\\b(?:recebi|recebido|recebendo|paguei|pago|pagando|passei|passado|caiu|feito|fiz|mandei|enviei)\\s+)?";
+
 function findCardByName(normalized: string): PaymentHit | null {
   // Nome do banco sem a palavra "cartao" ("40 reais no nubank"). Exige uma
   // preposicao antes para nao confundir "caixa de som" com o cartao Caixa.
   for (const option of CARD_OPTIONS) {
     for (const name of [option.label, ...(option.aliases ?? [])]) {
       const phrase = escapeRegExp(normalizeText(name)).replace(/\s+/g, "\\s+");
-      const match = new RegExp(`\\b(?:no|na|pelo|pela)\\s+${phrase}\\b`).exec(
-        normalized,
-      );
+      const match = new RegExp(
+        `${PAYMENT_VERB_PREFIX}\\b(?:no|na|pelo|pela)\\s+${phrase}\\b`,
+      ).exec(normalized);
       if (match) {
         return {
           paymentMethod: "credit_card",
@@ -116,10 +131,9 @@ function findCardByName(normalized: string): PaymentHit | null {
 }
 
 function findPayment(normalized: string): PaymentHit {
-  const debit =
-    /(?:\b(?:no|na|em|via|pelo|pela)\s+)?(?:\bcartao\s+(?:de\s+)?)?\bdebito\b/.exec(
-      normalized,
-    );
+  const debit = new RegExp(
+    `${PAYMENT_VERB_PREFIX}(?:\\b(?:no|na|em|via|pelo|pela)\\s+)?(?:\\bcartao\\s+(?:de\\s+)?)?\\bdebito\\b`,
+  ).exec(normalized);
   if (debit) {
     return {
       paymentMethod: "debit",
@@ -128,7 +142,9 @@ function findPayment(normalized: string): PaymentHit {
     };
   }
 
-  const pix = /(?:\b(?:no|na|em|via|pelo|pela|por)\s+)?\bpix\b/.exec(normalized);
+  const pix = new RegExp(
+    `${PAYMENT_VERB_PREFIX}(?:\\b(?:no|na|em|via|pelo|pela|por)\\s+)?\\bpix\\b`,
+  ).exec(normalized);
   if (pix) {
     return {
       paymentMethod: "pix",
@@ -137,9 +153,9 @@ function findPayment(normalized: string): PaymentHit {
     };
   }
 
-  const cash = /(?:\b(?:no|na|em|com)\s+)?\b(?:dinheiro|especie)\b/.exec(
-    normalized,
-  );
+  const cash = new RegExp(
+    `${PAYMENT_VERB_PREFIX}(?:\\b(?:no|na|em|com)\\s+)?\\b(?:dinheiro|especie)\\b`,
+  ).exec(normalized);
   if (cash) {
     return {
       paymentMethod: "cash",
@@ -149,10 +165,9 @@ function findPayment(normalized: string): PaymentHit {
   }
 
   // "cartao <nome>" com tolerancia a erro de digitacao/audio ("cartao inte" => Inter)
-  const card =
-    /(?:\b(?:no|na|em|pelo|pela|com)\s+)?\bcartao\b(?:\s+de\s+credito\b)?(?:\s+(?:do|da|de)\b)?/.exec(
-      normalized,
-    );
+  const card = new RegExp(
+    `${PAYMENT_VERB_PREFIX}(?:\\b(?:no|na|em|pelo|pela|com)\\s+)?\\bcartao\\b(?:\\s+de\\s+credito\\b)?(?:\\s+(?:do|da|de)\\b)?`,
+  ).exec(normalized);
   if (card) {
     const prefixEnd = card.index + card[0].length;
     const tail = normalized.slice(prefixEnd);
@@ -195,7 +210,9 @@ function findPayment(normalized: string): PaymentHit {
   const byName = findCardByName(normalized);
   if (byName) return byName;
 
-  const credit = /(?:\b(?:no|na|em)\s+)?\bcredito\b/.exec(normalized);
+  const credit = new RegExp(
+    `${PAYMENT_VERB_PREFIX}(?:\\b(?:no|na|em)\\s+)?\\bcredito\\b`,
+  ).exec(normalized);
   if (credit) {
     return {
       paymentMethod: "credit_card",
@@ -206,6 +223,9 @@ function findPayment(normalized: string): PaymentHit {
 
   return { paymentMethod: null, cardName: null, spans: [] };
 }
+
+const ACTION_VERBS_EDGE =
+  /^(?:eu\s+)?(?:gastei|comprei|paguei|pago|recebi|recebido|ganhei|vendi|vendido|entrou|saiu|caiu|foi|foram|adicione|adiciona|adicionar|registre|registra|registrar|lance|lanca|lancar|anote|anota|anotar|coloca|coloque|colocar|depositei|transferi|mandei|enviei)\b|\b(?:e\s+)?(?:gastei|comprei|paguei|pago|recebi|recebido|ganhei|vendi|vendido|entrou|saiu|caiu)$/i;
 
 function buildDescription(original: string, spans: Span[]): string | null {
   // Remove os trechos de valor/pagamento mantendo a grafia original do usuario.
@@ -218,23 +238,21 @@ function buildDescription(original: string, spans: Span[]): string | null {
     .join("")
     .replace(/\b(?:parcelad[oa]|dividid[oa])\b.*$/i, " ")
     .replace(/\b\d{1,2}\s*x\b/gi, " ")
-    .replace(/\b(?:hoje|ontem|anteontem)\b/gi, " ")
-    .replace(
-      /^\s*(?:eu\s+)?(?:gastei|comprei|paguei|recebi|ganhei|adicione|adiciona|adicionar|registre|registra|lance|anote|anota|coloca|coloque)\b/i,
-      " ",
-    )
+    .replace(/\b(?:hoje|ontem|anteontem|agora)\b/gi, " ")
     .replace(/\s+/g, " ")
     .trim();
 
   // Remove conectores soltos no inicio/fim ("de", "no", "com", "por"...)
   const connectors =
-    /^(?:de|do|da|no|na|em|com|por|pra|para|um|uma|e)\s+|\s+(?:de|do|da|no|na|em|com|por|pra|para|e)$/i;
+    /^(?:de|do|da|dos|das|no|na|nos|nas|em|com|por|pelo|pela|pra|para|um|uma|uns|umas|o|a|os|as|meu|minha|e|que)\s+|\s+(?:de|do|da|dos|das|no|na|nos|nas|em|com|por|pelo|pela|pra|para|e|que)$/i;
   let previous = "";
   while (previous !== text) {
     previous = text;
     text = text
+      .replace(ACTION_VERBS_EDGE, "")
       .replace(connectors, "")
       .replace(/^[-,.:;]+|[-,.:;]+$/g, "")
+      .replace(/\s+/g, " ")
       .trim();
   }
 
