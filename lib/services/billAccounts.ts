@@ -40,6 +40,7 @@ import {
   markCardTransactionsAsPaid,
   unmarkCardTransactionsAsPaid,
 } from "./cardTransactions";
+import { getCachedData, invalidateCachedData, setCachedData } from "./clientCache";
 
 const auth = getAuth();
 
@@ -143,20 +144,26 @@ export async function createMonthlyBillAccountSeries(
   batch.set(seriesRef, series);
   batch.set(doc(billAccountsRef, firstOccurrence.id), firstOccurrence);
   await batch.commit();
+  invalidateCachedData("billAccounts", auth.currentUser?.uid);
 
   return firstOccurrence;
 }
 
 export async function syncMonthlyBillAccountOccurrences(
   referenceDate = new Date(),
+  existingBills?: BillAccount[],
 ): Promise<BillAccount[]> {
-  const [seriesSnapshot, billsSnapshot] = await Promise.all([
+  const user = auth.currentUser;
+  const cachedOrProvidedBills =
+    existingBills ?? getCachedData<BillAccount[]>("billAccounts", user?.uid);
+  const [seriesSnapshot, existingBillIds] = await Promise.all([
     getDocs(getUserMonthlyBillAccountSeriesCollection()),
-    getDocs(getUserBillAccountsCollection()),
+    cachedOrProvidedBills
+      ? Promise.resolve(new Set(cachedOrProvidedBills.map((bill) => bill.id)))
+      : getDocs(getUserBillAccountsCollection()).then(
+          (snap) => new Set(snap.docs.map((billDoc) => billDoc.id)),
+        ),
   ]);
-  const existingBillIds = new Set(
-    billsSnapshot.docs.map((billDoc) => billDoc.id),
-  );
   const billsRef = getUserBillAccountsCollection();
   const currentMonth = getMonthKey(referenceDate);
   const generatedBills: BillAccount[] = [];
@@ -208,6 +215,17 @@ export async function syncMonthlyBillAccountOccurrences(
   }
 
   await commitBatch();
+  if (generatedBills.length > 0) {
+    if (cachedOrProvidedBills) {
+      setCachedData(
+        "billAccounts",
+        [...cachedOrProvidedBills, ...generatedBills],
+        user?.uid,
+      );
+    } else {
+      invalidateCachedData("billAccounts", user?.uid);
+    }
+  }
   return generatedBills;
 }
 
@@ -269,18 +287,92 @@ export async function findCreditCardInvoiceBill(
   return invoiceBill;
 }
 
+function findCreditCardInvoiceBillInMemory(
+  bills: BillAccount[],
+  creditCardId: string,
+  periodKey: string,
+): BillAccount | null {
+  const candidates = bills.filter(
+    (bill) =>
+      bill.creditCardId === creditCardId &&
+      bill.creditCardInvoicePeriodKey === periodKey,
+  );
+  if (candidates.length === 0) return null;
+
+  return candidates.sort((a, b) => {
+    if (
+      a.source === "credit_card_invoice" &&
+      b.source !== "credit_card_invoice"
+    )
+      return -1;
+    if (
+      a.source !== "credit_card_invoice" &&
+      b.source === "credit_card_invoice"
+    )
+      return 1;
+    return (a.createdAt ?? "").localeCompare(b.createdAt ?? "");
+  })[0];
+}
+
+function isInvoiceBillUnchanged(
+  existingBill: BillAccount,
+  invoice: CreditCardInvoiceBillDto,
+): boolean {
+  if (existingBill.source !== "credit_card_invoice") return false;
+  if (existingBill.description !== invoice.description) return false;
+  if (Math.round(existingBill.amount * 100) !== Math.round(invoice.amount * 100))
+    return false;
+  if (existingBill.dueDate !== invoice.dueDate) return false;
+  if (existingBill.status !== invoice.status) return false;
+  if (invoice.status === "pending") {
+    return !existingBill.paymentTransactionId && !existingBill.paidAt;
+  }
+  return (
+    (existingBill.paymentTransactionId ?? undefined) ===
+      (invoice.paymentTransactionId ?? undefined) &&
+    (existingBill.paidAt ?? undefined) === (invoice.paidAt ?? undefined)
+  );
+}
+
 export async function syncCreditCardInvoiceBills(
   invoices: CreditCardInvoiceBillDto[],
+  existingBills?: BillAccount[],
 ): Promise<BillAccount[]> {
   const user = auth.currentUser;
   if (!user) throw new Error("User not authenticated");
+  if (invoices.length === 0) return [];
+
+  const knownBills =
+    existingBills ?? getCachedData<BillAccount[]>("billAccounts", user.uid);
+  let didWrite = false;
 
   const syncedBills = await Promise.all(
     invoices.map(async (invoice) => {
-      const existingBill = await findCreditCardInvoiceBill(
-        invoice.creditCardId,
-        invoice.creditCardInvoicePeriodKey,
-      );
+      const memoryMatch = knownBills
+        ? findCreditCardInvoiceBillInMemory(
+            knownBills,
+            invoice.creditCardId,
+            invoice.creditCardInvoicePeriodKey,
+          )
+        : null;
+
+      if (memoryMatch && isInvoiceBillUnchanged(memoryMatch, invoice)) {
+        return memoryMatch;
+      }
+
+      const existingBill =
+        memoryMatch ??
+        (knownBills
+          ? null
+          : await findCreditCardInvoiceBill(
+              invoice.creditCardId,
+              invoice.creditCardInvoicePeriodKey,
+            ));
+
+      if (existingBill && isInvoiceBillUnchanged(existingBill, invoice)) {
+        return existingBill;
+      }
+
       const billId =
         existingBill?.id ??
         getCreditCardInvoiceBillId(
@@ -301,21 +393,25 @@ export async function syncCreditCardInvoiceBills(
         creditCardInvoicePeriodKey: invoice.creditCardInvoicePeriodKey,
         source: "credit_card_invoice",
         hiddenFromBills,
+        ...(invoice.status === "paid"
+          ? {
+              ...(invoice.paymentTransactionId && {
+                paymentTransactionId: invoice.paymentTransactionId,
+              }),
+              ...(invoice.paidAt && { paidAt: invoice.paidAt }),
+            }
+          : {}),
         createdAt,
       };
 
+      didWrite = true;
       await setDoc(
         billRef,
         {
           ...billData,
           ...(invoice.status === "pending"
             ? { paymentTransactionId: deleteField(), paidAt: deleteField() }
-            : {
-                ...(invoice.paymentTransactionId && {
-                  paymentTransactionId: invoice.paymentTransactionId,
-                }),
-                ...(invoice.paidAt && { paidAt: invoice.paidAt }),
-              }),
+            : {}),
         },
         { merge: true },
       );
@@ -327,33 +423,50 @@ export async function syncCreditCardInvoiceBills(
     }),
   );
 
+  if (didWrite) {
+    invalidateCachedData("billAccounts", user.uid);
+  }
+
   return syncedBills;
 }
 
 export async function createBillAccount(
   data: BillAccountDto,
 ): Promise<BillAccount> {
+  const user = auth.currentUser;
   const billRef = getUserBillAccountsCollection();
+  const createdAt = new Date().toISOString().split("T")[0];
   const createdBill = await addDoc(billRef, {
     ...data,
-    createdAt: new Date().toISOString().split("T")[0],
+    createdAt,
   });
 
-  return {
+  const created: BillAccount = {
     id: createdBill.id,
     ...data,
-    createdAt: new Date().toISOString().split("T")[0],
+    createdAt,
   };
+  const cached = getCachedData<BillAccount[]>("billAccounts", user?.uid);
+  if (cached) {
+    setCachedData("billAccounts", [created, ...cached], user?.uid);
+  } else {
+    invalidateCachedData("billAccounts", user?.uid);
+  }
+  return created;
 }
 
 export async function getBillAccounts(): Promise<BillAccount[]> {
+  const user = auth.currentUser;
   const billRef = getUserBillAccountsCollection();
   const foundBills = await getDocs(billRef);
 
-  return foundBills.docs.map((doc) => ({
+  const items = foundBills.docs.map((doc) => ({
     id: doc.id,
     ...doc.data(),
   })) as BillAccount[];
+
+  setCachedData("billAccounts", items, user?.uid);
+  return items;
 }
 
 export async function updateBillAccount(
@@ -365,6 +478,7 @@ export async function updateBillAccount(
 
   const billRef = doc(db, `users/${user.uid}/billAccounts`, id);
   await updateDoc(billRef, data);
+  invalidateCachedData("billAccounts", user.uid);
 
   const updatedBill = await getBillAccounts();
   return updatedBill.find((bill) => bill.id === id) || ({} as BillAccount);
@@ -376,11 +490,22 @@ export async function deleteBillAccount(id: string): Promise<void> {
 
   const billRef = doc(db, `users/${user.uid}/billAccounts`, id);
   await deleteDoc(billRef);
+  const cached = getCachedData<BillAccount[]>("billAccounts", user.uid);
+  if (cached) {
+    setCachedData(
+      "billAccounts",
+      cached.filter((item) => item.id !== id),
+      user.uid,
+    );
+  } else {
+    invalidateCachedData("billAccounts", user.uid);
+  }
 }
 
 export async function deleteMonthlyBillAccountOccurrence(
   id: string,
 ): Promise<void> {
+  const user = auth.currentUser;
   const billRef = doc(getUserBillAccountsCollection(), id);
   const billDoc = await getDoc(billRef);
 
@@ -393,6 +518,7 @@ export async function deleteMonthlyBillAccountOccurrence(
 
   if (!bill.recurringSeriesId) {
     await deleteDoc(billRef);
+    invalidateCachedData("billAccounts", user?.uid);
     return;
   }
 
@@ -404,6 +530,7 @@ export async function deleteMonthlyBillAccountOccurrence(
 
   if (!seriesDoc.exists()) {
     await deleteDoc(billRef);
+    invalidateCachedData("billAccounts", user?.uid);
     return;
   }
 
@@ -417,11 +544,13 @@ export async function deleteMonthlyBillAccountOccurrence(
   batch.update(seriesRef, { excludedMonths: [...excludedMonths].sort() });
   batch.delete(billRef);
   await batch.commit();
+  invalidateCachedData("billAccounts", user?.uid);
 }
 
 export async function deleteMonthlyBillAccountSeries(
   seriesId: string,
 ): Promise<void> {
+  const user = auth.currentUser;
   const billsRef = getUserBillAccountsCollection();
   const seriesRef = doc(getUserMonthlyBillAccountSeriesCollection(), seriesId);
   const occurrencesSnapshot = await getDocs(
@@ -446,6 +575,7 @@ export async function deleteMonthlyBillAccountSeries(
   }
 
   if (operationCount > 0) await batch.commit();
+  invalidateCachedData("billAccounts", user?.uid);
 }
 
 export async function hideBillAccountFromList(id: string): Promise<void> {
@@ -454,6 +584,7 @@ export async function hideBillAccountFromList(id: string): Promise<void> {
 
   const billRef = doc(db, `users/${user.uid}/billAccounts`, id);
   await updateDoc(billRef, { hiddenFromBills: true });
+  invalidateCachedData("billAccounts", user.uid);
 }
 
 const LEGACY_BILL_PAYMENT_CATEGORIES = new Set(["contas", "fixes"]);
@@ -647,6 +778,11 @@ export async function payBillAccount(
     }
   }
 
+  invalidateCachedData(
+    ["billAccounts", "transactions", "userCreditCards", "cardTransactions"],
+    user.uid,
+  );
+
   return {
     ...bill,
     status: "paid",
@@ -816,6 +952,11 @@ export async function unpayBillAccount(
       console.error("Error unmarking card transactions in unpayBillAccount:", err);
     }
   }
+
+  invalidateCachedData(
+    ["billAccounts", "transactions", "userCreditCards", "cardTransactions"],
+    user.uid,
+  );
 
   return result;
 }

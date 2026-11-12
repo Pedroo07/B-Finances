@@ -12,6 +12,7 @@ import {
 import { db } from "../firebase";
 import { Investment, InvestmentYield } from "../entities/investment";
 import { getAuth } from "firebase/auth";
+import { getCachedData, invalidateCachedData, setCachedData } from "./clientCache";
 
 export type InvestmentDto = {
   category: string;
@@ -63,23 +64,35 @@ export async function createInvestment(
     return updated;
   }
 
+  const user = auth.currentUser;
   const ref = getUserCollection();
   const created = await addDoc(ref, data);
-  return {
+  const item: Investment = {
     id: created.id,
     ...data,
   };
+  const cached = getCachedData<Investment[]>("investments", user?.uid);
+  if (cached) {
+    setCachedData("investments", [item, ...cached], user?.uid);
+  } else {
+    invalidateCachedData("investments", user?.uid);
+  }
+  return item;
 }
 
 export async function getInvestments(): Promise<Investment[]> {
+  const user = auth.currentUser;
   const ref = getUserCollection();
   if (!ref) return [];
   const snapshot = await getDocs(ref);
 
-  return snapshot.docs.map((doc) => ({
+  const items = snapshot.docs.map((doc) => ({
     id: doc.id,
     ...doc.data(),
   })) as Investment[];
+
+  setCachedData("investments", items, user?.uid);
+  return items;
 }
 
 export async function updateInvestment(
@@ -99,11 +112,22 @@ export async function updateInvestment(
   const previousData = snapshot.data() as Omit<Investment, "id">;
   await updateDoc(docRef, data);
 
-  return {
+  const updated: Investment = {
     ...previousData,
     ...data,
     id: docRef.id,
   };
+  const cached = getCachedData<Investment[]>("investments", user.uid);
+  if (cached) {
+    setCachedData(
+      "investments",
+      cached.map((item) => (item.id === id ? updated : item)),
+      user.uid,
+    );
+  } else {
+    invalidateCachedData("investments", user.uid);
+  }
+  return updated;
 }
 
 export async function deleteInvestment(id: string): Promise<void> {
@@ -112,6 +136,16 @@ export async function deleteInvestment(id: string): Promise<void> {
 
   const docRef = doc(db, `users/${user.uid}/investments`, id);
   await deleteDoc(docRef);
+  const cached = getCachedData<Investment[]>("investments", user.uid);
+  if (cached) {
+    setCachedData(
+      "investments",
+      cached.filter((item) => item.id !== id),
+      user.uid,
+    );
+  } else {
+    invalidateCachedData("investments", user.uid);
+  }
 }
 
 export async function addInvestmentYield(
@@ -146,8 +180,11 @@ export async function addInvestmentYield(
     balance: newBalance,
   });
 
+  invalidateCachedData("investments", user.uid);
+
   return {
     ...investment,
+    id: docRef.id,
     rendimentos: updatedRendimentos,
     total_yield: totalYield,
     balance: newBalance,
@@ -181,8 +218,11 @@ export async function redeemInvestmentBalance(
     rescued_amount: newRescuedAmount,
   });
 
+  invalidateCachedData("investments", user.uid);
+
   return {
     ...investment,
+    id: docRef.id,
     balance: newBalance,
     rescued_amount: newRescuedAmount,
   };

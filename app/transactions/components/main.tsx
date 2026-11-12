@@ -31,6 +31,7 @@ import { ChevronDown, SlidersHorizontal } from "lucide-react";
 import { cn, translateCategory } from "@/lib/utils";
 import { BANKS, BankKey, isBankKey } from "@/app/CreditCard/banks";
 import { UserCreditCard } from "@/lib/entities/userCreditCard";
+import { getCachedData } from "@/lib/services/clientCache";
 
 type TransactionTypeFilter = "all" | "income" | "expense";
 type PaymentMethodFilter = "all" | "cash" | "pix" | "debit" | "credit_card";
@@ -135,7 +136,10 @@ const separateCardAmountByCategory = (
 };
 
 export const Main = () => {
-  const [user, loading] = useAuthState(auth);
+  const [user, authLoading] = useAuthState(auth);
+  const [isDataLoading, setIsDataLoading] = useState(true);
+  const [hasHydratedCache, setHasHydratedCache] = useState(false);
+  const loading = !hasHydratedCache && (authLoading || isDataLoading);
   const [items, setItems] = useState<Transaction[]>([]);
   const [cardItems, setCardItems] = useState<CardTransaction[]>([]);
   const [userCards, setUserCards] = useState<UserCreditCard[]>([]);
@@ -168,27 +172,78 @@ export const Main = () => {
     .map((k) => [k, BANKS[k]] as const);
 
   useEffect(() => {
-    if (loading || !user || typeof window === "undefined") return;
+    if (typeof window === "undefined") return;
+    const cachedTx = getCachedData<Transaction[]>("transactions", user?.uid);
+    const cachedCardTx = getCachedData<CardTransaction[]>(
+      "cardTransactions",
+      user?.uid,
+    );
+    const cachedCards = getCachedData<UserCreditCard[]>(
+      "userCreditCards",
+      user?.uid,
+    );
+
+    if (cachedTx) {
+      setItems(sortItemByDate(cachedTx));
+    }
+    if (cachedCardTx) {
+      setCardItems(sortCardItemByDate(cachedCardTx));
+    }
+    if (cachedCards) {
+      setUserCards(cachedCards.filter(({ bankKey }) => isBankKey(bankKey)));
+    }
+    if (cachedTx || cachedCardTx) {
+      setHasHydratedCache(true);
+      setIsDataLoading(false);
+    }
+  }, [user?.uid]);
+
+  useEffect(() => {
+    if (authLoading || !user || typeof window === "undefined") return;
 
     let isMounted = true;
 
     const fetchItems = async () => {
       try {
-        const [transactionsData, cardTransactionsData, userCardsData] =
-          await Promise.all([
-            getTransaction(),
-            getCardTransaction(),
-            getUserCreditCards(),
-          ]);
+        const transactionsPromise = getTransaction().then(
+          (transactionsData) => {
+            if (isMounted) {
+              setItems(sortItemByDate(transactionsData || []));
+              setIsDataLoading(false);
+            }
+            return transactionsData;
+          },
+        );
+        const cardTransactionsPromise = getCardTransaction().then(
+          (cardTransactionsData) => {
+            if (isMounted) {
+              setCardItems(sortCardItemByDate(cardTransactionsData || []));
+            }
+            return cardTransactionsData;
+          },
+        );
+        const userCardsPromise = getUserCreditCards().then((userCardsData) => {
+          if (isMounted) {
+            setUserCards(
+              userCardsData.filter(({ bankKey }) => isBankKey(bankKey)),
+            );
+          }
+          return userCardsData;
+        });
+
+        await Promise.all([
+          transactionsPromise,
+          cardTransactionsPromise,
+          userCardsPromise,
+        ]);
         if (isMounted) {
-          setItems(sortItemByDate(transactionsData || []));
-          setCardItems(sortCardItemByDate(cardTransactionsData || []));
-          setUserCards(
-            userCardsData.filter(({ bankKey }) => isBankKey(bankKey)),
-          );
+          setIsDataLoading(false);
         }
       } catch (error) {
         console.error("error fetching transactions", error);
+        if (isMounted) {
+          setIsDataLoading(false);
+        }
       }
     };
 
@@ -197,7 +252,7 @@ export const Main = () => {
     return () => {
       isMounted = false;
     };
-  }, [loading, user]);
+  }, [authLoading, user]);
 
   const currentDate = new Date();
   const currentYear = currentDate.getFullYear();

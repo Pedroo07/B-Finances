@@ -74,6 +74,7 @@ import {
   computeInvoiceBalance,
   getInvoicePeriodsWithBalance,
 } from "@/lib/creditCards/invoiceBalance";
+import { getCachedData } from "@/lib/services/clientCache";
 
 type CreditCardInvoiceSummary = {
   card: UserCreditCard;
@@ -177,6 +178,7 @@ const syncDashboardCreditCardInvoices = async (
         status: isPaid ? "paid" : "pending",
         ...(isPaid && { paymentTransactionId, paidAt }),
       })),
+    existingBills,
   );
   const billsById = new Map<string, BillAccount>(existingBills.map((bill) => [bill.id, bill]));
   syncedBills.forEach((bill) => billsById.set(bill.id, bill));
@@ -192,7 +194,10 @@ export const Main: FC = () => {
   const [userCards, setUserCards] = useState<UserCreditCard[]>([]);
   const [allItems, setAllItems] = useState<Transaction[]>([]);
   const [bills, setBills] = useState<BillAccount[]>([]);
-  const [user, loading] = useAuthState(auth);
+  const [user, authLoading] = useAuthState(auth);
+  const [isDataLoading, setIsDataLoading] = useState(true);
+  const [hasHydratedCache, setHasHydratedCache] = useState(false);
+  const loading = !hasHydratedCache && (authLoading || isDataLoading);
   const [selectedMonth, setSelectedMonth] = useState<number>(
     () => new Date().getMonth() + 1,
   );
@@ -276,34 +281,83 @@ export const Main: FC = () => {
   };
 
   useEffect(() => {
-    if (loading || !user || typeof window === "undefined") return;
+    if (typeof window === "undefined") return;
+    const cachedTx = getCachedData<Transaction[]>("transactions", user?.uid);
+    const cachedBills = getCachedData<BillAccount[]>("billAccounts", user?.uid);
+    const cachedCards = getCachedData<UserCreditCard[]>(
+      "userCreditCards",
+      user?.uid,
+    );
+
+    if (cachedTx) {
+      setAllItems(
+        [...cachedTx].sort(
+          (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
+        ),
+      );
+    }
+    if (cachedBills) {
+      setBills(cachedBills);
+    }
+    if (cachedCards) {
+      setUserCards(cachedCards.filter(({ bankKey }) => isBankKey(bankKey)));
+    }
+    if (cachedTx || cachedBills) {
+      setHasHydratedCache(true);
+      setIsDataLoading(false);
+    }
+  }, [user?.uid]);
+
+  useEffect(() => {
+    if (authLoading || !user || typeof window === "undefined") return;
 
     let isMounted = true;
 
     const fetchTransactions = async () => {
       try {
-        const [transactionsData, billsData, cardsData, cardTransactionsData] =
+        const transactionsPromise = getTransaction().then((transactionsData) => {
+          if (!isMounted) return transactionsData;
+          const sortedItems = [...(transactionsData || [])].sort(
+            (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
+          );
+          setAllItems(sortedItems);
+          setIsDataLoading(false);
+          return transactionsData;
+        });
+
+        const billsPromise = getBillAccounts().then((billsData) => {
+          if (isMounted && billsData) {
+            setBills(billsData);
+          }
+          return billsData;
+        });
+
+        const [, billsData, cardsData, cardTransactionsData] =
           await Promise.all([
-            getTransaction(),
-            getBillAccounts(),
+            transactionsPromise,
+            billsPromise,
             getUserCreditCards(),
             getCardTransaction(),
           ]);
+
+        if (isMounted && cardsData) {
+          setUserCards(cardsData.filter(({ bankKey }) => isBankKey(bankKey)));
+        }
+
         const syncedBills = await syncDashboardCreditCardInvoices(
           cardsData || [],
           cardTransactionsData || [],
           billsData || [],
         );
-        const sortedItems = [...(transactionsData || [])].sort(
-          (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
-        );
         if (isMounted) {
-          setAllItems(sortedItems);
           setBills(syncedBills);
-          setUserCards(cardsData.filter(({ bankKey }) => isBankKey(bankKey)));
+          setIsDataLoading(false);
         }
       } catch (error) {
         console.error("Error fetching transactions:", error);
+        if (isMounted) {
+          setIsDataLoading(false);
+        }
       }
     };
 
@@ -312,7 +366,7 @@ export const Main: FC = () => {
     return () => {
       isMounted = false;
     };
-  }, [user, loading]);
+  }, [user, authLoading]);
 
   const currentYear = new Date().getFullYear();
   const filterItems = sortItemByDate(

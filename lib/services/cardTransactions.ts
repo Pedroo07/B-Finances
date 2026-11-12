@@ -15,6 +15,7 @@ import { getAuth } from "firebase/auth";
 import { buildInstallmentSchedule } from "../creditCards/installments";
 import { getCreditCardBankKey } from "../creditCards/catalog";
 import { getTransactionInvoicePeriodKey } from "../creditCards/billing";
+import { getCachedData, invalidateCachedData, setCachedData } from "./clientCache";
 
 export type CardTransactionDto = {
   description: string;
@@ -47,17 +48,26 @@ function getUserCardCollection() {
 export async function createCardTransaction(
   data: CardTransactionDto,
 ): Promise<CardTransaction> {
+  const user = auth.currentUser;
   const cardsRef = getUserCardCollection();
   const createdCard = await addDoc(cardsRef, data);
-  return {
+  const created: CardTransaction = {
     id: createdCard.id,
     ...data,
   };
+  const cached = getCachedData<CardTransaction[]>("cardTransactions", user?.uid);
+  if (cached) {
+    setCachedData("cardTransactions", [created, ...cached], user?.uid);
+  } else {
+    invalidateCachedData("cardTransactions", user?.uid);
+  }
+  return created;
 }
 
 export async function createCardInstallmentTransactions(
   data: CardInstallmentTransactionDto,
 ): Promise<CardTransaction[]> {
+  const user = auth.currentUser;
   const schedule = buildInstallmentSchedule(data);
   const cardsRef = getUserCardCollection();
   const batch = writeBatch(db);
@@ -88,6 +98,12 @@ export async function createCardInstallmentTransactions(
   });
 
   await batch.commit();
+  const cached = getCachedData<CardTransaction[]>("cardTransactions", user?.uid);
+  if (cached) {
+    setCachedData("cardTransactions", [...transactions, ...cached], user?.uid);
+  } else {
+    invalidateCachedData("cardTransactions", user?.uid);
+  }
   return transactions;
 }
 
@@ -96,6 +112,16 @@ export async function deleteCardTransaction(id: string): Promise<void> {
   if (!user) throw new Error("User not authenticated");
   const docRef = doc(db, `users/${user.uid}/cardTransactions`, id);
   await deleteDoc(docRef);
+  const cached = getCachedData<CardTransaction[]>("cardTransactions", user.uid);
+  if (cached) {
+    setCachedData(
+      "cardTransactions",
+      cached.filter((item) => item.id !== id),
+      user.uid,
+    );
+  } else {
+    invalidateCachedData("cardTransactions", user.uid);
+  }
 }
 
 export async function deleteCardTransactions(ids: string[]): Promise<void> {
@@ -108,16 +134,31 @@ export async function deleteCardTransactions(ids: string[]): Promise<void> {
     batch.delete(doc(db, `users/${user.uid}/cardTransactions`, id));
   });
   await batch.commit();
+  const removedSet = new Set(uniqueIds);
+  const cached = getCachedData<CardTransaction[]>("cardTransactions", user.uid);
+  if (cached) {
+    setCachedData(
+      "cardTransactions",
+      cached.filter((item) => !removedSet.has(item.id)),
+      user.uid,
+    );
+  } else {
+    invalidateCachedData("cardTransactions", user.uid);
+  }
 }
 
 export async function getCardTransaction(): Promise<CardTransaction[]> {
+  const user = auth.currentUser;
   const cardsRef = getUserCardCollection();
   const foundCard = await getDocs(cardsRef);
 
-  return foundCard.docs.map((doc) => ({
+  const items = foundCard.docs.map((doc) => ({
     id: doc.id,
     ...doc.data(),
   })) as CardTransaction[];
+
+  setCachedData("cardTransactions", items, user?.uid);
+  return items;
 }
 
 export async function markCardTransactionsAsPaid(params: {
@@ -160,6 +201,7 @@ export async function markCardTransactionsAsPaid(params: {
 
   if (updatedIds.length > 0) {
     await batch.commit();
+    invalidateCachedData("cardTransactions", user.uid);
   }
 
   return updatedIds;
@@ -195,5 +237,6 @@ export async function unmarkCardTransactionsAsPaid(
   }
 
   await batch.commit();
+  invalidateCachedData("cardTransactions", user.uid);
   return updatedIds;
 }

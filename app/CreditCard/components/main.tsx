@@ -56,6 +56,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { formatCurrency } from "@/lib/utils";
 import { BANKS, BankKey, isBankKey } from "@/app/CreditCard/banks";
 import { UserCreditCard } from "@/lib/entities/userCreditCard";
+import { getCachedData } from "@/lib/services/clientCache";
 import { EXPENSE_CATEGORIES } from "@/lib/transactionCategories";
 import {
   getCardPaidPeriodKeys,
@@ -124,6 +125,7 @@ export const Main = () => {
   );
   const [activeFilter, setActiveFilter] = useState("month");
   const [isDataLoading, setIsDataLoading] = useState(true);
+  const [hasHydratedCache, setHasHydratedCache] = useState(false);
 
   const sortItemByDate = (
     currentItems: CardTransaction[],
@@ -133,8 +135,8 @@ export const Main = () => {
     );
   };
 
-  const visibleItems = user ? items : [];
-  const visibleUserCards = user ? userCards : [];
+  const visibleItems = user || hasHydratedCache ? items : [];
+  const visibleUserCards = user || hasHydratedCache ? userCards : [];
   const visibleAddedCardKeys = visibleUserCards.reduce<BankKey[]>(
     (currentKeys, currentCard) => {
       if (isBankKey(currentCard.bankKey)) {
@@ -188,7 +190,8 @@ export const Main = () => {
     ? card
     : (currentCard?.name ?? "");
   const hasCards = cards.length > 0;
-  const isPageLoading = loading || (Boolean(user) && isDataLoading);
+  const isPageLoading =
+    !hasHydratedCache && (loading || (Boolean(user) && isDataLoading));
   const canSaveNewCard =
     Boolean(cardToAdd) &&
     isValidBillingDay(closingDayToAdd) &&
@@ -268,6 +271,32 @@ export const Main = () => {
   };
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+    const cachedCardTx = getCachedData<CardTransaction[]>(
+      "cardTransactions",
+      user?.uid,
+    );
+    const cachedCards = getCachedData<UserCreditCard[]>(
+      "userCreditCards",
+      user?.uid,
+    );
+    if (cachedCardTx) {
+      setItems(
+        [...cachedCardTx].sort(
+          (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
+        ),
+      );
+    }
+    if (cachedCards) {
+      setUserCards(cachedCards.filter(({ bankKey }) => isBankKey(bankKey)));
+    }
+    if (cachedCardTx || cachedCards) {
+      setHasHydratedCache(true);
+      setIsDataLoading(false);
+    }
+  }, [user?.uid]);
+
+  useEffect(() => {
     if (loading || typeof window === "undefined") return;
 
     if (!user) return;
@@ -275,7 +304,9 @@ export const Main = () => {
     let isMounted = true;
 
     const fetchData = async () => {
-      setIsDataLoading(true);
+      if (!hasHydratedCache) {
+        setIsDataLoading(true);
+      }
 
       try {
         const [transactions, userCards] = await Promise.all([
@@ -309,7 +340,7 @@ export const Main = () => {
     return () => {
       isMounted = false;
     };
-  }, [loading, user]);
+  }, [loading, user, hasHydratedCache]);
 
   const currentYear = new Date().getFullYear();
   const currentCardItems = currentCard

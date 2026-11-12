@@ -36,6 +36,7 @@ import { Trash2 } from "lucide-react";
 import { AiOutlineLoading3Quarters } from "react-icons/ai";
 import { Skeleton } from "@/components/ui/skeleton";
 import dynamic from "next/dynamic";
+import { getCachedData } from "@/lib/services/clientCache";
 
 const Chart = dynamic(() => import("react-apexcharts"), { ssr: false });
 
@@ -150,7 +151,10 @@ const GraphicListItem: FC<{ results: SeparateResults }> = ({ results }) => {
 
 export const Main: FC = () => {
   const [investments, setInvestments] = useState<Investment[]>([]);
-  const [user, loading] = useAuthState(auth);
+  const [user, authLoading] = useAuthState(auth);
+  const [isDataLoading, setIsDataLoading] = useState(true);
+  const [hasHydratedCache, setHasHydratedCache] = useState(false);
+  const loading = !hasHydratedCache && (authLoading || isDataLoading);
   const [categoryInput, setCategoryInput] = useState("");
   const [balance, setBalance] = useState(0);
   const [liquidez, setLiquidez] = useState<"imediata" | "longo_prazo">(
@@ -185,7 +189,17 @@ export const Main: FC = () => {
   };
 
   useEffect(() => {
-    if (loading || !user || typeof window === "undefined") return;
+    if (typeof window === "undefined") return;
+    const cached = getCachedData<Investment[]>("investments", user?.uid);
+    if (cached) {
+      setInvestments(cached);
+      setHasHydratedCache(true);
+      setIsDataLoading(false);
+    }
+  }, [user?.uid]);
+
+  useEffect(() => {
+    if (authLoading || !user || typeof window === "undefined") return;
 
     let isMounted = true;
 
@@ -194,9 +208,13 @@ export const Main: FC = () => {
         const data = (await getInvestments()) || [];
         if (isMounted) {
           setInvestments(data);
+          setIsDataLoading(false);
         }
       } catch (error) {
         console.error("Error fetching investments:", error);
+        if (isMounted) {
+          setIsDataLoading(false);
+        }
       }
     };
 
@@ -205,7 +223,7 @@ export const Main: FC = () => {
     return () => {
       isMounted = false;
     };
-  }, [user, loading]);
+  }, [user, authLoading]);
 
   const handleCategoryInput = (value: string) => {
     setCategoryInput(value);

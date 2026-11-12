@@ -64,6 +64,7 @@ import {
   getInvoicePayments,
   getInvoicePeriodsWithBalance,
 } from "@/lib/creditCards/invoiceBalance";
+import { getCachedData } from "@/lib/services/clientCache";
 
 const getTodayDate = () => {
   const now = new Date();
@@ -349,6 +350,28 @@ export const Main: FC = () => {
   };
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+    const cachedBills = getCachedData<BillAccount[]>("billAccounts", user?.uid);
+    const cachedTx = getCachedData<Transaction[]>("transactions", user?.uid);
+    const cachedCards = getCachedData<UserCreditCard[]>(
+      "userCreditCards",
+      user?.uid,
+    );
+    const cachedCardTx = getCachedData<CardTransaction[]>(
+      "cardTransactions",
+      user?.uid,
+    );
+
+    if (cachedBills) {
+      setBills(sortBillsByDate(cachedBills));
+      setIsLoading(false);
+    }
+    if (cachedTx) setTransactions(cachedTx);
+    if (cachedCards) setUserCards(cachedCards);
+    if (cachedCardTx) setCardTransactions(cachedCardTx);
+  }, [user?.uid]);
+
+  useEffect(() => {
     if (loading || !user || typeof window === "undefined") return;
 
     let isMounted = true;
@@ -362,7 +385,18 @@ export const Main: FC = () => {
             getUserCreditCards(),
             getCardTransaction(),
           ]);
-        const generatedMonthlyBills = await syncMonthlyBillAccountOccurrences();
+        if (isMounted) {
+          setBills(sortBillsByDate(billsData || []));
+          setTransactions(transactionsData || []);
+          setUserCards(cardsData || []);
+          setCardTransactions(cardTransactionsData || []);
+          setIsLoading(false);
+        }
+
+        const generatedMonthlyBills = await syncMonthlyBillAccountOccurrences(
+          new Date(),
+          billsData || [],
+        );
         const availableBills = [...billsData, ...generatedMonthlyBills];
         const invoiceSummaries = getCreditCardInvoiceSummaries(
           cardsData || [],
@@ -402,6 +436,7 @@ export const Main: FC = () => {
                 ...(isPaid && { paymentTransactionId, paidAt }),
               }),
             ),
+          availableBills,
         );
         const billsById = new Map<string, BillAccount>();
 
@@ -410,9 +445,6 @@ export const Main: FC = () => {
 
         if (isMounted) {
           setBills(sortBillsByDate(Array.from(billsById.values())));
-          setTransactions(transactionsData || []);
-          setUserCards(cardsData || []);
-          setCardTransactions(cardTransactionsData || []);
           setIsLoading(false);
         }
       } catch (error) {

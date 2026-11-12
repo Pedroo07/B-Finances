@@ -10,6 +10,7 @@ import {
 import { db } from "../firebase";
 import { Transaction } from "../entities/transaction";
 import { getAuth } from "firebase/auth";
+import { getCachedData, invalidateCachedData, setCachedData } from "./clientCache";
 
 export type TransactionDto = {
   description: string;
@@ -31,12 +32,20 @@ function getUserCollection() {
 export async function createTransaction(
   data: TransactionDto,
 ): Promise<Transaction> {
+  const user = auth.currentUser;
   const cardsRef = getUserCollection();
   const createdCard = await addDoc(cardsRef, data);
-  return {
+  const created: Transaction = {
     id: createdCard.id,
     ...data,
   };
+  const cached = getCachedData<Transaction[]>("transactions", user?.uid);
+  if (cached) {
+    setCachedData("transactions", [created, ...cached], user?.uid);
+  } else {
+    invalidateCachedData("transactions", user?.uid);
+  }
+  return created;
 }
 export async function deleteTransaction(id: string): Promise<void> {
   const user = auth.currentUser;
@@ -44,14 +53,25 @@ export async function deleteTransaction(id: string): Promise<void> {
 
   const docRef = doc(db, `users/${user.uid}/transactions`, id);
   await deleteDoc(docRef);
+  const cached = getCachedData<Transaction[]>("transactions", user.uid);
+  if (cached) {
+    setCachedData(
+      "transactions",
+      cached.filter((item) => item.id !== id),
+      user.uid,
+    );
+  } else {
+    invalidateCachedData("transactions", user.uid);
+  }
 }
 
 export async function getTransaction(): Promise<Transaction[]> {
+  const user = auth.currentUser;
   const cardsRef = getUserCollection();
   if (!cardsRef) return [];
   const foundCard = await getDocs(cardsRef);
 
-  return foundCard.docs.map((doc) => {
+  const items = foundCard.docs.map((doc) => {
     const data = doc.data();
     return {
       id: doc.id,
@@ -59,6 +79,9 @@ export async function getTransaction(): Promise<Transaction[]> {
       paymentMethod: data.paymentMethod ?? "pix",
     };
   }) as Transaction[];
+
+  setCachedData("transactions", items, user?.uid);
+  return items;
 }
 
 export async function updateTransaction(
@@ -78,9 +101,20 @@ export async function updateTransaction(
   const previousData = foundCard.data() as Omit<Transaction, "id">;
   await updateDoc(docRef, data);
 
-  return {
+  const updated: Transaction = {
     ...previousData,
     ...data,
     id: docRef.id,
   };
+  const cached = getCachedData<Transaction[]>("transactions", user.uid);
+  if (cached) {
+    setCachedData(
+      "transactions",
+      cached.map((item) => (item.id === id ? updated : item)),
+      user.uid,
+    );
+  } else {
+    invalidateCachedData("transactions", user.uid);
+  }
+  return updated;
 }
