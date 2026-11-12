@@ -9,8 +9,14 @@ import {
   GraphicListItem,
 } from "@/app/dashboard/components/graphic";
 import Period from "@/app/dashboard/components/period";
-import { getTransaction } from "@/lib/services/transactions";
-import { getCardTransaction } from "@/lib/services/cardTransactions";
+import {
+  deleteTransaction,
+  getTransaction,
+} from "@/lib/services/transactions";
+import {
+  deleteCardTransaction,
+  getCardTransaction,
+} from "@/lib/services/cardTransactions";
 import { getUserCreditCards } from "@/lib/services/userCreditCards";
 import { Transaction } from "@/lib/entities/transaction";
 import { CardTransaction } from "@/lib/entities/cardTransaction";
@@ -28,10 +34,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ChevronDown, SlidersHorizontal } from "lucide-react";
-import { cn, translateCategory } from "@/lib/utils";
+import { cn, formatCurrency, translateCategory } from "@/lib/utils";
 import { BANKS, BankKey, isBankKey } from "@/app/CreditCard/banks";
 import { UserCreditCard } from "@/lib/entities/userCreditCard";
 import { getCachedData } from "@/lib/services/clientCache";
+import { ValuesLoadings } from "@/app/dashboard/loadings/ValuesLoadings";
 
 type TransactionTypeFilter = "all" | "income" | "expense";
 type PaymentMethodFilter = "all" | "cash" | "pix" | "debit" | "credit_card";
@@ -143,7 +150,19 @@ export const Main = () => {
   const [items, setItems] = useState<Transaction[]>([]);
   const [cardItems, setCardItems] = useState<CardTransaction[]>([]);
   const [userCards, setUserCards] = useState<UserCreditCard[]>([]);
-  const handleDeleteItem = () => {};
+  const handleDeleteItem = async (id: string) => {
+    try {
+      if (isCreditCardMode) {
+        await deleteCardTransaction(id);
+        setCardItems((prev) => prev.filter((item) => item.id !== id));
+      } else {
+        await deleteTransaction(id);
+        setItems((prev) => prev.filter((item) => item.id !== id));
+      }
+    } catch (error) {
+      console.error("Error deleting transaction:", error);
+    }
+  };
 
   const [selectedMonth, setSelectedMonth] = useState<number>(
     () => new Date().getMonth() + 1,
@@ -377,6 +396,32 @@ export const Main = () => {
     ? separateCardAmountByCategory(filteredCardItems)
     : separateAmountByCategoryAndType(filterItems, selectedTransactionType);
 
+  const summaryStats = isCreditCardMode
+    ? {
+        income: 0,
+        expense: filteredCardItems.reduce(
+          (sum, item) => sum + Math.abs(item.amount),
+          0,
+        ),
+        balance: -filteredCardItems.reduce(
+          (sum, item) => sum + Math.abs(item.amount),
+          0,
+        ),
+        count: filteredCardItems.length,
+      }
+    : filterItems.reduce(
+        (acc, item) => {
+          if (item.amount > 0) {
+            acc.income += item.amount;
+          } else {
+            acc.expense += Math.abs(item.amount);
+          }
+          acc.balance = acc.income - acc.expense;
+          return acc;
+        },
+        { income: 0, expense: 0, balance: 0, count: filterItems.length },
+      );
+
   const filterButtonClass =
     "surface-chip inline-flex shrink-0 items-center px-3.5 py-2 text-xs sm:px-4 sm:text-sm";
   const hasExtraFilters =
@@ -398,9 +443,9 @@ export const Main = () => {
   const chartDescription = isCreditCardMode
     ? "Distribuição dos gastos no cartão de crédito por categoria."
     : selectedTransactionType === "income"
-      ? "Entenda rapidamente a distribuicao das entradas por categoria."
+      ? "Entenda rapidamente a distribuição das entradas por categoria."
       : selectedTransactionType === "expense"
-        ? "Entenda rapidamente a distribuição das saidas por categoria."
+        ? "Entenda rapidamente a distribuição das saídas por categoria."
         : "Entenda rapidamente a distribuição das suas transações por categoria.";
 
   const emptyChartMessage = isCreditCardMode
@@ -412,62 +457,64 @@ export const Main = () => {
         : "Nenhuma transação encontrada para os filtros selecionados.";
 
   return (
-    <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-4 sm:gap-6 sm:px-6 sm:py-6 xl:grid xl:grid-cols-[22.5rem_1fr] xl:items-stretch">
-      <div className="surface-card order-1 p-4 sm:p-6 xl:col-start-1 xl:row-start-1">
-        <div className="flex items-start justify-between gap-3">
-          <div className="space-y-1.5 sm:space-y-2">
-            <span className="inline-flex rounded-full border border-[#22C55E]/20 bg-[#22C55E]/10 px-3 py-1 text-xs font-medium text-[#15803D] sm:px-4 sm:py-2 sm:text-sm dark:text-[#4ADE80]">
-              Historico financeiro
-            </span>
-            <h1 className="text-2xl font-semibold tracking-tight text-[#0F172A] sm:text-3xl dark:text-white">
-              Transações
-            </h1>
-            <p className="hidden text-sm leading-6 text-[#64748B] sm:block dark:text-[#94A3BB]">
-              Filtre seu historico e acompanhe a distribuição das transações por
-              categoria.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => setShowMobileFilters((prev) => !prev)}
-            className={cn(
-              "surface-chip inline-flex shrink-0 items-center gap-1.5 px-3 py-2 text-xs md:hidden",
-              (showMobileFilters || hasExtraFilters) &&
-                "border-[#22C55E]/40 bg-[#22C55E]/12 text-[#15803D] dark:border-[#22C55E]/40 dark:bg-[#22C55E]/18 dark:text-[#4ADE80]",
-            )}
-          >
-            <SlidersHorizontal className="h-3.5 w-3.5" />
-            <span>Filtros</span>
-            <ChevronDown
+    <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-4 py-4 sm:gap-6 sm:px-6 sm:py-6">
+      <section className="surface-card w-full min-w-0 p-4 sm:p-7">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div className="flex items-start justify-between gap-3">
+            <div className="space-y-1.5 sm:space-y-2">
+              <span className="inline-flex rounded-full border border-[#22C55E]/20 bg-[#22C55E]/10 px-3 py-1 text-xs font-medium text-[#15803D] sm:px-4 sm:py-2 sm:text-sm dark:text-[#4ADE80]">
+                Histórico financeiro
+              </span>
+              <h1 className="text-2xl font-semibold tracking-tight text-[#0F172A] sm:text-3xl dark:text-white">
+                Transações
+              </h1>
+              <p className="hidden max-w-2xl text-sm leading-6 text-[#64748B] sm:block dark:text-[#94A3BB]">
+                Filtre seu histórico e acompanhe a distribuição das transações
+                por categoria.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowMobileFilters((prev) => !prev)}
               className={cn(
-                "h-3.5 w-3.5 transition-transform",
-                showMobileFilters && "rotate-180",
+                "surface-chip inline-flex shrink-0 items-center gap-1.5 px-3 py-2 text-xs md:hidden",
+                (showMobileFilters || hasExtraFilters) &&
+                  "border-[#22C55E]/40 bg-[#22C55E]/12 text-[#15803D] dark:border-[#22C55E]/40 dark:bg-[#22C55E]/18 dark:text-[#4ADE80]",
               )}
-            />
-          </button>
-        </div>
+            >
+              <SlidersHorizontal className="h-3.5 w-3.5" />
+              <span>Filtros</span>
+              <ChevronDown
+                className={cn(
+                  "h-3.5 w-3.5 transition-transform",
+                  showMobileFilters && "rotate-180",
+                )}
+              />
+            </button>
+          </div>
 
-        <ul className="mt-4 flex items-center gap-2 overflow-x-auto pb-1 sm:mt-6 sm:flex-wrap sm:overflow-visible sm:pb-0">
-          <li className="shrink-0">
-            <button className={filterButtonClass} onClick={lastYearFilter}>
-              Ultimo ano
-            </button>
-          </li>
-          <li className="shrink-0">
-            <button className={filterButtonClass} onClick={lastMonthSelected}>
-              Ultimo mes
-            </button>
-          </li>
-          <li className="shrink-0">
-            <button className={filterButtonClass} onClick={thisMonthSelected}>
-              Este mes
-            </button>
-          </li>
-          <Period
-            onMonthChange={handleMonthChange}
-            selectedMonth={selectedMonth}
-          />
-        </ul>
+          <ul className="flex items-center gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible sm:pb-0">
+            <li className="shrink-0">
+              <button className={filterButtonClass} onClick={lastYearFilter}>
+                Último ano
+              </button>
+            </li>
+            <li className="shrink-0">
+              <button className={filterButtonClass} onClick={lastMonthSelected}>
+                Último mês
+              </button>
+            </li>
+            <li className="shrink-0">
+              <button className={filterButtonClass} onClick={thisMonthSelected}>
+                Este mês
+              </button>
+            </li>
+            <Period
+              onMonthChange={handleMonthChange}
+              selectedMonth={selectedMonth}
+            />
+          </ul>
+        </div>
 
         <div
           className={cn(
@@ -475,7 +522,7 @@ export const Main = () => {
             showMobileFilters ? "block" : "hidden md:block",
           )}
         >
-          <div className="grid gap-2 md:grid-cols-2">
+          <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-5">
             <Select
               value={paymentMethodFilter}
               onValueChange={handlePaymentMethodChange}
@@ -549,12 +596,14 @@ export const Main = () => {
             <Input
               type="date"
               aria-label="Data inicial"
+              className="w-full min-w-0"
               value={startDate}
               onChange={(event) => setStartDate(event.target.value)}
             />
             <Input
               type="date"
               aria-label="Data final"
+              className="w-full min-w-0"
               value={endDate}
               onChange={(event) => setEndDate(event.target.value)}
             />
@@ -574,53 +623,102 @@ export const Main = () => {
             </p>
           </div>
         </div>
-      </div>
-
-      <section className="surface-card order-3 p-5 sm:p-6 xl:col-start-1 xl:row-start-2">
-        <p className="text-lg font-semibold text-[#0F172A] dark:text-white">
-          {chartTitle}
-        </p>
-        <p className="mt-1 text-sm text-[#64748B] dark:text-[#94A3BB]">
-          {chartDescription}
-        </p>
-        <div className="mt-6 flex justify-center">
-          {loading ? (
-            <AiOutlineLoading3Quarters className="h-24 w-24 animate-spin p-6 text-[#22C55E]" />
-          ) : results.chartData.length > 0 ? (
-            <DonutChart results={results} />
-          ) : (
-            <p className="rounded-2xl border border-dashed border-border/70 px-4 py-8 text-center text-sm text-[#64748B] dark:text-[#94A3BB]">
-              {emptyChartMessage}
-            </p>
-          )}
-        </div>
-        <div className="mt-4 text-xl">
-          {loading ? (
-            <Skeleton className="h-28 w-full" />
-          ) : results.percentageData.length > 0 ? (
-            <GraphicListItem results={results} />
-          ) : (
-            <p className="text-sm text-[#64748B] dark:text-[#94A3BB]">
-              Ajuste os filtros para visualizar a distribuição por categoria.
-            </p>
-          )}
-        </div>
       </section>
 
-      <div className="order-2 w-full xl:col-start-2 xl:row-span-2 xl:row-start-1 xl:relative xl:h-full">
-        <section className="surface-card-strong flex w-full flex-col overflow-hidden xl:absolute xl:inset-0">
-          <div className="border-b soft-divider flex-none px-4 py-4 sm:px-6 sm:py-5">
-            <h2 className="text-lg font-semibold text-[#0F172A] sm:text-xl dark:text-white">
-              {isCreditCardMode
-                ? "Transações de cartão de crédito"
-                : "Ultimas transações"}
-            </h2>
-            <p className="mt-0.5 text-xs text-[#64748B] sm:mt-1 sm:text-sm dark:text-[#94A3BB]">
-              {isCreditCardMode
-                ? `${selectedCardFilter === "all" ? "Todos os cartões" : selectedCardFilter} - gastos registrados`
-                : "Consulte suas movimentações mais recentes."}
-            </p>
+      <section className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
+        {loading ? (
+          <>
+            <ValuesLoadings />
+            <ValuesLoadings />
+            <ValuesLoadings />
+            <ValuesLoadings />
+          </>
+        ) : (
+          <>
+            <div className="surface-card flex min-w-0 flex-col justify-between gap-2 p-4 sm:p-6">
+              <p className="text-[11px] uppercase tracking-[0.18em] text-[#94A3BB] sm:text-xs sm:tracking-[0.22em]">
+                {isCreditCardMode ? "Total no cartão" : "Saldo filtrado"}
+              </p>
+              <h2 className="truncate text-lg font-semibold text-[#0F172A] sm:text-2xl dark:text-white">
+                {formatCurrency(
+                  isCreditCardMode ? summaryStats.expense : summaryStats.balance,
+                )}
+              </h2>
+            </div>
+            <div className="surface-card flex min-w-0 flex-col justify-between gap-2 p-4 sm:p-6">
+              <p className="text-[11px] uppercase tracking-[0.18em] text-[#94A3BB] sm:text-xs sm:tracking-[0.22em]">
+                Entradas
+              </p>
+              <h2 className="truncate text-lg font-semibold text-[#16A34A] sm:text-2xl dark:text-[#4ADE80]">
+                {formatCurrency(summaryStats.income)}
+              </h2>
+            </div>
+            <div className="surface-card flex min-w-0 flex-col justify-between gap-2 p-4 sm:p-6">
+              <p className="text-[11px] uppercase tracking-[0.18em] text-[#94A3BB] sm:text-xs sm:tracking-[0.22em]">
+                Despesas
+              </p>
+              <h2 className="truncate text-lg font-semibold text-rose-500 sm:text-2xl dark:text-rose-300">
+                {formatCurrency(summaryStats.expense)}
+              </h2>
+            </div>
+            <div className="surface-card flex min-w-0 flex-col justify-between gap-2 p-4 sm:p-6">
+              <p className="text-[11px] uppercase tracking-[0.18em] text-[#94A3BB] sm:text-xs sm:tracking-[0.22em]">
+                Lançamentos
+              </p>
+              <h2 className="truncate text-lg font-semibold text-[#0F172A] sm:text-2xl dark:text-white">
+                {summaryStats.count}
+              </h2>
+            </div>
+          </>
+        )}
+      </section>
+
+      <div className="flex flex-col gap-4 sm:gap-6 xl:flex-row xl:items-stretch">
+        <section className="surface-card order-2 w-full min-w-0 p-5 sm:p-6 xl:order-1 xl:max-w-105">
+          <p className="text-lg font-semibold text-[#0F172A] dark:text-white">
+            {chartTitle}
+          </p>
+          <p className="mt-1 text-sm text-[#64748B] dark:text-[#94A3BB]">
+            {chartDescription}
+          </p>
+          <div className="mx-auto mt-6 flex items-center justify-center max-md:max-w-82">
+            {loading ? (
+              <AiOutlineLoading3Quarters className="h-24 w-24 animate-spin p-6 text-[#22C55E]" />
+            ) : results.chartData.length > 0 ? (
+              <DonutChart results={results} />
+            ) : (
+              <p className="rounded-2xl border border-dashed border-border/70 px-4 py-8 text-center text-sm text-[#64748B] dark:text-[#94A3BB]">
+                {emptyChartMessage}
+              </p>
+            )}
           </div>
+          <div className="mt-4">
+            {loading ? (
+              <Skeleton className="h-28 w-full" />
+            ) : results.percentageData.length > 0 ? (
+              <GraphicListItem results={results} />
+            ) : (
+              <p className="text-sm text-[#64748B] dark:text-[#94A3BB]">
+                Ajuste os filtros para visualizar a distribuição por categoria.
+              </p>
+            )}
+          </div>
+        </section>
+
+        <div className="order-1 w-full min-w-0 xl:order-2 xl:relative xl:flex-1">
+          <section className="surface-card-strong flex w-full min-w-0 flex-col overflow-hidden xl:absolute xl:inset-0">
+            <div className="border-b soft-divider flex-none px-4 py-4 sm:px-6 sm:py-5">
+              <h2 className="text-lg font-semibold text-[#0F172A] sm:text-xl dark:text-white">
+                {isCreditCardMode
+                  ? "Transações de cartão de crédito"
+                  : "Últimas transações"}
+              </h2>
+              <p className="mt-0.5 text-xs text-[#64748B] sm:mt-1 sm:text-sm dark:text-[#94A3BB]">
+                {isCreditCardMode
+                  ? `${selectedCardFilter === "all" ? "Todos os cartões" : selectedCardFilter} - gastos registrados`
+                  : "Consulte suas movimentações mais recentes."}
+              </p>
+            </div>
           <TransactionHeader />
           <div className="max-h-120 min-h-0 flex-1 overflow-auto xl:max-h-none">
             {isCreditCardMode ? (
@@ -670,7 +768,8 @@ export const Main = () => {
               </ul>
             )}
           </div>
-        </section>
+          </section>
+        </div>
       </div>
     </div>
   );

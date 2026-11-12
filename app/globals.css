@@ -67,6 +67,8 @@
 @layer base {
   html {
     color-scheme: light;
+    overflow-x: hidden;
+    -webkit-tap-highlight-color: transparent;
   }
 
   html.dark {
@@ -80,7 +82,9 @@
   body {
     @apply bg-background text-foreground antialiased;
     font-family: "Inter", sans-serif;
-    min-height: 100vh;
+    min-height: 100dvh;
+    overflow-x: hidden;
+    overscroll-behavior-y: none;
     background-image:
       radial-gradient(
         circle at top,
@@ -110,7 +114,7 @@
 
 @layer components {
   .page-shell {
-    @apply min-h-screen pb-24 text-foreground lg:pb-0;
+    @apply min-h-dvh overflow-x-hidden pb-24 text-foreground lg:pb-0;
   }
 
   .surface-card {

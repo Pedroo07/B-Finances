@@ -15,7 +15,24 @@ import ThemeToggle from "../../ThemeToggle";
 import { AccountMenu } from "@/app/AccountMenu";
 import { cn } from "@/lib/utils";
 
-const navItems = [
+export type AppTabHref =
+  | "/dashboard"
+  | "/transactions"
+  | "/investments"
+  | "/CreditCard"
+  | "/accounts";
+
+type HeaderProps = {
+  activeTab?: AppTabHref;
+  onTabChange?: (href: AppTabHref) => void;
+};
+
+const navItems: Array<{
+  href: AppTabHref;
+  label: string;
+  mobileLabel: string;
+  icon: typeof LayoutDashboard;
+}> = [
   {
     href: "/dashboard",
     label: "Visão geral",
@@ -48,14 +65,34 @@ const navItems = [
   },
 ];
 
-const Header = () => {
+const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange }) => {
   const pathname = usePathname();
+  const currentTab = activeTab ?? (pathname as AppTabHref);
+
+  const handleNavClick = (
+    event: React.MouseEvent<HTMLAnchorElement>,
+    href: AppTabHref,
+  ) => {
+    try {
+      window.sessionStorage.setItem("bfinance_active_tab", href);
+    } catch {}
+
+    if (onTabChange) {
+      event.preventDefault();
+      onTabChange(href);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
 
   return (
     <>
-      <header className="sticky top-0 z-40 border-b soft-divider bg-[#F8FAFC]/85 backdrop-blur-xl dark:bg-[#0F172A]/85">
+      <header className="sticky top-0 z-40 border-b soft-divider bg-[#F8FAFC]/85 pt-[env(safe-area-inset-top)] backdrop-blur-xl dark:bg-[#0F172A]/85">
         <div className="mx-auto flex max-w-screen-xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:py-4">
-          <Link href="/dashboard" className="flex items-center gap-3">
+          <Link
+            href="/dashboard"
+            onClick={(event) => handleNavClick(event, "/dashboard")}
+            className="flex items-center gap-3"
+          >
             <div>
               <Image
                 src="/Logo.png"
@@ -83,11 +120,12 @@ const Header = () => {
           <div className="hidden lg:flex lg:items-center lg:gap-6">
             <ul className="flex flex-wrap items-center gap-2 font-Inter">
               {navItems.map(({ href, label }) => {
-                const isActive = pathname === href;
+                const isActive = currentTab === href;
                 return (
                   <li key={href}>
                     <Link
                       href={href}
+                      onClick={(event) => handleNavClick(event, href)}
                       className={cn(
                         "surface-chip inline-flex items-center px-4 py-2",
                         isActive &&
@@ -118,11 +156,12 @@ const Header = () => {
       >
         <ul className="mx-auto grid max-w-md grid-cols-5 items-center gap-1 px-2 py-1.5">
           {navItems.map(({ href, mobileLabel, icon: Icon }) => {
-            const isActive = pathname === href;
+            const isActive = currentTab === href;
             return (
               <li key={href}>
                 <Link
                   href={href}
+                  onClick={(event) => handleNavClick(event, href)}
                   className={cn(
                     "flex flex-col items-center justify-center gap-1 rounded-2xl py-2 text-[11px] font-medium transition-all active:scale-95",
                     isActive
